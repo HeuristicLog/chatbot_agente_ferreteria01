@@ -1,0 +1,284 @@
+version: '3.8'
+
+networks:
+  ferreteria-net:
+    name: ferreteria-net
+    driver: bridge
+
+volumes:
+  postgres-data:
+  redis-data:
+  qdrant-data:
+  flowise-data:
+
+services:
+  flowise:
+    image: flowiseai/flowise:latest
+    container_name: flowise-new
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - DATABASE_TYPE=sqlite
+      - DATABASE_PATH=/root/.flowise
+      - LOG_PATH=/root/.flowise/logs
+      - SECRETKEY_PATH=/root/.flowise
+      - BLOB_STORAGE_PATH=/root/.flowise/storage
+      - FLOWISE_FILE_SIZE_LIMIT=50mb
+      - HTTP_SECURITY_CHECK=false
+      - TOOL_FUNCTION_EXTERNAL_DEP=*
+    volumes:
+      - ./flowise-data:/root/.flowise
+    networks:
+      - ferreteria-net
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: ferreteria-postgres-new
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-ferreteria_chatbot}
+      - POSTGRES_USER=${POSTGRES_USER:-chatbot}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-change_me}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - ferreteria-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-chatbot} -d ${POSTGRES_DB:-ferreteria_chatbot} || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: ferreteria-redis-new
+    restart: unless-stopped
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - ferreteria-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: ferreteria-qdrant-new
+    restart: unless-stopped
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant-data:/qdrant/storage
+    networks:
+      - ferreteria-net
+
+  mock-logistics-api:
+    build:
+      context: ./mock-logistics-api
+      dockerfile: Dockerfile
+    container_name: mock-logistics-api
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-chatbot}:${POSTGRES_PASSWORD:-change_me}@postgres:5432/${POSTGRES_DB:-ferreteria_chatbot}
+    ports:
+      - "8081:8080"
+    networks:
+      - ferreteria-net
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/health || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: ferreteria-backend
+    restart: unless-stopped
+    environment:
+      - APP_ENV=${APP_ENV:-development}
+      - APP_TIMEZONE=${APP_TIMEZONE:-America/Guayaquil}
+      - DATABASE_URL=${DATABASE_URL:-postgresql+asyncpg://chatbot:change_me@postgres:5432/ferreteria_chatbot}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379/0}
+      - QDRANT_URL=${QDRANT_URL:-http://qdrant:6333}
+      - QDRANT_COLLECTION=${QDRANT_COLLECTION:-ferreteria_faq}
+      - LOGISTICS_API_BASE_URL=http://mock-logistics-api:8080
+      - LOGISTICS_API_EMAIL=${LOGISTICS_API_EMAIL:-admin@ferreteria.com}
+      - LOGISTICS_API_PASSWORD=${LOGISTICS_API_PASSWORD:-admin_pass}
+      - LOGISTICS_API_DEVICE_NAME=${LOGISTICS_API_DEVICE_NAME:-flowise-chatbot}
+      - LOGISTICS_API_TIMEOUT_SECONDS=${LOGISTICS_API_TIMEOUT_SECONDS:-15}
+      - FLOWISE_BASE_URL=${FLOWISE_BASE_URL:-http://flowise:3000}
+      - FLOWISE_CHATFLOW_ID=${FLOWISE_CHATFLOW_ID:-}
+      - FLOWISE_API_KEY=${FLOWISE_API_KEY:-}
+      - INTERNAL_API_KEY=${INTERNAL_API_KEY:-change_me}
+      - ENABLE_WRITE_ACTIONS=${ENABLE_WRITE_ACTIONS:-false}
+      - SESSION_TTL_MINUTES=${SESSION_TTL_MINUTES:-60}
+      - RATE_LIMIT_MESSAGES_PER_MINUTE=${RATE_LIMIT_MESSAGES_PER_MINUTE:-20}
+      - LLM_PROVIDER=${LLM_PROVIDER:-}
+      - LLM_MODEL=${LLM_MODEL:-}
+      - LLM_API_KEY=${LLM_API_KEY:-}
+      - EMBEDDING_PROVIDER=${EMBEDDING_PROVIDER:-}
+      - EMBEDDING_MODEL=${EMBEDDING_MODEL:-}
+      - EMBEDDING_API_KEY=${EMBEDDING_API_KEY:-}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - CHATWOOT_BASE_URL=${CHATWOOT_BASE_URL:-}
+      - CHATWOOT_API_TOKEN=${CHATWOOT_API_TOKEN:-}
+      - CHATWOOT_ACCOUNT_ID=${CHATWOOT_ACCOUNT_ID:-1}
+      - CHATWOOT_INBOX_ID=${CHATWOOT_INBOX_ID:-1}
+      - WHATSAPP_INBOX_MAPPING=${WHATSAPP_INBOX_MAPPING:-{}}
+    ports:
+      - "8085:8080"
+    volumes:
+      - ./backend/app:/app/app
+      - ./backend/tests:/app/tests
+      - ./data:/app/data
+      - ./scripts:/app/scripts
+    networks:
+      - ferreteria-net
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/health || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  whatsapp-gateway:
+    build:
+      context: ./whatsapp-gateway
+      dockerfile: Dockerfile
+    container_name: ferreteria-whatsapp-gateway-new
+    restart: unless-stopped
+    environment:
+      - APP_ENV=${APP_ENV:-development}
+      - CHATBOT_API_URL=http://backend:8080
+      - INTERNAL_API_KEY=${INTERNAL_API_KEY:-change_me}
+      - WHATSAPP_PROVIDER=${WHATSAPP_PROVIDER:-mock}
+      - WHATSAPP_VERIFY_TOKEN=${WHATSAPP_VERIFY_TOKEN:-}
+      - WHATSAPP_ACCESS_TOKEN=${WHATSAPP_ACCESS_TOKEN:-}
+      - WHATSAPP_PHONE_NUMBER_ID=${WHATSAPP_PHONE_NUMBER_ID:-}
+      - REDIS_URL=redis://redis:6379/0
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    ports:
+      - "8095:8090"
+    networks:
+      - ferreteria-net
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8090/health || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  whatsapp-simulator:
+    build:
+      context: ./whatsapp-simulator
+      dockerfile: Dockerfile
+    container_name: whatsapp-simulator
+    restart: unless-stopped
+    ports:
+      - "8090:80"
+    networks:
+      - ferreteria-net
+    depends_on:
+      - whatsapp-gateway
+
+  frontend-admin:
+    build:
+      context: ./frontend-admin
+      dockerfile: Dockerfile
+    container_name: frontend-admin
+    restart: unless-stopped
+    ports:
+      - "3001:80"
+    networks:
+      - ferreteria-net
+    depends_on:
+      - backend
+
+  frontend-agent:
+    build:
+      context: ./frontend-agent
+      dockerfile: Dockerfile
+    container_name: frontend-agent
+    restart: unless-stopped
+    ports:
+      - "5174:80"
+    networks:
+      - ferreteria-net
+    depends_on:
+      - backend
+
+  chatwoot-web:
+    image: chatwoot/chatwoot:v3.12.0
+    container_name: chatwoot-web
+    restart: unless-stopped
+    command: sh -c "rm -f tmp/pids/server.pid && bundle exec rails s -p 3000 -b 0.0.0.0"
+    ports:
+      - "3010:3000"
+    environment:
+      - SECRET_KEY_BASE=546c2f90ab99a80e14db8cf01b129cd8a1e2f3d4c5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8
+      - FRONTEND_URL=http://localhost:3010
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_DATABASE=chatwoot
+      - POSTGRES_USERNAME=chatbot
+      - POSTGRES_PASSWORD=change_me
+      - REDIS_URL=redis://redis:6379/1
+      - ACTIVE_STORAGE_SERVICE=local
+      - RAILS_ENV=production
+      - NODE_ENV=production
+      - RAILS_LOG_TO_STDOUT=true
+    networks:
+      - ferreteria-net
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  chatwoot-worker:
+    image: chatwoot/chatwoot:v3.12.0
+    container_name: chatwoot-worker
+    restart: unless-stopped
+    command: bundle exec sidekiq -C config/sidekiq.yml
+    environment:
+      - SECRET_KEY_BASE=546c2f90ab99a80e14db8cf01b129cd8a1e2f3d4c5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8
+      - FRONTEND_URL=http://localhost:3010
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_DATABASE=chatwoot
+      - POSTGRES_USERNAME=chatbot
+      - POSTGRES_PASSWORD=change_me
+      - REDIS_URL=redis://redis:6379/1
+      - ACTIVE_STORAGE_SERVICE=local
+      - RAILS_ENV=production
+      - NODE_ENV=production
+      - RAILS_LOG_TO_STDOUT=true
+    networks:
+      - ferreteria-net
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy

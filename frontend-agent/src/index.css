@@ -1,0 +1,36 @@
+:root {
+  --bg-color: #0b141a;
+  --sidebar-bg: #111b21;
+  --chat-bg: #0b141a;
+  --card-bg: #202c33;
+  --border-color: #222e35;
+  --primary-color: #00a884;
+  --primary-gradient: linear-gradient(135deg, #00a884, #008069);
+  --text-color: #e9edef;
+  --text-muted: #8696a0;
+  --success-color: #00e676;
+  --error-color: #f15c6d;
+  --shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  line-height: 1.5;
+  background-color: var(--bg-color);
+  color: var(--text-color);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  min-height: 100vh;
+  display: flex;
+  overflow: hidden;
+}
+
+#root {
+  display: flex;
+  width: 100%;
+  min-height: 100vh;
+}
