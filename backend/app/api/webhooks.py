@@ -327,6 +327,12 @@ async def chatwoot_webhook(
     is_private = payload.get("private", False)
 
     if event == "message_created" and message_type == "outgoing" and not is_private:
+        # Evitar bucles: Solo reenviar si el mensaje fue escrito por un agente humano
+        sender = payload.get("sender")
+        if not isinstance(sender, dict) or sender.get("type") != "user":
+            logger.info("Ignorando mensaje saliente automático/bot para evitar bucle recursivo.")
+            return {"status": "ignored_loop_prevention"}
+
         content = payload.get("content")
         conversation = payload.get("conversation", {})
         inbox_id = conversation.get("inbox_id")
