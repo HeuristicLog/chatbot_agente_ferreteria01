@@ -284,18 +284,9 @@ async def _do_handoff(phone: str, conv, db, redis_client, flowise_service: Flowi
                 timeout=10.0
             )
         if resp.status_code == 200:
-            resp_data = resp.json().get("data", {})
-            assigned = resp_data.get("assigned", False)
-            if assigned:
-                return  # Skip sending fallback queue message since customer got the welcome text
-            msg = (
-                f"✅ *¡Listo!* Te hemos puesto en la fila de atención para la *Sucursal {sucursal or 'General'}*.\n\n"
-                "👨‍💼 Un asesor se comunicará contigo en breve.\n"
-                "⏰ Horario de atención: L-V 7:30-18:00 / S 8:00-14:00\n\n"
-                "_Mientras esperas, puedes escribir tu consulta y el asesor la verá._"
-            )
-        else:
-            msg = "⚠️ No pudimos conectarte en este momento. Por favor intenta más tarde o llámanos directamente."
+            return  # HandoffService already sent the appropriate welcome/queue message to the client
+            
+        msg = "⚠️ No pudimos conectarte en este momento. Por favor intenta más tarde o llámanos directamente."
         
         target_access_token = None
         from app.config import settings

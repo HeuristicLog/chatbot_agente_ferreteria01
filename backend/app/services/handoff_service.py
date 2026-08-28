@@ -190,8 +190,10 @@ class HandoffService:
             else:
                 logger.warning(f"No hay asesores disponibles en este momento para la sucursal: {sucursal}")
                 msg_client = (
-                    f"🕒 Todos nuestros asesores de la *Sucursal {sucursal or 'General'}* están ocupados en este momento.\n\n"
-                    f"Te hemos puesto en la fila de atención. Pronto uno de ellos tomará tu caso."
+                    f"✅ *¡Listo!* Te hemos puesto en la fila de atención para la *Sucursal {sucursal or 'General'}*.\n\n"
+                    f"👨‍💼 Un asesor se comunicará contigo en breve.\n"
+                    f"⏰ Horario de atención: L-V 7:30-18:00 / S 8:00-14:00\n\n"
+                    f"_Mientras esperas, puedes escribir tu consulta y el asesor la verá._"
                 )
                 await self._send_gateway_message(phone, msg_client)
         except Exception as assign_err:
