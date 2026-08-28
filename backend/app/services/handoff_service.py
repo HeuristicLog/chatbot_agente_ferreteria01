@@ -50,6 +50,10 @@ class HandoffService:
         active = await self.audit_repo.get_active_handoff(conv.id)
         if active:
             logger.info(f"An active handoff already exists for conversation {conv.id}. Re-using.")
+            if conv.status in ["active", "bot_active"]:
+                conv.status = "handed_over" if not conv.current_seller_id else "assigned"
+                self.db.add(conv)
+                await self.db.commit()
             return active, (conv.current_seller_id is not None)
             
         # 4. Create handoff entry
