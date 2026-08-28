@@ -329,6 +329,14 @@ async def chatwoot_webhook(
     is_private = payload.get("private", False)
 
     if event == "message_created" and message_type == "outgoing" and not is_private:
+        msg_id = payload.get("id")
+        if msg_id:
+            lock_key = f"cw_msg_id:{msg_id}"
+            is_new = await redis_client.set(lock_key, "1", ex=300, nx=True)
+            if not is_new:
+                logger.info(f"Ignorando duplicado de webhook Chatwoot para mensaje {msg_id}")
+                return {"status": "duplicate"}
+
         # Evitar bucles: Solo reenviar si el mensaje fue escrito por un agente humano
         sender = payload.get("sender")
         if not isinstance(sender, dict) or sender.get("type") != "user":
