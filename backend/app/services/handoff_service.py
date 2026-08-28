@@ -56,13 +56,27 @@ class HandoffService:
                 await self.db.commit()
             return active, (conv.current_seller_id is not None)
             
+        # Fetch context history (last 5 messages)
+        history_text = "No hay mensajes recientes de contexto."
+        try:
+            recent_msgs = await self.conv_repo.get_recent_messages(conv.id, limit=5)
+            if recent_msgs:
+                history_lines = []
+                for msg in recent_msgs:
+                    role_label = "Cliente" if msg.role == "user" else "Asistente"
+                    history_lines.append(f"- *{role_label}*: {msg.content.strip()}")
+                history_text = "\n".join(history_lines)
+        except Exception as history_err:
+            logger.error(f"Error fetching history for handoff context: {history_err}")
+
         # 4. Create handoff entry
         metadata = {
             "ticket_id": ticket_id,
             "operation_id": operation_id,
             "phone_original": phone,
             "sucursal": sucursal,
-            "phone_number_id": phone_number_id
+            "phone_number_id": phone_number_id,
+            "context_history": history_text
         }
         
         # Sincronizar con Chatwoot si está configurado
@@ -77,7 +91,13 @@ class HandoffService:
                         # Cambiar el estado a "open" en Chatwoot para que aparezca al agente
                         await chatwoot.update_conversation_status(cw_conv_id, "open")
                         # Enviar nota privada con el resumen para el agente
-                        note_text = f"🤖 *Ferretería Bot Handoff* 🤖\n\n• *Sucursal:* {sucursal or 'No especificada'}\n• *Motivo:* {reason or 'No especificado'}\n• *Resumen:* {summary or 'No especificado'}"
+                        note_text = (
+                            f"🤖 *Ferretería Bot Handoff* 🤖\n\n"
+                            f"• *Sucursal:* {sucursal or 'No especificada'}\n"
+                            f"• *Motivo:* {reason or 'No especificado'}\n"
+                            f"• *Resumen:* {summary or 'No especificado'}\n\n"
+                            f"💬 *Últimos 5 mensajes de contexto:*\n{history_text}"
+                        )
                         await chatwoot.post_message(cw_conv_id, note_text, is_private=True)
             except Exception as cw_err:
                 logger.error(f"Error sincronizando con Chatwoot: {cw_err}")
@@ -112,6 +132,21 @@ class HandoffService:
                     f"En un momento se comunicará contigo."
                 )
                 await self._send_gateway_message(phone, msg_client)
+
+                # Notificar al Asesor en su WhatsApp
+                try:
+                    if assigned_seller.whatsapp_phone:
+                        msg_advisor = (
+                            f"🔔 *NUEVA ASIGNACIÓN DE CLIENTE* 🔔\n\n"
+                            f"• *Cliente:* +{phone}\n"
+                            f"• *Sucursal:* {sucursal or 'General'}\n"
+                            f"• *Motivo:* {reason or 'Solicitud de atención'}\n\n"
+                            f"💬 *Últimos 5 mensajes de contexto:*\n{history_text}\n\n"
+                            f"_El cliente está esperando. Por favor, atiende el chat desde Chatwoot._"
+                        )
+                        await self._send_gateway_message(assigned_seller.whatsapp_phone, msg_advisor)
+                except Exception as notify_err:
+                    logger.error(f"Error notifying seller on WhatsApp: {notify_err}")
             else:
                 logger.warning(f"No hay asesores disponibles en este momento para la sucursal: {sucursal}")
                 msg_client = (
