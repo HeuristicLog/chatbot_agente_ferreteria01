@@ -322,6 +322,7 @@ async def chatwoot_webhook(
     redis_client = Depends(get_redis)
 ):
     """Webhook para recibir respuestas desde Chatwoot y reenviarlas a WhatsApp."""
+    logger.info(f"Chatwoot Webhook Payload received: {payload}")
     event = payload.get("event")
     message_type = payload.get("message_type")
     is_private = payload.get("private", False)
@@ -364,6 +365,20 @@ async def chatwoot_webhook(
         if phone and content:
             # Limpiar el formato de teléfono (+593... -> 593...)
             clean_phone = phone.replace("+", "").strip()
+
+            # Evitar bucles recursivos: Si la sesión está en estado bot_active o active, no reenviar.
+            try:
+                from app.services.session_service import SessionService
+                session_id = SessionService.derive_session_id(clean_phone, target_phone_number_id)
+                from app.repositories.conversation_repository import ConversationRepository
+                repo = ConversationRepository(db)
+                conv = await repo.get_by_session_id(session_id)
+                if conv and conv.status in ["active", "bot_active"]:
+                    logger.info(f"Ignorando reenvío de Chatwoot a WhatsApp para {clean_phone} porque la sesión {session_id} está en estado {conv.status} (chatbot activo).")
+                    return {"status": "ignored_chatbot_active"}
+            except Exception as check_err:
+                logger.error(f"Error verificando estado de la conversación para evitar bucles: {check_err}")
+
             logger.info(f"Reenvío de Chatwoot a WhatsApp ({clean_phone}, inbox: {inbox_id}, phone_number_id: {target_phone_number_id}): {content[:50]}...")
 
             try:
