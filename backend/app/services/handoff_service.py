@@ -54,6 +54,46 @@ class HandoffService:
                 conv.status = "handed_over" if not conv.current_seller_id else "assigned"
                 self.db.add(conv)
                 await self.db.commit()
+
+                # Sincronizar estado en Chatwoot a "open"
+                chatwoot = ChatwootService()
+                if chatwoot.is_configured:
+                    try:
+                        cw_contact_id = await chatwoot.get_or_create_contact(phone, f"Cliente +{phone}", inbox_id=inbox_id)
+                        if cw_contact_id:
+                            cw_conv_id = await chatwoot.get_or_create_conversation(cw_contact_id, inbox_id=inbox_id)
+                            if cw_conv_id:
+                                await chatwoot.update_conversation_status(cw_conv_id, "open")
+                                note_text = f"🤖 *Ferretería Bot Handoff* (Re-apertura) 🤖\n\n• *Sucursal:* {sucursal or 'No especificada'}\n• *Motivo:* Re-solicitud del usuario"
+                                await chatwoot.post_message(cw_conv_id, note_text, is_private=True)
+                    except Exception as cw_err:
+                        logger.error(f"Error sincronizando re-apertura en Chatwoot: {cw_err}")
+
+                # Notificar al cliente en su WhatsApp
+                if conv.current_seller_id:
+                    try:
+                        from sqlalchemy import select
+                        from app.db.tables import Seller
+                        seller_stmt = select(Seller).where(Seller.id == conv.current_seller_id)
+                        seller_res = await self.db.execute(seller_stmt)
+                        seller = seller_res.scalar_one_or_none()
+                        if seller:
+                            msg_client = (
+                                f"✅ Tu caso ya está asignado al asesor *{seller.name}*.\n"
+                                f"En un momento se comunicará contigo."
+                            )
+                        else:
+                            msg_client = "✅ Tu caso está en la fila de atención. Un asesor se comunicará contigo en breve."
+                    except Exception as seller_err:
+                        logger.error(f"Error fetching seller details for client notification: {seller_err}")
+                        msg_client = "✅ Tu caso está en la fila de atención. Un asesor se comunicará contigo en breve."
+                else:
+                    msg_client = (
+                        f"✅ Te hemos puesto en la fila de atención para la *Sucursal {sucursal or 'General'}*.\n\n"
+                        f"👨‍💼 Un asesor se comunicará contigo en breve."
+                    )
+                await self._send_gateway_message(phone, msg_client)
+
             return active, (conv.current_seller_id is not None)
             
         # Fetch context history (last 5 messages)
