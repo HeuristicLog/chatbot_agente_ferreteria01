@@ -77,14 +77,15 @@ async def save_message(db: AsyncSession, conv_id, direction: str, role: str, con
 
 # ─── Send helpers (fire-and-forget) ──────────────────────────
 
-async def _gateway_send_text(phone: str, message: str, phone_number_id: Optional[str] = None, access_token: Optional[str] = None):
+async def _gateway_send_text(phone: str, message: str, phone_number_id: Optional[str] = None, access_token: Optional[str] = None, sync_to_chatwoot: bool = True):
     # Sincronizar salida del bot con Chatwoot
-    try:
-        chatwoot = ChatwootService()
-        if chatwoot.is_configured:
-            await chatwoot.post_bot_message(phone, message, phone_number_id)
-    except Exception as cw_err:
-        logger.error(f"Error sincronizando salida de texto del bot con Chatwoot: {cw_err}")
+    if sync_to_chatwoot:
+        try:
+            chatwoot = ChatwootService()
+            if chatwoot.is_configured:
+                await chatwoot.post_bot_message(phone, message, phone_number_id)
+        except Exception as cw_err:
+            logger.error(f"Error sincronizando salida de texto del bot con Chatwoot: {cw_err}")
 
     headers = {"X-Internal-API-Key": internal_api_key}
     payload = {"phone": phone, "message": message}
@@ -383,7 +384,7 @@ async def chatwoot_webhook(
 
             try:
                 # Enviar vía gateway con credenciales específicas de la sucursal
-                await _gateway_send_text(clean_phone, content, phone_number_id=target_phone_number_id, access_token=target_access_token)
+                await _gateway_send_text(clean_phone, content, phone_number_id=target_phone_number_id, access_token=target_access_token, sync_to_chatwoot=False)
 
                 # Registrar mensaje localmente
                 from app.services.session_service import SessionService
