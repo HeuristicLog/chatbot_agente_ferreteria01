@@ -3,7 +3,7 @@
   "screens": [
     {
       "id": "CATALOG_SCREEN",
-      "title": "Catálogo Ferretería Castor",
+      "title": "Catálogo Ferretería",
       "data": {},
       "layout": {
         "type": "SingleColumnLayout",
@@ -19,66 +19,66 @@
           {
             "type": "Dropdown",
             "name": "categoria",
-            "label": "Categoría de Ferretería",
+            "label": "Categoría",
             "required": true,
             "data-source": [
               {
                 "id": "herramientas",
-                "title": "⚡ Herramientas Eléctricas"
+                "title": "⚡ Herramientas"
               },
               {
                 "id": "construccion",
-                "title": "🧱 Materiales de Construcción"
+                "title": "🧱 Construcción"
               },
               {
                 "id": "pinturas",
-                "title": "🎨 Pinturas y Acabados"
+                "title": "🎨 Pinturas"
               },
               {
                 "id": "plomeria",
-                "title": "🚿 Plomería y Tuberías"
+                "title": "🚿 Plomería"
               },
               {
                 "id": "electricidad",
-                "title": "💡 Electricidad e Iluminación"
+                "title": "💡 Electricidad"
               }
             ]
           },
           {
             "type": "CheckboxGroup",
             "name": "productos_seleccionados",
-            "label": "Productos Populares con Stock Inmediato",
+            "label": "Productos Populares",
             "required": true,
             "data-source": [
               {
                 "id": "HER-TAL-001",
-                "title": "Taladro DeWalt 20V ($135.00)",
-                "description": "2 baterías de litio y maletín"
+                "title": "Taladro DeWalt 20V",
+                "description": "$135.00 • 2 baterías de litio"
               },
               {
                 "id": "HER-AMO-002",
-                "title": "Amoladora Bosch 4-1/2 ($68.50)",
-                "description": "850W con disco de corte"
+                "title": "Amoladora Bosch 4-1/2",
+                "description": "$68.50 • 850W con disco"
               },
               {
                 "id": "CON-CEM-001",
-                "title": "Cemento Selvalegre 50kg ($8.75)",
-                "description": "Tipo Portland de alta resistencia"
+                "title": "Cemento Selvalegre 50kg",
+                "description": "$8.75 • Tipo Portland"
               },
               {
                 "id": "CON-CAR-002",
-                "title": "Carretilla Tolva 90L ($62.00)",
-                "description": "Reforzada para construcción"
+                "title": "Carretilla Tolva 90L",
+                "description": "$62.00 • Reforzada"
               },
               {
                 "id": "PIN-LAT-001",
-                "title": "Pintura Látex Vinilac ($28.00)",
-                "description": "Galón blanco lavable"
+                "title": "Pintura Látex Vinilac",
+                "description": "$28.00 • Galón blanco lavable"
               },
               {
                 "id": "PLO-TUB-001",
-                "title": "Tubo PVC Presión 1/2 ($5.20)",
-                "description": "Tira de 6 metros"
+                "title": "Tubo PVC Presión 1/2",
+                "description": "$5.20 • Tira de 6 metros"
               }
             ]
           },
@@ -129,19 +129,19 @@
           {
             "type": "TextInput",
             "name": "nombre_cliente",
-            "label": "Nombre Completo o Razón Social",
+            "label": "Nombre Completo",
             "required": true,
             "input-type": "text"
           },
           {
             "type": "RadioButtonsGroup",
             "name": "tipo_entrega",
-            "label": "Modalidad de Entrega",
+            "label": "Tipo de Entrega",
             "required": true,
             "data-source": [
               {
                 "id": "pickup",
-                "title": "📍 Retiro en Sucursal (Sin costo)"
+                "title": "📍 Retiro en Sucursal (Gratis)"
               },
               {
                 "id": "delivery",
@@ -152,57 +152,57 @@
           {
             "type": "Dropdown",
             "name": "sucursal",
-            "label": "Sucursal de Retiro",
+            "label": "Sucursal Retiro",
             "required": false,
             "data-source": [
               {
                 "id": "Centro",
-                "title": "📍 Sucursal Centro (Matriz)"
+                "title": "📍 Centro (Matriz)"
               },
               {
                 "id": "Norte",
-                "title": "📍 Sucursal Norte (Av. Eloy Alfaro)"
+                "title": "📍 Norte (Av. Eloy Alfaro)"
               },
               {
                 "id": "Sur",
-                "title": "📍 Sucursal Sur (Av. Maldonado)"
+                "title": "📍 Sur (Av. Maldonado)"
               },
               {
                 "id": "Cumbaya",
-                "title": "📍 Sucursal Cumbayá"
+                "title": "📍 Cumbayá"
               }
             ]
           },
           {
             "type": "TextInput",
             "name": "direccion_entrega",
-            "label": "Dirección exacta (si eliges envío a domicilio)",
+            "label": "Dirección Entrega",
             "required": false,
             "input-type": "text"
           },
           {
             "type": "RadioButtonsGroup",
             "name": "metodo_pago",
-            "label": "Forma de Pago",
+            "label": "Método de Pago",
             "required": true,
             "data-source": [
               {
                 "id": "efectivo",
-                "title": "💵 Efectivo contra entrega"
+                "title": "💵 Efectivo"
               },
               {
                 "id": "transferencia",
-                "title": "🏦 Transferencia bancaria"
+                "title": "🏦 Transferencia"
               },
               {
                 "id": "tarjeta",
-                "title": "💳 Tarjeta de Crédito / Débito"
+                "title": "💳 Tarjeta Crédito/Débito"
               }
             ]
           },
           {
             "type": "Footer",
-            "label": "Confirmar y Enviar Pedido",
+            "label": "Confirmar Pedido",
             "on-click-action": {
               "name": "complete",
               "payload": {
