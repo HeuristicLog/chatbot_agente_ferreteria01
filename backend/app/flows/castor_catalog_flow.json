@@ -1,0 +1,220 @@
+{
+  "version": "3.1",
+  "screens": [
+    {
+      "id": "CATALOG_SCREEN",
+      "title": "Catálogo Ferretería Castor 🦫",
+      "data": {},
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextHeading",
+            "text": "Selecciona tus Productos 🛠️"
+          },
+          {
+            "type": "TextSubheading",
+            "text": "Elige la categoría y los artículos que deseas adquirir:"
+          },
+          {
+            "type": "Dropdown",
+            "name": "categoria",
+            "label": "Categoría de Ferretería",
+            "required": true,
+            "data-source": [
+              {
+                "id": "herramientas",
+                "title": "⚡ Herramientas Eléctricas"
+              },
+              {
+                "id": "construccion",
+                "title": "🧱 Materiales de Construcción"
+              },
+              {
+                "id": "pinturas",
+                "title": "🎨 Pinturas y Acabados"
+              },
+              {
+                "id": "plomeria",
+                "title": "🚿 Plomería y Tuberías"
+              },
+              {
+                "id": "electricidad",
+                "title": "💡 Electricidad e Iluminación"
+              }
+            ]
+          },
+          {
+            "type": "CheckboxGroup",
+            "name": "productos_seleccionados",
+            "label": "Productos Populares con Stock Inmediato",
+            "required": true,
+            "data-source": [
+              {
+                "id": "HER-TAL-001",
+                "title": "Taladro DeWalt 20V ($135.00)",
+                "description": "2 baterías de litio y maletín"
+              },
+              {
+                "id": "HER-AMO-002",
+                "title": "Amoladora Bosch 4-1/2 ($68.50)",
+                "description": "850W con disco de corte"
+              },
+              {
+                "id": "CON-CEM-001",
+                "title": "Cemento Selvalegre 50kg ($8.75)",
+                "description": "Tipo Portland de alta resistencia"
+              },
+              {
+                "id": "CON-CAR-002",
+                "title": "Carretilla Tolva 90L ($62.00)",
+                "description": "Reforzada para construcción"
+              },
+              {
+                "id": "PIN-LAT-001",
+                "title": "Pintura Látex Vinilac ($28.00)",
+                "description": "Galón blanco lavable"
+              },
+              {
+                "id": "PLO-TUB-001",
+                "title": "Tubo PVC Presión 1/2 ($5.20)",
+                "description": "Tira de 6 metros"
+              }
+            ]
+          },
+          {
+            "type": "Footer",
+            "label": "Continuar al Pedido",
+            "on-click-action": {
+              "name": "navigate",
+              "next": {
+                "type": "screen",
+                "name": "CHECKOUT_SCREEN"
+              },
+              "payload": {
+                "categoria": "${form.categoria}",
+                "productos": "${form.productos_seleccionados}"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "CHECKOUT_SCREEN",
+      "title": "Datos de Entrega y Pago 🚚",
+      "data": {
+        "categoria": {
+          "type": "string",
+          "__example__": "herramientas"
+        },
+        "productos": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "__example__": ["HER-TAL-001"]
+        }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextHeading",
+            "text": "Finalizar tu Compra 📋"
+          },
+          {
+            "type": "TextInput",
+            "name": "nombre_cliente",
+            "label": "Nombre Completo o Razón Social",
+            "required": true,
+            "input-type": "text"
+          },
+          {
+            "type": "RadioButtonsGroup",
+            "name": "tipo_entrega",
+            "label": "Modalidad de Entrega",
+            "required": true,
+            "data-source": [
+              {
+                "id": "pickup",
+                "title": "📍 Retiro en Sucursal (Sin costo)"
+              },
+              {
+                "id": "delivery",
+                "title": "🛵 Envío a Domicilio"
+              }
+            ]
+          },
+          {
+            "type": "Dropdown",
+            "name": "sucursal",
+            "label": "Sucursal de Retiro",
+            "required": false,
+            "data-source": [
+              {
+                "id": "Centro",
+                "title": "📍 Sucursal Centro (Matriz)"
+              },
+              {
+                "id": "Norte",
+                "title": "📍 Sucursal Norte (Av. Eloy Alfaro)"
+              },
+              {
+                "id": "Sur",
+                "title": "📍 Sucursal Sur (Av. Maldonado)"
+              },
+              {
+                "id": "Cumbayá",
+                "title": "📍 Sucursal Cumbayá"
+              }
+            ]
+          },
+          {
+            "type": "TextInput",
+            "name": "direccion_entrega",
+            "label": "Dirección exacta (si eliges envío a domicilio)",
+            "required": false,
+            "input-type": "text"
+          },
+          {
+            "type": "RadioButtonsGroup",
+            "name": "metodo_pago",
+            "label": "Forma de Pago",
+            "required": true,
+            "data-source": [
+              {
+                "id": "efectivo",
+                "title": "💵 Efectivo contra entrega"
+              },
+              {
+                "id": "transferencia",
+                "title": "🏦 Transferencia bancaria (Pichincha / Guayaquil / Produbanco)"
+              },
+              {
+                "id": "tarjeta",
+                "title": "💳 Tarjeta de Crédito / Débito"
+              }
+            ]
+          },
+          {
+            "type": "Footer",
+            "label": "Confirmar y Enviar Pedido 🎉",
+            "on-click-action": {
+              "name": "complete",
+              "payload": {
+                "categoria": "${data.categoria}",
+                "productos": "${data.productos}",
+                "nombre": "${form.nombre_cliente}",
+                "tipo_entrega": "${form.tipo_entrega}",
+                "sucursal": "${form.sucursal}",
+                "direccion": "${form.direccion_entrega}",
+                "metodo_pago": "${form.metodo_pago}"
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

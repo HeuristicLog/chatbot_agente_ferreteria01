@@ -59,6 +59,11 @@ class MetaWhatsAppProvider(WhatsAppProvider):
                             nfm = interactive.get("nfm_reply", {})
                             text_content = nfm.get("name", "flow_response")
                             interactive_id = "flow_response"
+                            raw_resp = nfm.get("response_json", "{}")
+                            try:
+                                flow_resp_data = json.loads(raw_resp) if isinstance(raw_resp, str) else raw_resp
+                            except Exception:
+                                flow_resp_data = {}
                     elif msg_type in ["image", "document", "video", "audio"]:
                         media_data = msg.get(msg_type, {})
                         media_id = media_data.get("id")
@@ -74,6 +79,8 @@ class MetaWhatsAppProvider(WhatsAppProvider):
                         if interactive_id:
                             metadata["interactive_id"] = interactive_id
                             metadata["is_interactive"] = True
+                        if "flow_resp_data" in locals() and flow_resp_data:
+                            metadata["flow_response_data"] = flow_resp_data
                             
                         messages.append(
                             IncomingMessage(

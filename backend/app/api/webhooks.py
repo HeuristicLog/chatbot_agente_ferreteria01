@@ -289,6 +289,31 @@ async def receive_incoming_message(
             )
             return {"status": "processed"}
 
+        # ── Respuesta de Meta WhatsApp Flow (Pantalla nativa completada)
+        if interactive_id == "flow_response":
+            await clear_flow_state(redis_client, payload.phone)
+            flow_data = payload.metadata.get("flow_response_data", {})
+            from app.services import in_chat_cart_service as in_chat_cart
+            cart = await in_chat_cart.get_cart(redis_client, payload.phone)
+            cart["customer_name"] = flow_data.get("nombre") or "Cliente WhatsApp"
+            cart["delivery_type"] = flow_data.get("tipo_entrega") or "pickup"
+            cart["sucursal"] = flow_data.get("sucursal") or "Centro"
+            cart["address"] = flow_data.get("direccion")
+            await in_chat_cart.save_cart(redis_client, payload.phone, cart)
+            
+            # Cargar productos del flow al carrito
+            prods = flow_data.get("productos", [])
+            if isinstance(prods, str):
+                prods = [prods]
+            for p_sku in prods:
+                await in_chat_cart.add_item_to_cart(redis_client, payload.phone, p_sku, 1)
+                
+            payment_method = flow_data.get("metodo_pago", "efectivo")
+            await in_chat_cart.complete_in_chat_order(
+                payload.phone, redis_client, db, payment_method, internal_api_key, phone_number_id=dest_phone_number_id
+            )
+            return {"status": "processed"}
+
         # ── Flujo: Estado de pedido
         if interactive_id == "flow_pedido":
             await set_flow_state(redis_client, payload.phone, {"flow": "order_status", "step": "waiting_id"})
