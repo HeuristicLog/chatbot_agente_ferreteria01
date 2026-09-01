@@ -8,7 +8,7 @@ from fastapi.responses import JSONResponse
 from app.config import settings
 from app.db.base import Base
 from app.db.session import engine
-from app.api import health, tools, webhooks, testing, admin, logistics_mock, admin_api, agent_api, chat_api
+from app.api import health, tools, webhooks, testing, admin, logistics_mock, admin_api, agent_api, chat_api, catalog_api
 
 # Initialize logging
 logging.basicConfig(
@@ -81,3 +81,5 @@ app.include_router(logistics_mock.router, tags=["Logistics Mock Legacy"])
 app.include_router(admin_api.router, tags=["Admin Portal APIs"])
 app.include_router(agent_api.router, tags=["Agent Console APIs"])
 app.include_router(chat_api.router, tags=["Chat Façade APIs"])
+app.include_router(catalog_api.router, tags=["Catalog & Orders"])
+

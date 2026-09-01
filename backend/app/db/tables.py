@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import Column, String, DateTime, Boolean, Integer, ForeignKey, Text, Time
+from sqlalchemy import Column, String, DateTime, Boolean, Integer, ForeignKey, Text, Time, Numeric
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.sql import func
 from app.db.base import Base
@@ -197,3 +197,52 @@ class SystemSetting(Base):
     value = Column(Text, nullable=False)
     description = Column(Text, nullable=True)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+class Product(Base):
+    __tablename__ = "products"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    sku = Column(String(50), nullable=False, unique=True, index=True)
+    name = Column(String(200), nullable=False, index=True)
+    category = Column(String(100), nullable=False, index=True)
+    description = Column(Text, nullable=True)
+    price = Column(Numeric(10, 2), nullable=False)
+    stock = Column(Integer, nullable=False, default=0)
+    sucursal_stocks = Column(JSONB, nullable=False, default=dict)
+    image_url = Column(String(500), nullable=True)
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+class Order(Base):
+    __tablename__ = "orders"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    order_number = Column(String(50), nullable=False, unique=True, index=True)
+    phone_hash = Column(String(255), nullable=False, index=True)
+    customer_phone = Column(String(50), nullable=False)
+    customer_name = Column(String(100), nullable=False)
+    delivery_type = Column(String(50), nullable=False, default="pickup")  # pickup, delivery
+    delivery_address = Column(Text, nullable=True)
+    sucursal = Column(String(100), nullable=True)
+    status = Column(String(50), nullable=False, default="created")  # created, picking, dispatched, in_route, delivered, cancelled
+    payment_method = Column(String(50), nullable=False, default="efectivo")  # efectivo, transferencia, tarjeta
+    subtotal = Column(Numeric(10, 2), nullable=False, default=0.0)
+    tax = Column(Numeric(10, 2), nullable=False, default=0.0)
+    total = Column(Numeric(10, 2), nullable=False, default=0.0)
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+class OrderItem(Base):
+    __tablename__ = "order_items"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    order_id = Column(UUID(as_uuid=True), ForeignKey("orders.id", ondelete="CASCADE"), nullable=False)
+    product_id = Column(UUID(as_uuid=True), ForeignKey("products.id", ondelete="SET NULL"), nullable=True)
+    product_name = Column(String(200), nullable=False)
+    sku = Column(String(50), nullable=True)
+    unit_price = Column(Numeric(10, 2), nullable=False)
+    quantity = Column(Integer, nullable=False, default=1)
+    subtotal = Column(Numeric(10, 2), nullable=False)
+

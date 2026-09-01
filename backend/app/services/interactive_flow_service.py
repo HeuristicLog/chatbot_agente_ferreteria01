@@ -119,11 +119,11 @@ async def send_welcome_menu(phone: str, internal_key: str, name: str = "", phone
     greeting = f"¡Hola{' ' + name if name else ''}! 😊" 
     body = (
         f"{greeting} Soy *Castor* 🦫, el asistente virtual de *Ferretería Castor*.\n\n"
-        "Estoy aquí para ayudarte. ¿Qué necesitas hoy?"
+        "Estoy aquí para ayudarte con nuestro catálogo, pedidos y asesoría. ¿Qué necesitas hoy?"
     )
     buttons = [
+        {"id": "flow_catalogo",  "title": "🛍️ Catálogo y Carrito"},
         {"id": "flow_pedido",    "title": "📦 Mi pedido"},
-        {"id": "flow_faq",       "title": "❓ Preguntas frecuentes"},
         {"id": "flow_asesor",    "title": "👨‍💼 Hablar con asesor"},
     ]
     await _send_buttons(
@@ -139,8 +139,8 @@ async def send_main_menu(phone: str, internal_key: str, phone_number_id: Optiona
     """Menú principal para volver desde cualquier flujo."""
     body = "¿En qué más te puedo ayudar? Elige una opción:"
     buttons = [
+        {"id": "flow_catalogo",  "title": "🛍️ Catálogo y Carrito"},
         {"id": "flow_pedido",    "title": "📦 Mi pedido"},
-        {"id": "flow_faq",       "title": "❓ Preguntas frecuentes"},
         {"id": "flow_asesor",    "title": "👨‍💼 Hablar con asesor"},
     ]
     await _send_buttons(
@@ -148,6 +148,38 @@ async def send_main_menu(phone: str, internal_key: str, phone_number_id: Optiona
         body=body,
         buttons=buttons,
         footer="Ferretería Castor",
+        internal_key=internal_key,
+        phone_number_id=phone_number_id
+    )
+
+async def send_catalog_link(phone: str, internal_key: str, phone_number_id: Optional[str] = None, sucursal: Optional[str] = "Centro"):
+    """Envía la tarjeta interactiva con el enlace directo a la Webview del catálogo y carrito."""
+    import os
+    base_url = os.getenv("PUBLIC_URL") or "https://usable-thorn-kabob.ngrok-free.dev"
+    catalog_url = f"{base_url}/catalogo?phone={phone}&sucursal={sucursal or 'Centro'}"
+    
+    msg = (
+        f"🛍️ *Catálogo Interactivo de Ferretería Castor* 🦫\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"¡Explora nuestros productos con stock en vivo, precios actualizados y arma tu carrito de compras directamente!\n\n"
+        f"👉 *Toca el enlace para abrir la tienda:*\n"
+        f"{catalog_url}\n\n"
+        f"✨ *Funciones disponibles:*\n"
+        f"• Consulta de stock en tiempo real (Sucursal {sucursal or 'Centro'})\n"
+        f"• Selector rápido de cantidades y carrito de compras\n"
+        f"• Retiro en sucursal o envío a domicilio\n"
+        f"• Confirmación inmediata a este chat"
+    )
+    buttons = [
+        {"id": "flow_pedido",    "title": "📦 Mi pedido"},
+        {"id": "flow_asesor",    "title": "👨‍💼 Hablar con asesor"},
+        {"id": "menu_inicio",    "title": "🏠 Menú principal"},
+    ]
+    await _send_buttons(
+        phone=phone,
+        body=msg,
+        buttons=buttons,
+        footer="Ferretería Castor • Tienda Online",
         internal_key=internal_key,
         phone_number_id=phone_number_id
     )
@@ -205,43 +237,89 @@ async def send_ticket_request(phone: str, internal_key: str, phone_number_id: Op
     )
 
 async def handle_order_result(phone: str, order_id: str, internal_key: str, redis_client: Any, phone_number_id: Optional[str] = None):
-    """Consulta el estado del pedido usando el servicio interno y lo muestra con botones."""
-    # Normalizar ID
-    clean_id = order_id.strip().upper().replace("OP-", "").replace("OP", "").strip()
+    """Consulta el estado del pedido usando la base de datos de órdenes del catálogo o logística."""
+    clean_id = order_id.strip().upper().replace("#", "").strip()
     
     try:
-        try:
-            op_id_int = int(clean_id)
-        except ValueError:
-            op_id_int = None
+        # 1. Intentar buscar en la base de datos de Órdenes del Catálogo
+        from app.db.session import async_session
+        from app.db.tables import Order, OrderItem
+        from sqlalchemy import select
+
+        db_order = None
+        async with async_session() as session:
+            stmt = select(Order).where(Order.order_number == clean_id)
+            res = await session.execute(stmt)
+            db_order = res.scalar_one_or_none()
+
+            if db_order:
+                stmt_items = select(OrderItem).where(OrderItem.order_id == db_order.id)
+                res_items = await session.execute(stmt_items)
+                order_items = res_items.scalars().all()
+
+        if db_order is not None:
+            STATUS_MAP = {
+                "created": "⏳ Pedido recibido (En cola)",
+                "picking": "📦 Preparando productos en bodega (Picking)",
+                "dispatched": "🚚 Despachado / Listo para entrega",
+                "in_route": "🛵 En camino a tu dirección",
+                "delivered": "✅ Entregado con éxito",
+                "cancelled": "❌ Cancelado"
+            }
+            status_text = STATUS_MAP.get(db_order.status, db_order.status)
+            delivery_text = f"📍 Retiro en Sucursal *{db_order.sucursal or 'Centro'}*" if db_order.delivery_type == "pickup" else f"🚚 Envío a Domicilio: *{db_order.delivery_address}*"
             
-        op = None
-        if op_id_int is not None:
-            auth_service = LogisticsAuthService(redis_client)
-            op_service = LogisticOperationService(auth_service)
-            op = await op_service.get_operation_by_id(op_id_int)
-        
-        if op is not None:
-            status_text = op.status_display or op.status
-            driver = op.raw_payload.get("driver_name", "Por asignar")
-            vehicle = op.raw_payload.get("vehicle", "Por asignar")
-            route = op.raw_payload.get("route", "N/A")
-            
+            items_lines = [f"  • {it.quantity}x {it.product_name}" for it in order_items[:3]]
+            if len(order_items) > 3:
+                items_lines.append(f"  • ... y {len(order_items) - 3} producto(s) más")
+            items_summary = "\n".join(items_lines) if items_lines else "  • Productos ferretería"
+
             msg = (
-                f"📦 *Pedido #{clean_id}*\n"
-                f"━━━━━━━━━━━━━━━\n"
-                f"Estado: {status_text}\n"
-                f"Ruta: {route}\n"
-                f"Conductor: {driver}\n"
-                f"Vehículo: {vehicle}\n"
-                f"━━━━━━━━━━━━━━━\n"
-                f"¿Necesitas más ayuda?"
+                f"📦 *Estado de tu Pedido #{db_order.order_number}*\n"
+                f"━━━━━━━━━━━━━━━━━━━━\n"
+                f"👤 *Cliente:* {db_order.customer_name}\n"
+                f"📊 *Estado:* {status_text}\n"
+                f"{delivery_text}\n"
+                f"💰 *Total:* ${float(db_order.total):.2f}\n\n"
+                f"🛒 *Productos:*\n{items_summary}\n"
+                f"━━━━━━━━━━━━━━━━━━━━\n"
+                f"¿Necesitas consultar algo más?"
             )
         else:
-            msg = (
-                f"🔍 No encontré el pedido *{order_id}*.\n\n"
-                "Verifica el número e inténtalo de nuevo, o contacta a un asesor si el problema persiste."
-            )
+            # 2. Fallback a operación logística legacy
+            op_clean = clean_id.replace("OP-", "").replace("OP", "").strip()
+            try:
+                op_id_int = int(op_clean)
+            except ValueError:
+                op_id_int = None
+                
+            op = None
+            if op_id_int is not None:
+                auth_service = LogisticsAuthService(redis_client)
+                op_service = LogisticOperationService(auth_service)
+                op = await op_service.get_operation_by_id(op_id_int)
+            
+            if op is not None:
+                status_text = op.status_display or op.status
+                driver = op.raw_payload.get("driver_name", "Por asignar")
+                vehicle = op.raw_payload.get("vehicle", "Por asignar")
+                route = op.raw_payload.get("route", "N/A")
+                
+                msg = (
+                    f"📦 *Pedido #{clean_id}*\n"
+                    f"━━━━━━━━━━━━━━━\n"
+                    f"Estado: {status_text}\n"
+                    f"Ruta: {route}\n"
+                    f"Conductor: {driver}\n"
+                    f"Vehículo: {vehicle}\n"
+                    f"━━━━━━━━━━━━━━━\n"
+                    f"¿Necesitas más ayuda?"
+                )
+            else:
+                msg = (
+                    f"🔍 No encontré el pedido *{order_id}*.\n\n"
+                    "Verifica el número de orden (ej. *CAST-2026-1042*) e inténtalo de nuevo, o contacta a un asesor si el problema persiste."
+                )
     except Exception as e:
         logger.error(f"Error fetching order {clean_id}: {str(e)}")
         msg = "⚠️ No pude consultar tu pedido en este momento. Intenta más tarde."

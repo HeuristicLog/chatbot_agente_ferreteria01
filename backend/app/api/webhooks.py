@@ -188,6 +188,16 @@ async def receive_incoming_message(
             await save_message(db, conv.id, "outbound", "assistant", "Menú principal enviado")
             return {"status": "processed"}
 
+        # ── Flujo: Catálogo y Carrito
+        if interactive_id == "flow_catalogo":
+            await clear_flow_state(redis_client, payload.phone)
+            suc_name = "Centro"
+            if dest_phone_number_id and dest_phone_number_id in (settings.whatsapp_inbox_mapping or {}):
+                suc_name = settings.whatsapp_inbox_mapping[dest_phone_number_id].get("sucursal", "Centro")
+            await flows.send_catalog_link(payload.phone, internal_api_key, phone_number_id=dest_phone_number_id, sucursal=suc_name)
+            await save_message(db, conv.id, "outbound", "assistant", "Enlace a catálogo enviado")
+            return {"status": "processed"}
+
         # ── Flujo: Estado de pedido
         if interactive_id == "flow_pedido":
             await set_flow_state(redis_client, payload.phone, {"flow": "order_status", "step": "waiting_id"})
@@ -254,13 +264,33 @@ async def receive_incoming_message(
             )
             return {"status": "processed"}
 
-    # ── 4. Greeting → show welcome menu ───────────────────────
-    greeting_words = ["hola", "hi", "hello", "buenas", "buenos", "hey", "buen dia", "buen dia", "inicio", "start", "menu", "menú"]
+    # ── 4. Intent & Keyword Routing ───────────────────────────
     clean_msg = sanitized.lower().strip()
+
+    # Saludos
+    greeting_words = ["hola", "hi", "hello", "buenas", "buenos", "hey", "buen dia", "buenos dias", "inicio", "start", "menu", "menú"]
     if any(clean_msg.startswith(g) or clean_msg == g for g in greeting_words):
         await clear_flow_state(redis_client, payload.phone)
         await flows.send_welcome_menu(payload.phone, internal_api_key, phone_number_id=dest_phone_number_id)
         await save_message(db, conv.id, "outbound", "assistant", "Menú de bienvenida enviado")
+        return {"status": "processed"}
+
+    # Catálogo / Productos / Carrito
+    catalog_keywords = ["catalogo", "catálogo", "productos", "inventario", "precios", "tienda", "carrito", "comprar", "lista de productos"]
+    if any(k in clean_msg for k in catalog_keywords):
+        await clear_flow_state(redis_client, payload.phone)
+        suc_name = "Centro"
+        if dest_phone_number_id and dest_phone_number_id in (settings.whatsapp_inbox_mapping or {}):
+            suc_name = settings.whatsapp_inbox_mapping[dest_phone_number_id].get("sucursal", "Centro")
+        await flows.send_catalog_link(payload.phone, internal_api_key, phone_number_id=dest_phone_number_id, sucursal=suc_name)
+        await save_message(db, conv.id, "outbound", "assistant", "Enlace a catálogo enviado")
+        return {"status": "processed"}
+
+    # Código de Pedido directo (ej. CAST-2026-1024 o OP-101)
+    if clean_msg.startswith("cast-") or clean_msg.startswith("op-") or clean_msg.startswith("#cast-") or clean_msg.startswith("#op-"):
+        await clear_flow_state(redis_client, payload.phone)
+        await flows.handle_order_result(payload.phone, sanitized, internal_api_key, redis_client, phone_number_id=dest_phone_number_id)
+        await save_message(db, conv.id, "outbound", "assistant", f"Consulta de pedido {sanitized}")
         return {"status": "processed"}
 
     # ── 5. Free-text → Flowise AI ─────────────────────────────
