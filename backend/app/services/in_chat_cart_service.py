@@ -86,46 +86,46 @@ async def send_categories_menu(phone: str, internal_key: str, phone_number_id: O
     """Muestra el catálogo nativo organizado por categorías en WhatsApp."""
     sections = [
         {
-            "title": "📦 Departamentos de Ferretería",
+            "title": "Departamentos 📦",
             "rows": [
                 {
                     "id": "cat_herramientas_elec",
-                    "title": "⚡ Herramientas Eléctricas",
+                    "title": "⚡ Herramientas Eléc.",
                     "description": "Taladros, amoladoras, rotomartillos, sierras"
                 },
                 {
                     "id": "cat_herramientas_man",
-                    "title": "🔧 Herramientas Manuales",
+                    "title": "🔧 Herramientas Man.",
                     "description": "Juegos de llaves, martillos, flexómetros"
                 },
                 {
                     "id": "cat_construccion",
-                    "title": "🧱 Construcción y Obra",
+                    "title": "🧱 Construcción",
                     "description": "Cemento Selvalegre, varillas, palas, carretillas"
                 },
                 {
                     "id": "cat_pinturas",
-                    "title": "🎨 Pinturas y Acabados",
+                    "title": "🎨 Pinturas y Color",
                     "description": "Látex Vinilac, anticorrosivos, rodillos"
                 },
                 {
                     "id": "cat_plomeria",
-                    "title": "🚿 Plomería y Tuberías",
+                    "title": "🚿 Plomería y Tubos",
                     "description": "Tubos PVC, grifería FV, bombas de agua"
                 },
                 {
                     "id": "cat_electricidad",
-                    "title": "💡 Electricidad e Iluminación",
+                    "title": "💡 Electricidad",
                     "description": "Cables, focos LED, tomacorrientes Bticino"
                 }
             ]
         },
         {
-            "title": "🛒 Opciones de Compra",
+            "title": "Tu Carrito 🛒",
             "rows": [
                 {
                     "id": "cart_view",
-                    "title": "🛒 Ver Mi Carrito de Compras",
+                    "title": "🛒 Ver Mi Carrito",
                     "description": "Revisa tus productos agregados y total a pagar"
                 }
             ]
@@ -133,7 +133,7 @@ async def send_categories_menu(phone: str, internal_key: str, phone_number_id: O
     ]
 
     body = (
-        "🛠️ *Catálogo Interactivo Ferretería Castor* 🦫\n"
+        "🛠️ *Catálogo Ferretería Castor* 🦫\n"
         "━━━━━━━━━━━━━━━━━━━━\n"
         "Selecciona un departamento para ver los productos, precios y stock en tiempo real directamente aquí:"
     )
@@ -141,8 +141,7 @@ async def send_categories_menu(phone: str, internal_key: str, phone_number_id: O
     await flows._send_list(
         phone=phone,
         body=body,
-        button_text="Explorar Catálogo 📋",
-        sections=sections,
+        button_text="Ver Categorías 📋",
         footer="Ferretería Castor • Compras en WhatsApp",
         internal_key=internal_key,
         phone_number_id=phone_number_id

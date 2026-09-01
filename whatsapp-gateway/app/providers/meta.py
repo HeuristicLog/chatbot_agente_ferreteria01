@@ -177,18 +177,33 @@ class MetaWhatsAppProvider(WhatsAppProvider):
             "Content-Type": "application/json"
         }
         
+        sanitized_sections = []
+        for sec in sections[:10]:
+            sec_title = (sec.get("title") or "Opciones")[:24]
+            sec_rows = []
+            for row in sec.get("rows", [])[:10]:
+                sec_rows.append({
+                    "id": str(row.get("id", ""))[:200],
+                    "title": str(row.get("title", ""))[:24],
+                    "description": str(row.get("description", ""))[:72]
+                })
+            sanitized_sections.append({
+                "title": sec_title,
+                "rows": sec_rows
+            })
+
         interactive_payload: Dict[str, Any] = {
             "type": "list",
             "body": {"text": body},
             "action": {
-                "button": button_text,
-                "sections": sections
+                "button": str(button_text)[:20],
+                "sections": sanitized_sections
             }
         }
         if header:
-            interactive_payload["header"] = {"type": "text", "text": header}
+            interactive_payload["header"] = {"type": "text", "text": str(header)[:60]}
         if footer:
-            interactive_payload["footer"] = {"text": footer}
+            interactive_payload["footer"] = {"text": str(footer)[:60]}
             
         payload = {
             "messaging_product": "whatsapp",
