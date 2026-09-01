@@ -1,9 +1,9 @@
 {
-  "version": "3.1",
+  "version": "7.3",
   "screens": [
     {
       "id": "CATALOG_SCREEN",
-      "title": "Catálogo Ferretería Castor 🦫",
+      "title": "Catálogo Ferretería Castor",
       "data": {},
       "layout": {
         "type": "SingleColumnLayout",
@@ -102,7 +102,8 @@
     },
     {
       "id": "CHECKOUT_SCREEN",
-      "title": "Datos de Entrega y Pago 🚚",
+      "title": "Datos de Entrega y Pago",
+      "terminal": true,
       "data": {
         "categoria": {
           "type": "string",
@@ -113,7 +114,9 @@
           "items": {
             "type": "string"
           },
-          "__example__": ["HER-TAL-001"]
+          "__example__": [
+            "HER-TAL-001"
+          ]
         }
       },
       "layout": {
@@ -165,7 +168,7 @@
                 "title": "📍 Sucursal Sur (Av. Maldonado)"
               },
               {
-                "id": "Cumbayá",
+                "id": "Cumbaya",
                 "title": "📍 Sucursal Cumbayá"
               }
             ]
@@ -189,7 +192,7 @@
               },
               {
                 "id": "transferencia",
-                "title": "🏦 Transferencia bancaria (Pichincha / Guayaquil / Produbanco)"
+                "title": "🏦 Transferencia bancaria"
               },
               {
                 "id": "tarjeta",
@@ -199,7 +202,7 @@
           },
           {
             "type": "Footer",
-            "label": "Confirmar y Enviar Pedido 🎉",
+            "label": "Confirmar y Enviar Pedido",
             "on-click-action": {
               "name": "complete",
               "payload": {
