@@ -50,6 +50,10 @@ class MockWhatsAppProvider(WhatsAppProvider):
         logger.info(f"[MOCK → {to_phone}] CTA_URL: {body[:60]} | [{display_text} -> {url}]")
         return True
 
+    async def send_flow_message(self, to_phone: str, body: str, flow_id: str, flow_cta: str, flow_token: str = "token_01", screen: str = "CATALOG_SCREEN", header: str = "", footer: str = "", **kwargs) -> bool:
+        logger.info(f"[MOCK → {to_phone}] FLOW: {body[:60]} | [flow_id={flow_id}, cta={flow_cta}]")
+        return True
+
     async def mark_as_read(self, message_id: str) -> bool:
         logger.info(f"[MOCK READ]: {message_id}")
         return True

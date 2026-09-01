@@ -89,6 +89,18 @@ class CTAUrlPayload(BaseModel):
     phone_number_id: Optional[str] = None
     access_token: Optional[str] = None
 
+class FlowPayload(BaseModel):
+    phone: str
+    body: str
+    flow_id: str
+    flow_cta: str
+    flow_token: Optional[str] = "token_01"
+    screen: Optional[str] = "CATALOG_SCREEN"
+    header: Optional[str] = ""
+    footer: Optional[str] = ""
+    phone_number_id: Optional[str] = None
+    access_token: Optional[str] = None
+
 # ─── Health ────────────────────────────────────────────────────
 
 @app.get("/health")
@@ -273,6 +285,36 @@ async def send_cta_url(payload: CTAUrlPayload):
     if success:
         return {"status": "sent"}
     raise HTTPException(status_code=502, detail="No fue posible enviar el botón CTA URL.")
+
+# ─── Send WhatsApp Flow Message (Meta Native In-App Screens) ───
+
+@app.post("/send/flow", dependencies=[Depends(verify_internal_auth)])
+async def send_flow(payload: FlowPayload):
+    if not hasattr(provider, "send_flow_message"):
+        # Fallback: text
+        success = await provider.send_text_message(
+            payload.phone,
+            payload.body,
+            phone_number_id=payload.phone_number_id,
+            access_token=payload.access_token
+        )
+    else:
+        success = await provider.send_flow_message(
+            to_phone=payload.phone,
+            body=payload.body,
+            flow_id=payload.flow_id,
+            flow_cta=payload.flow_cta,
+            flow_token=payload.flow_token or "token_01",
+            screen=payload.screen or "CATALOG_SCREEN",
+            header=payload.header or "",
+            footer=payload.footer or "",
+            phone_number_id=payload.phone_number_id,
+            access_token=payload.access_token
+        )
+    _log_outbound(payload.phone, payload.body)
+    if success:
+        return {"status": "sent"}
+    raise HTTPException(status_code=502, detail="No fue posible enviar el mensaje de WhatsApp Flow.")
 
 # ─── Outbound Logs ─────────────────────────────────────────────
 
