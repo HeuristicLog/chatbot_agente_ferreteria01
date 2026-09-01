@@ -224,6 +224,50 @@ class MetaWhatsAppProvider(WhatsAppProvider):
             logger.error(f"Error sending list: {str(e)}")
             return False
 
+    async def send_cta_url_message(self, to_phone: str, body: str, display_text: str, url: str, header: str = "", footer: str = "", **kwargs) -> bool:
+        """Send an interactive CTA URL button message (opens in-app browser modal sheet inside WhatsApp)."""
+        phone_number_id = kwargs.get("phone_number_id") or self.phone_number_id
+        access_token = kwargs.get("access_token") or self.access_token
+        api_url = f"https://graph.facebook.com/v20.0/{phone_number_id}/messages"
+        headers_http = {
+            "Authorization": f"Bearer {access_token}",
+            "Content-Type": "application/json"
+        }
+        interactive_payload: Dict[str, Any] = {
+            "type": "cta_url",
+            "body": {"text": body},
+            "action": {
+                "name": "cta_url",
+                "parameters": {
+                    "display_text": str(display_text)[:20],
+                    "url": url
+                }
+            }
+        }
+        if header:
+            interactive_payload["header"] = {"type": "text", "text": str(header)[:60]}
+        if footer:
+            interactive_payload["footer"] = {"text": str(footer)[:60]}
+
+        payload = {
+            "messaging_product": "whatsapp",
+            "recipient_type": "individual",
+            "to": to_phone,
+            "type": "interactive",
+            "interactive": interactive_payload
+        }
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.post(api_url, json=payload, headers=headers_http, timeout=10.0)
+                if response.status_code in [200, 201]:
+                    logger.info(f"CTA URL message sent to {to_phone} via phone_number_id {phone_number_id}")
+                    return True
+                logger.error(f"Failed to send CTA URL message: {response.status_code} - {response.text}")
+                return False
+        except Exception as e:
+            logger.error(f"Error sending CTA URL message: {str(e)}")
+            return False
+
     async def send_interactive_options(self, to_phone: str, message: str, options: List[str], **kwargs) -> bool:
         """Legacy: send up to 3 buttons from a list of strings."""
         buttons = [{"id": f"opt_{i}", "title": opt} for i, opt in enumerate(options[:3])]

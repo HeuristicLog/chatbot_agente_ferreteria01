@@ -188,12 +188,14 @@ async def receive_incoming_message(
             await save_message(db, conv.id, "outbound", "assistant", "Menú principal enviado")
             return {"status": "processed"}
 
-        # ── Flujo: Catálogo Nativo y Carrito en WhatsApp
+        # ── Flujo: Catálogo Emergente en WhatsApp (CTA URL Webview)
         if interactive_id == "flow_catalogo":
             await clear_flow_state(redis_client, payload.phone)
-            from app.services import in_chat_cart_service as in_chat_cart
-            await in_chat_cart.send_categories_menu(payload.phone, internal_api_key, phone_number_id=dest_phone_number_id)
-            await save_message(db, conv.id, "outbound", "assistant", "Catálogo nativo enviado")
+            suc_name = "Centro"
+            if dest_phone_number_id and dest_phone_number_id in (settings.whatsapp_inbox_mapping or {}):
+                suc_name = settings.whatsapp_inbox_mapping[dest_phone_number_id].get("sucursal", "Centro")
+            await flows.send_catalog_link(payload.phone, internal_api_key, phone_number_id=dest_phone_number_id, sucursal=suc_name)
+            await save_message(db, conv.id, "outbound", "assistant", "Tarjeta de catálogo emergente enviada")
             return {"status": "processed"}
 
         # ── Catálogo: Categorías
@@ -374,13 +376,15 @@ async def receive_incoming_message(
         await save_message(db, conv.id, "outbound", "assistant", "Menú de bienvenida enviado")
         return {"status": "processed"}
 
-    # Catálogo / Productos / Carrito Nativo
+    # Catálogo / Productos / Carrito Emergente en WhatsApp
     catalog_keywords = ["catalogo", "catálogo", "productos", "inventario", "precios", "tienda", "carrito", "comprar", "lista de productos"]
     if any(k in clean_msg for k in catalog_keywords):
         await clear_flow_state(redis_client, payload.phone)
-        from app.services import in_chat_cart_service as in_chat_cart
-        await in_chat_cart.send_categories_menu(payload.phone, internal_api_key, phone_number_id=dest_phone_number_id)
-        await save_message(db, conv.id, "outbound", "assistant", "Catálogo nativo enviado")
+        suc_name = "Centro"
+        if dest_phone_number_id and dest_phone_number_id in (settings.whatsapp_inbox_mapping or {}):
+            suc_name = settings.whatsapp_inbox_mapping[dest_phone_number_id].get("sucursal", "Centro")
+        await flows.send_catalog_link(payload.phone, internal_api_key, phone_number_id=dest_phone_number_id, sucursal=suc_name)
+        await save_message(db, conv.id, "outbound", "assistant", "Tarjeta de catálogo emergente enviada")
         return {"status": "processed"}
 
     # Código de Pedido directo (ej. CAST-2026-1024 o OP-101)

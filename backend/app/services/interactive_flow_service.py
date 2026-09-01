@@ -110,6 +110,41 @@ async def _send_list(phone: str, body: str, button_text: str, sections: list, he
             timeout=10.0
         )
 
+async def _send_cta_url(phone: str, body: str, display_text: str, url: str, header: str = "", footer: str = "", internal_key: str = "change_me", phone_number_id: Optional[str] = None):
+    """Envía mensaje interactivo con botón CTA URL que abre la Webview emergente directamente dentro de WhatsApp."""
+    try:
+        from app.services.chatwoot_service import ChatwootService
+        chatwoot = ChatwootService()
+        if chatwoot.is_configured:
+            text = f"{body}\n\n[Botón: {display_text} -> {url}]"
+            await chatwoot.post_bot_message(phone, text, phone_number_id)
+    except Exception as cw_err:
+        logger.error(f"Error sincronizando CTA URL con Chatwoot: {cw_err}")
+
+    headers = {"X-Internal-API-Key": internal_key}
+    payload = {
+        "phone": phone,
+        "body": body,
+        "display_text": display_text,
+        "url": url,
+        "header": header,
+        "footer": footer
+    }
+    if phone_number_id:
+        payload["phone_number_id"] = phone_number_id
+        from app.config import settings
+        mapping = settings.whatsapp_inbox_mapping or {}
+        if phone_number_id in mapping:
+            payload["access_token"] = mapping[phone_number_id].get("access_token")
+
+    async with httpx.AsyncClient() as client:
+        await client.post(
+            f"{GATEWAY_URL}/send/cta_url",
+            json=payload,
+            headers=headers,
+            timeout=10.0
+        )
+
 # ─────────────────────────────────────────────
 # FLUJOS PRINCIPALES
 # ─────────────────────────────────────────────
@@ -119,7 +154,7 @@ async def send_welcome_menu(phone: str, internal_key: str, name: str = "", phone
     greeting = f"¡Hola{' ' + name if name else ''}! 😊" 
     body = (
         f"{greeting} Soy *Castor* 🦫, el asistente virtual de *Ferretería Castor*.\n\n"
-        "Estoy aquí para ayudarte con nuestro catálogo, pedidos y asesoría. ¿Qué necesitas hoy?"
+        "Estoy aquí para ayudarte con nuestro catálogo interactivo, pedidos y asesoría. ¿Qué necesitas hoy?"
     )
     buttons = [
         {"id": "flow_catalogo",  "title": "🛍️ Catálogo y Carrito"},
@@ -153,33 +188,22 @@ async def send_main_menu(phone: str, internal_key: str, phone_number_id: Optiona
     )
 
 async def send_catalog_link(phone: str, internal_key: str, phone_number_id: Optional[str] = None, sucursal: Optional[str] = "Centro"):
-    """Envía la tarjeta interactiva con el enlace directo a la Webview del catálogo y carrito."""
+    """Envía la tarjeta interactiva con botón CTA URL que abre la tienda emergente dentro de WhatsApp."""
     import os
     base_url = os.getenv("PUBLIC_URL") or "https://usable-thorn-kabob.ngrok-free.dev"
     catalog_url = f"{base_url}/catalogo?phone={phone}&sucursal={sucursal or 'Centro'}"
     
-    msg = (
-        f"🛍️ *Catálogo Interactivo de Ferretería Castor* 🦫\n"
-        f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"¡Explora nuestros productos con stock en vivo, precios actualizados y arma tu carrito de compras directamente!\n\n"
-        f"👉 *Toca el enlace para abrir la tienda:*\n"
-        f"{catalog_url}\n\n"
-        f"✨ *Funciones disponibles:*\n"
-        f"• Consulta de stock en tiempo real (Sucursal {sucursal or 'Centro'})\n"
-        f"• Selector rápido de cantidades y carrito de compras\n"
-        f"• Retiro en sucursal o envío a domicilio\n"
-        f"• Confirmación inmediata a este chat"
+    body = (
+        "¡Bienvenido a la tienda virtual de *Ferretería Castor*! 🦫\n\n"
+        "Toca el botón *Abrir Catálogo* aquí abajo para ver nuestra tienda interactiva: productos con fotos, buscador en vivo, selector `[− 0 +]` y carrito de compras sin salir de WhatsApp."
     )
-    buttons = [
-        {"id": "flow_pedido",    "title": "📦 Mi pedido"},
-        {"id": "flow_asesor",    "title": "👨‍💼 Hablar con asesor"},
-        {"id": "menu_inicio",    "title": "🏠 Menú principal"},
-    ]
-    await _send_buttons(
+    await _send_cta_url(
         phone=phone,
-        body=msg,
-        buttons=buttons,
-        footer="Ferretería Castor • Tienda Online",
+        body=body,
+        display_text="🛍️ Abrir Catálogo",
+        url=catalog_url,
+        header="🛠️ Ferretería Castor",
+        footer="Tienda Oficial • Compras en WhatsApp",
         internal_key=internal_key,
         phone_number_id=phone_number_id
     )

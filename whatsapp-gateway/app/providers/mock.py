@@ -46,6 +46,10 @@ class MockWhatsAppProvider(WhatsAppProvider):
         logger.info(f"[MOCK → {to_phone}] LIST: {body[:60]} | {', '.join(rows)}")
         return True
 
+    async def send_cta_url_message(self, to_phone: str, body: str, display_text: str, url: str, header: str = "", footer: str = "", **kwargs) -> bool:
+        logger.info(f"[MOCK → {to_phone}] CTA_URL: {body[:60]} | [{display_text} -> {url}]")
+        return True
+
     async def mark_as_read(self, message_id: str) -> bool:
         logger.info(f"[MOCK READ]: {message_id}")
         return True

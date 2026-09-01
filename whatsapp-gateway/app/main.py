@@ -79,6 +79,16 @@ class ListPayload(BaseModel):
     phone_number_id: Optional[str] = None
     access_token: Optional[str] = None
 
+class CTAUrlPayload(BaseModel):
+    phone: str
+    body: str
+    display_text: str
+    url: str
+    header: Optional[str] = ""
+    footer: Optional[str] = ""
+    phone_number_id: Optional[str] = None
+    access_token: Optional[str] = None
+
 # ─── Health ────────────────────────────────────────────────────
 
 @app.get("/health")
@@ -116,7 +126,7 @@ async def incoming_whatsapp_payload(request: Request):
     async with httpx.AsyncClient() as client:
         for msg in messages:
             try:
-                logger.info(f"Forwarding message from {msg.phone} to Backend")
+                logger.info(f"Forwarding message from {msg.phone} to Backend: {msg.model_dump()}")
                 await client.post(
                     f"{chatbot_api_url}/webhooks/whatsapp",
                     json=msg.model_dump(),
@@ -234,6 +244,35 @@ async def send_list(payload: ListPayload):
     if success:
         return {"status": "sent"}
     raise HTTPException(status_code=502, detail="No fue posible enviar la lista.")
+
+# ─── Send CTA URL Message (In-App Popup Webview) ───────────────
+
+@app.post("/send/cta_url", dependencies=[Depends(verify_internal_auth)])
+async def send_cta_url(payload: CTAUrlPayload):
+    if not hasattr(provider, "send_cta_url_message"):
+        # Fallback: text message with URL
+        text = f"{payload.body}\n\n👉 {payload.url}"
+        success = await provider.send_text_message(
+            payload.phone,
+            text,
+            phone_number_id=payload.phone_number_id,
+            access_token=payload.access_token
+        )
+    else:
+        success = await provider.send_cta_url_message(
+            to_phone=payload.phone,
+            body=payload.body,
+            display_text=payload.display_text,
+            url=payload.url,
+            header=payload.header or "",
+            footer=payload.footer or "",
+            phone_number_id=payload.phone_number_id,
+            access_token=payload.access_token
+        )
+    _log_outbound(payload.phone, payload.body)
+    if success:
+        return {"status": "sent"}
+    raise HTTPException(status_code=502, detail="No fue posible enviar el botón CTA URL.")
 
 # ─── Outbound Logs ─────────────────────────────────────────────
 

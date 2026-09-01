@@ -19,6 +19,11 @@ class WhatsAppProvider(ABC):
         pass
 
     @abstractmethod
+    async def send_cta_url_message(self, to_phone: str, body: str, display_text: str, url: str, header: str = "", footer: str = "", **kwargs) -> bool:
+        """Envia un mensaje interactivo con boton CTA URL que abre la webview/navegador embebido."""
+        pass
+
+    @abstractmethod
     async def mark_as_read(self, message_id: str) -> bool:
         """Marca un mensaje especifico como leido."""
         pass
