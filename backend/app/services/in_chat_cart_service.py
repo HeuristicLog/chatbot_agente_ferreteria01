@@ -142,6 +142,7 @@ async def send_categories_menu(phone: str, internal_key: str, phone_number_id: O
         phone=phone,
         body=body,
         button_text="Ver Categorías 📋",
+        sections=sections,
         footer="Ferretería Castor • Compras en WhatsApp",
         internal_key=internal_key,
         phone_number_id=phone_number_id
@@ -361,17 +362,24 @@ async def prompt_sucursal_selection(phone: str, internal_key: str, phone_number_
     """Muestra la lista de sucursales para retiro en tienda."""
     sections = [
         {
-            "title": "📍 Selecciona tu Sucursal",
+            "title": "Sucursales 📍",
             "rows": [
-                {"id": "order_suc_centro",  "title": "📍 Sucursal Centro",  "description": "Matriz Centro • Av. Pichincha"},
-                {"id": "order_suc_norte",   "title": "📍 Sucursal Norte",   "description": "Av. Eloy Alfaro N56-10"},
-                {"id": "order_suc_sur",     "title": "📍 Sucursal Sur",     "description": "Av. Maldonado y Moraspungo"},
-                {"id": "order_suc_cumbaya", "title": "📍 Sucursal Cumbayá", "description": "Av. Interoceánica km 11"}
+                {"id": "order_suc_centro",  "title": "Sucursal Centro",  "description": "Matriz Centro • Av. Pichincha"},
+                {"id": "order_suc_norte",   "title": "Sucursal Norte",   "description": "Av. Eloy Alfaro N56-10"},
+                {"id": "order_suc_sur",     "title": "Sucursal Sur",     "description": "Av. Maldonado y Moraspungo"},
+                {"id": "order_suc_cumbaya", "title": "Sucursal Cumbayá", "description": "Av. Interoceánica km 11"}
             ]
         }
     ]
     body = "Elige la sucursal donde deseas retirar tus productos:"
-    await flows._send_list(phone, body, "Elegir Sucursal 📍", sections, internal_key=internal_key, phone_number_id=phone_number_id)
+    await flows._send_list(
+        phone=phone,
+        body=body,
+        button_text="Elegir Sucursal 📍",
+        sections=sections,
+        internal_key=internal_key,
+        phone_number_id=phone_number_id
+    )
 
 async def prompt_payment_method(phone: str, internal_key: str, phone_number_id: Optional[str] = None):
     """Muestra los métodos de pago disponibles."""
