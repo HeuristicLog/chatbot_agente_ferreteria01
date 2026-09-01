@@ -188,14 +188,103 @@ async def receive_incoming_message(
             await save_message(db, conv.id, "outbound", "assistant", "Menú principal enviado")
             return {"status": "processed"}
 
-        # ── Flujo: Catálogo y Carrito
+        # ── Flujo: Catálogo Nativo y Carrito en WhatsApp
         if interactive_id == "flow_catalogo":
             await clear_flow_state(redis_client, payload.phone)
-            suc_name = "Centro"
-            if dest_phone_number_id and dest_phone_number_id in (settings.whatsapp_inbox_mapping or {}):
-                suc_name = settings.whatsapp_inbox_mapping[dest_phone_number_id].get("sucursal", "Centro")
-            await flows.send_catalog_link(payload.phone, internal_api_key, phone_number_id=dest_phone_number_id, sucursal=suc_name)
-            await save_message(db, conv.id, "outbound", "assistant", "Enlace a catálogo enviado")
+            from app.services import in_chat_cart_service as in_chat_cart
+            await in_chat_cart.send_categories_menu(payload.phone, internal_api_key, phone_number_id=dest_phone_number_id)
+            await save_message(db, conv.id, "outbound", "assistant", "Catálogo nativo enviado")
+            return {"status": "processed"}
+
+        # ── Catálogo: Categorías
+        if interactive_id.startswith("cat_"):
+            await clear_flow_state(redis_client, payload.phone)
+            from app.services import in_chat_cart_service as in_chat_cart
+            await in_chat_cart.send_products_in_category(payload.phone, interactive_id, internal_api_key, phone_number_id=dest_phone_number_id)
+            return {"status": "processed"}
+
+        # ── Catálogo: Ver Producto Detalle
+        if interactive_id.startswith("prod_view_"):
+            await clear_flow_state(redis_client, payload.phone)
+            sku = interactive_id.replace("prod_view_", "")
+            from app.services import in_chat_cart_service as in_chat_cart
+            await in_chat_cart.send_product_detail(payload.phone, sku, internal_api_key, phone_number_id=dest_phone_number_id)
+            return {"status": "processed"}
+
+        # ── Carrito: Agregar Item
+        if interactive_id.startswith("cart_add_"):
+            parts = interactive_id.split("_")
+            sku = parts[2]
+            qty = int(parts[3]) if len(parts) > 3 else 1
+            from app.services import in_chat_cart_service as in_chat_cart
+            await in_chat_cart.handle_add_to_cart(payload.phone, sku, qty, redis_client, internal_api_key, phone_number_id=dest_phone_number_id)
+            return {"status": "processed"}
+
+        # ── Carrito: Ver Carrito
+        if interactive_id == "cart_view":
+            from app.services import in_chat_cart_service as in_chat_cart
+            await in_chat_cart.send_cart_view(payload.phone, redis_client, internal_api_key, phone_number_id=dest_phone_number_id)
+            return {"status": "processed"}
+
+        # ── Carrito: Vaciar Carrito
+        if interactive_id == "cart_clear":
+            from app.services import in_chat_cart_service as in_chat_cart
+            await in_chat_cart.clear_cart(redis_client, payload.phone)
+            await in_chat_cart.send_cart_view(payload.phone, redis_client, internal_api_key, phone_number_id=dest_phone_number_id)
+            return {"status": "processed"}
+
+        # ── Checkout: Iniciar Pedido
+        if interactive_id == "checkout_start":
+            from app.services import in_chat_cart_service as in_chat_cart
+            await in_chat_cart.prompt_delivery_method(payload.phone, internal_api_key, phone_number_id=dest_phone_number_id)
+            return {"status": "processed"}
+
+        # ── Checkout: Retiro en Sucursal
+        if interactive_id == "order_pickup":
+            from app.services import in_chat_cart_service as in_chat_cart
+            cart = await in_chat_cart.get_cart(redis_client, payload.phone)
+            cart["delivery_type"] = "pickup"
+            await in_chat_cart.save_cart(redis_client, payload.phone, cart)
+            await in_chat_cart.prompt_sucursal_selection(payload.phone, internal_api_key, phone_number_id=dest_phone_number_id)
+            return {"status": "processed"}
+
+        # ── Checkout: Selección de Sucursal
+        if interactive_id.startswith("order_suc_"):
+            from app.services import in_chat_cart_service as in_chat_cart
+            suc_map = {
+                "order_suc_centro": "Centro",
+                "order_suc_norte": "Norte",
+                "order_suc_sur": "Sur",
+                "order_suc_cumbaya": "Cumbayá"
+            }
+            cart = await in_chat_cart.get_cart(redis_client, payload.phone)
+            cart["sucursal"] = suc_map.get(interactive_id, "Centro")
+            await in_chat_cart.save_cart(redis_client, payload.phone, cart)
+            await in_chat_cart.prompt_payment_method(payload.phone, internal_api_key, phone_number_id=dest_phone_number_id)
+            return {"status": "processed"}
+
+        # ── Checkout: Envío a Domicilio
+        if interactive_id == "order_delivery":
+            from app.services import in_chat_cart_service as in_chat_cart
+            cart = await in_chat_cart.get_cart(redis_client, payload.phone)
+            cart["delivery_type"] = "delivery"
+            await in_chat_cart.save_cart(redis_client, payload.phone, cart)
+            await set_flow_state(redis_client, payload.phone, {"flow": "cart_delivery", "step": "waiting_address"})
+            await flows._send(
+                payload.phone,
+                "📍 Por favor escribe tu dirección exacta de entrega en este chat (ej. *Av. 10 de Agosto y Colón, Edif. 4*):",
+                internal_api_key,
+                phone_number_id=dest_phone_number_id
+            )
+            return {"status": "processed"}
+
+        # ── Checkout: Método de Pago y Finalizar
+        if interactive_id.startswith("pay_"):
+            method = interactive_id.replace("pay_", "")
+            from app.services import in_chat_cart_service as in_chat_cart
+            await in_chat_cart.complete_in_chat_order(
+                payload.phone, redis_client, db, method, internal_api_key, phone_number_id=dest_phone_number_id
+            )
             return {"status": "processed"}
 
         # ── Flujo: Estado de pedido
@@ -256,6 +345,16 @@ async def receive_incoming_message(
             )
             return {"status": "processed"}
 
+        # Waiting for delivery address
+        if flow == "cart_delivery" and step == "waiting_address":
+            from app.services import in_chat_cart_service as in_chat_cart
+            cart = await in_chat_cart.get_cart(redis_client, payload.phone)
+            cart["address"] = sanitized
+            await in_chat_cart.save_cart(redis_client, payload.phone, cart)
+            await clear_flow_state(redis_client, payload.phone)
+            await in_chat_cart.prompt_payment_method(payload.phone, internal_api_key, phone_number_id=dest_phone_number_id)
+            return {"status": "processed"}
+
         # Waiting for ticket ID
         if flow == "ticket_status" and step == "waiting_id":
             await clear_flow_state(redis_client, payload.phone)
@@ -275,15 +374,13 @@ async def receive_incoming_message(
         await save_message(db, conv.id, "outbound", "assistant", "Menú de bienvenida enviado")
         return {"status": "processed"}
 
-    # Catálogo / Productos / Carrito
+    # Catálogo / Productos / Carrito Nativo
     catalog_keywords = ["catalogo", "catálogo", "productos", "inventario", "precios", "tienda", "carrito", "comprar", "lista de productos"]
     if any(k in clean_msg for k in catalog_keywords):
         await clear_flow_state(redis_client, payload.phone)
-        suc_name = "Centro"
-        if dest_phone_number_id and dest_phone_number_id in (settings.whatsapp_inbox_mapping or {}):
-            suc_name = settings.whatsapp_inbox_mapping[dest_phone_number_id].get("sucursal", "Centro")
-        await flows.send_catalog_link(payload.phone, internal_api_key, phone_number_id=dest_phone_number_id, sucursal=suc_name)
-        await save_message(db, conv.id, "outbound", "assistant", "Enlace a catálogo enviado")
+        from app.services import in_chat_cart_service as in_chat_cart
+        await in_chat_cart.send_categories_menu(payload.phone, internal_api_key, phone_number_id=dest_phone_number_id)
+        await save_message(db, conv.id, "outbound", "assistant", "Catálogo nativo enviado")
         return {"status": "processed"}
 
     # Código de Pedido directo (ej. CAST-2026-1024 o OP-101)
