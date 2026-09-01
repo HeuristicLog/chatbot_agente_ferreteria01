@@ -48,6 +48,7 @@ class Settings(BaseSettings):
     CHATWOOT_API_TOKEN: str = Field("")
     CHATWOOT_ACCOUNT_ID: int = Field(1)
     CHATWOOT_INBOX_ID: int = Field(1)
+    WHATSAPP_FLOW_ID: str = Field("4420144268227761")
     WHATSAPP_INBOX_MAPPING: str = Field("{}")
 
     @property

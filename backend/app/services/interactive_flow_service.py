@@ -210,7 +210,8 @@ async def send_main_menu(phone: str, internal_key: str, phone_number_id: Optiona
 async def send_catalog_link(phone: str, internal_key: str, phone_number_id: Optional[str] = None, sucursal: Optional[str] = "Centro"):
     """Envía el catálogo interactivo (WhatsApp Flow nativo o Lista interactiva en chat)."""
     import os
-    flow_id = os.getenv("WHATSAPP_FLOW_ID")
+    from app.config import settings
+    flow_id = os.getenv("WHATSAPP_FLOW_ID") or settings.WHATSAPP_FLOW_ID or "4420144268227761"
     if flow_id:
         body = (
             "¡Bienvenido a la tienda virtual de *Ferretería Castor*! 🦫\n\n"
