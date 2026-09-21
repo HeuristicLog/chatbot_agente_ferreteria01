@@ -6,7 +6,7 @@ COPY pubspec.yaml .
 RUN flutter pub get
 
 COPY . .
-RUN flutter build web --release
+RUN flutter build web --release --web-renderer html
 
 # Stage 2: Serve with Nginx
 FROM nginx:alpine
@@ -15,4 +15,3 @@ COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]
-
