@@ -1,17 +1,13 @@
-import React, { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 
 const GATEWAY_URL = 'http://localhost:8095';
+const CATALOG_WEBVIEW_URL = 'http://localhost:8085/catalogo';
 
 export default function App() {
-  const [phone, setPhone] = useState('593988888888')
+  const [phone, setPhone] = useState('593984407038')
   const [message, setMessage] = useState('')
   const [messages, setMessages] = useState<any[]>([])
-  
-  // Simulation helpers
-  const [duplicateMessageId, setDuplicateMessageId] = useState<string | null>(null)
-  const [lastMessageText, setLastMessageText] = useState('')
-  const [mediaUrl, setMediaUrl] = useState('')
-  const [mediaType, setMediaType] = useState('')
+  const [showWebview, setShowWebview] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
 
   useEffect(() => {
@@ -21,7 +17,12 @@ export default function App() {
       setMessages(JSON.parse(stored))
     } else {
       setMessages([
-        { id: 'welcome', direction: 'outbound', message: '¡Hola! Escribe un mensaje para conversar con Castor.' }
+        { 
+          id: 'welcome', 
+          direction: 'outbound', 
+          message: '¡Hola! 👋 Soy Castor 🦫, el asistente virtual de Ferretería Castor.\n\nEstoy aquí para ayudarte con catálogo interactivo, pedidos y asesoría.',
+          buttons: ['🛍️ Catálogo y Carrito', '📦 Mi pedido', '👨‍💼 Hablar con asesor']
+        }
       ])
     }
   }, [phone])
@@ -33,19 +34,24 @@ export default function App() {
         const response = await fetch(`${GATEWAY_URL}/outbound?phone=${phone}`)
         const result = await response.json()
         if (result.success && result.data.length > 0) {
-          // Merge local inbound and fetched outbound messages
           setMessages(prev => {
             const inboundList = prev.filter(m => m.direction === 'inbound')
-            const outboundList = result.data.map((m: any, idx: number) => ({
-              id: `out-${idx}-${m.timestamp}`,
-              direction: 'outbound',
-              message: m.message,
-              timestamp: m.timestamp
-            }))
+            const outboundList = result.data.map((m: any, idx: number) => {
+              // Extract buttons if standard menu
+              let btns: string[] = []
+              if (m.message.includes('Catálogo') || m.message.includes('Castor')) {
+                btns = ['🛍️ Catálogo y Carrito', '📦 Mi pedido', '👨‍💼 Hablar con asesor']
+              }
+              return {
+                id: `out-${idx}-${m.timestamp}`,
+                direction: 'outbound',
+                message: m.message,
+                buttons: btns,
+                timestamp: m.timestamp
+              }
+            })
             
-            // Combine and sort by timestamp
             const combined = [...inboundList, ...outboundList]
-            // Simple deduplication based on text & direction if timestamps are off
             const seen = new Set()
             const unique = combined.filter(m => {
               const key = `${m.direction}:${m.message}`
@@ -54,12 +60,11 @@ export default function App() {
               return true
             })
             
-            // Save to local storage
             localStorage.setItem(`chat_history:${phone}`, JSON.stringify(unique))
             return unique
           })
         }
-      } catch (err) {
+      } catch {
         // Gateway might be offline during build
       }
     }, 1500)
@@ -72,28 +77,29 @@ export default function App() {
     setTimeout(() => setToast(null), 3000)
   }
 
-  const handleSendMessage = async (e?: React.FormEvent, customId?: string) => {
-    if (e) e.preventDefault()
-    if (!message.trim()) return
-    const text = message.trim()
+  const handleSendMessage = async (textToSend?: string) => {
+    const text = (textToSend || message).trim()
+    if (!text) return
     setMessage('')
-    setLastMessageText(text)
     
-    const msgId = customId || `sim-msg-${Math.random().toString(36).substring(2, 9)}`
-    if (!customId) {
-      setDuplicateMessageId(msgId)
+    const msgId = `sim-msg-${Math.random().toString(36).substring(2, 9)}`
+    
+    // Check if clicking catalog button
+    if (text.includes('Catálogo') || text.includes('Carrito') || text.includes('Tienda')) {
+      // Auto trigger In-App Webview sheet for high-end demo
+      setShowWebview(true)
     }
-    
+
     const payload = {
       phone,
       message: text,
       message_id: msgId,
-      media_url: mediaUrl || null,
-      media_type: mediaType || null,
-      metadata: { provider: "mock" }
+      metadata: { 
+        provider: "meta",
+        interactive_id: text.includes('Catálogo') ? 'flow_catalogo' : (text.includes('pedido') ? 'flow_pedido' : (text.includes('asesor') ? 'flow_asesor' : undefined))
+      }
     }
     
-    // Add to local messages list
     const newMsgObj = {
       id: msgId,
       direction: 'inbound',
@@ -115,113 +121,262 @@ export default function App() {
         body: JSON.stringify(payload)
       })
       const result = await response.json()
-      if (result.status === 'received') {
-        showToast('Mensaje recibido por la Gateway.')
-      } else if (result.status === 'duplicate') {
-        showToast('Webhook detectó mensaje duplicado (idempotencia ok).')
+      if (result.status === 'received' || result.status === 'processed') {
+        showToast('Mensaje procesado.')
       }
-    } catch (err) {
+    } catch {
       showToast('Error al conectar con la Gateway.')
     }
-  }
-
-  const handleSimulateDuplicate = () => {
-    if (!duplicateMessageId || !lastMessageText) {
-      showToast('Envía un mensaje primero.')
-      return
-    }
-    // Resend the exact same message with the exact same ID
-    setMessage(lastMessageText)
-    setTimeout(() => {
-      handleSendMessage(undefined, duplicateMessageId)
-    }, 200)
   }
 
   const handleClearHistory = () => {
     localStorage.removeItem(`chat_history:${phone}`)
     setMessages([
-      { id: 'welcome', direction: 'outbound', message: 'Historial borrado. Conversación reiniciada.' }
+      { 
+        id: 'welcome', 
+        direction: 'outbound', 
+        message: '¡Hola! 👋 Soy Castor 🦫, el asistente virtual de Ferretería Castor.\n\nEstoy aquí para ayudarte con catálogo interactivo, pedidos y asesoría.',
+        buttons: ['🛍️ Catálogo y Carrito', '📦 Mi pedido', '👨‍💼 Hablar con asesor']
+      }
     ])
+    setShowWebview(false)
   }
 
   return (
-    <div style={{ display: 'flex', width: '100%', height: '100vh', background: '#0c1317', color: '#e9edef' }}>
-      {toast && <div style={{ position: 'fixed', top: '2rem', right: '2rem', background: '#00a884', color: 'white', padding: '1rem 1.5rem', borderRadius: '0.5rem', zIndex: 1000 }}>{toast}</div>}
-      
-      {/* Control Panel */}
-      <div style={{ width: '380px', background: '#111b21', borderRight: '1px solid #222e35', padding: '2rem 1.5rem', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-        <div>
-          <h2 style={{ color: '#00a884', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>💬 WhatsApp Sandbox</h2>
-          <p style={{ fontSize: '0.75rem', color: '#8696a0', marginTop: '0.25rem' }}>Simulador de Cliente</p>
+    <div style={{ display: 'flex', width: '100%', height: '100vh', background: '#0b141a', color: '#e9edef', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+      {toast && (
+        <div style={{ position: 'fixed', top: '1.5rem', right: '1.5rem', background: '#00a884', color: 'white', padding: '0.75rem 1.25rem', borderRadius: '0.5rem', zIndex: 9999, fontWeight: 600, boxShadow: '0 4px 12px rgba(0,0,0,0.3)' }}>
+          {toast}
         </div>
-        
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          <div>
-            <label style={{ display: 'block', fontSize: '0.8rem', color: '#8696a0', marginBottom: '0.5rem', fontWeight: 'bold' }}>Número de Teléfono</label>
-            <select value={phone} onChange={e => setPhone(e.target.value)} style={{ width: '100%', padding: '0.75rem', borderRadius: '0.5rem', border: '1px solid #222e35', background: '#202c33', color: 'white', outline: 'none' }}>
-              <option value="593988888888">Cliente 1 (+593 98 888 8888) - PED-12345</option>
-              <option value="593987654321">Cliente 2 (+593 98 765 4321) - PED-1001</option>
-              <option value="593999888777">Cliente 3 (+593 99 988 8777) - PED-1002</option>
-            </select>
-          </div>
-
-          <div style={{ background: '#202c33', padding: '1rem', borderRadius: '0.5rem', border: '1px solid #222e35' }}>
-            <h4 style={{ fontSize: '0.85rem', color: '#00a884', marginBottom: '0.75rem' }}>Simulación Avanzada</h4>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              <button onClick={handleSimulateDuplicate} disabled={!duplicateMessageId} style={{ width: '100%', padding: '0.6rem', background: duplicateMessageId ? '#00a884' : '#475569', color: 'white', border: 'none', borderRadius: '0.25rem', cursor: duplicateMessageId ? 'pointer' : 'not-allowed', fontWeight: 'bold', fontSize: '0.8rem' }}>Re-enviar Último (Duplicar ID)</button>
-              
-              <div style={{ borderTop: '1px solid #222e35', marginTop: '0.5rem', paddingTop: '0.5rem' }}>
-                <label style={{ display: 'block', fontSize: '0.75rem', color: '#8696a0', marginBottom: '0.25rem' }}>URL del Archivo (Opcional)</label>
-                <input type="text" value={mediaUrl} onChange={e => setMediaUrl(e.target.value)} placeholder="https://example.com/evidence.jpg" style={{ width: '100%', padding: '0.5rem', background: '#111b21', color: 'white', border: '1px solid #222e35', borderRadius: '0.25rem', fontSize: '0.8rem', marginBottom: '0.5rem', outline: 'none' }} />
-                
-                <label style={{ display: 'block', fontSize: '0.75rem', color: '#8696a0', marginBottom: '0.25rem' }}>Tipo del Archivo (image/pdf)</label>
-                <input type="text" value={mediaType} onChange={e => setMediaType(e.target.value)} placeholder="image/jpeg" style={{ width: '100%', padding: '0.5rem', background: '#111b21', color: 'white', border: '1px solid #222e35', borderRadius: '0.25rem', fontSize: '0.8rem', outline: 'none' }} />
-              </div>
+      )}
+      
+      {/* Control Panel Lateral */}
+      <div style={{ width: '360px', background: '#111b21', borderRight: '1px solid #222e35', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', overflowY: 'auto' }}>
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <span style={{ fontSize: '1.5rem' }}>🦫</span>
+            <div>
+              <h2 style={{ color: '#00a884', fontSize: '1.1rem', margin: 0, fontWeight: 700 }}>Ferretería Castor</h2>
+              <p style={{ fontSize: '0.75rem', color: '#8696a0', margin: 0 }}>Simulador Móvil WhatsApp</p>
             </div>
           </div>
         </div>
 
-        <button onClick={handleClearHistory} style={{ marginTop: 'auto', padding: '0.75rem', background: 'transparent', border: '1px solid #f15c6d', color: '#f15c6d', borderRadius: '0.5rem', fontWeight: 'bold', cursor: 'pointer' }}>Borrar Historial Local</button>
-      </div>
-
-      {/* WhatsApp Chat Pane */}
-      <div style={{ flexGrow: 1, display: 'flex', flexDirection: 'column', background: '#0b141a' }}>
-        {/* Top Header */}
-        <div style={{ padding: '1rem 1.5rem', background: '#202c33', display: 'flex', gap: '1rem', alignItems: 'center', borderBottom: '1px solid #222e35' }}>
-          <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#00a884', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.25rem', fontWeight: 'bold', color: 'white' }}>C</div>
+        {/* Acceso Rápido al Webview */}
+        <div style={{ background: 'linear-gradient(135deg, #0f766e, #065f46)', padding: '1rem', borderRadius: '0.75rem', color: 'white', boxShadow: '0 4px 12px rgba(15,118,110,0.25)' }}>
+          <div style={{ fontSize: '0.85rem', fontWeight: 700, marginBottom: '0.25rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+            <span>🛍️</span> In-App Browser (Jelou.ia Style)
+          </div>
+          <p style={{ fontSize: '0.72rem', opacity: 0.9, marginBottom: '0.75rem', lineHeight: 1.3 }}>
+            Abre la ventana emergente interna de productos y compras directamente en el visor del teléfono.
+          </p>
+          <button 
+            onClick={() => setShowWebview(prev => !prev)} 
+            style={{ width: '100%', padding: '0.6rem', background: 'white', color: '#0f766e', border: 'none', borderRadius: '0.5rem', fontWeight: 700, fontSize: '0.8rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }}
+          >
+            {showWebview ? '✕ Cerrar In-App Webview' : '✨ Abrir In-App Webview'}
+          </button>
+        </div>
+        
+        {/* Selector de Teléfono */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
           <div>
-            <h3 style={{ fontSize: '1rem', fontWeight: 'bold' }}>Ferretería Castor Chatbot</h3>
-            <span style={{ fontSize: '0.75rem', color: '#8696a0' }}>Online</span>
+            <label style={{ display: 'block', fontSize: '0.75rem', color: '#8696a0', marginBottom: '0.4rem', fontWeight: 600 }}>Número del Cliente en Simulación</label>
+            <select 
+              value={phone} 
+              onChange={e => setPhone(e.target.value)} 
+              style={{ width: '100%', padding: '0.65rem', borderRadius: '0.5rem', border: '1px solid #222e35', background: '#202c33', color: 'white', outline: 'none', fontSize: '0.8rem' }}
+            >
+              <option value="593984407038">+593 98 440 7038 (Kevin - Teléfono Principal)</option>
+              <option value="593988888888">+593 98 888 8888 (Cliente Demo 1)</option>
+              <option value="593987654321">+593 98 765 4321 (Cliente Demo 2)</option>
+            </select>
+          </div>
+
+          {/* Botones de Prueba Rápida */}
+          <div style={{ background: '#202c33', padding: '0.85rem', borderRadius: '0.5rem', border: '1px solid #222e35' }}>
+            <span style={{ fontSize: '0.75rem', color: '#8696a0', fontWeight: 600, display: 'block', marginBottom: '0.5rem' }}>Mensajes Rápidos</span>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.4rem' }}>
+              <button onClick={() => handleSendMessage('hola')} style={{ padding: '0.5rem', background: '#2a3942', color: '#e9edef', border: '1px solid #3b4a54', borderRadius: '0.35rem', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 600 }}>"hola"</button>
+              <button onClick={() => handleSendMessage('🛍️ Catálogo y Carrito')} style={{ padding: '0.5rem', background: '#2a3942', color: '#00a884', border: '1px solid #3b4a54', borderRadius: '0.35rem', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 600 }}>"🛍️ Catálogo"</button>
+              <button onClick={() => handleSendMessage('📦 Mi pedido')} style={{ padding: '0.5rem', background: '#2a3942', color: '#e9edef', border: '1px solid #3b4a54', borderRadius: '0.35rem', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 600 }}>"📦 Mi pedido"</button>
+              <button onClick={() => handleSendMessage('👨‍💼 Hablar con asesor')} style={{ padding: '0.5rem', background: '#2a3942', color: '#e9edef', border: '1px solid #3b4a54', borderRadius: '0.35rem', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 600 }}>"👨‍💼 Asesor"</button>
+            </div>
           </div>
         </div>
 
-        {/* Message Area */}
-        <div style={{ flexGrow: 1, padding: '2rem', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.75rem', backgroundImage: 'radial-gradient(circle, #0c151c 10%, transparent 11%)', backgroundSize: '15px 15px' }}>
-          {messages.map((m, idx) => {
-            const isUser = m.direction === 'inbound'
-            return (
-              <div key={m.id || idx} style={{
-                maxWidth: '65%',
-                padding: '0.75rem 1rem',
-                borderRadius: '0.5rem',
-                alignSelf: isUser ? 'flex-end' : 'flex-start',
-                background: isUser ? '#005c4b' : '#202c33',
-                color: '#e9edef',
-                boxShadow: '0 1px 2px rgba(0,0,0,0.15)',
-                whiteSpace: 'pre-line'
-              }}>
-                <div>{m.message}</div>
-                {m.id && isUser && <div style={{ fontSize: '0.6rem', color: '#8696a0', marginTop: '0.25rem', textAlign: 'right' }}>ID: {m.id.substring(0, 10)}...</div>}
-              </div>
-            )
-          })}
-        </div>
+        <button 
+          onClick={handleClearHistory} 
+          style={{ marginTop: 'auto', padding: '0.65rem', background: 'transparent', border: '1px solid #f15c6d', color: '#f15c6d', borderRadius: '0.5rem', fontWeight: 600, fontSize: '0.8rem', cursor: 'pointer' }}
+        >
+          Borrar Historial
+        </button>
+      </div>
 
-        {/* Footer Chat Form */}
-        <form onSubmit={handleSendMessage} style={{ padding: '1rem', background: '#202c33', display: 'flex', gap: '1rem', borderTop: '1px solid #222e35' }}>
-          <input type="text" value={message} onChange={e => setMessage(e.target.value)} required placeholder="Escribe un mensaje..." style={{ flexGrow: 1, padding: '0.85rem 1.25rem', borderRadius: '20px', border: '1px solid #222e35', background: '#2a3942', color: 'white', outline: 'none' }} />
-          <button type="submit" style={{ width: '45px', height: '45px', borderRadius: '50%', background: '#00a884', border: 'none', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', cursor: 'pointer' }}>➤</button>
-        </form>
+      {/* Frame del Teléfono Móvil (Mockup) */}
+      <div style={{ flexGrow: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem', background: '#080d10' }}>
+        <div style={{ 
+          width: '390px', 
+          height: '780px', 
+          maxHeight: '94vh', 
+          background: '#0b141a', 
+          borderRadius: '42px', 
+          border: '10px solid #202c33', 
+          boxShadow: '0 25px 60px -15px rgba(0,0,0,0.8), 0 0 0 2px #3b4a54', 
+          display: 'flex', 
+          flexDirection: 'column', 
+          position: 'relative', 
+          overflow: 'hidden' 
+        }}>
+          
+          {/* Barra de Estado del Móvil */}
+          <div style={{ height: '34px', background: '#202c33', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 1.25rem', fontSize: '0.72rem', color: '#e9edef', fontWeight: 600 }}>
+            <span>9:41</span>
+            <div style={{ width: '80px', height: '14px', background: '#0b141a', borderRadius: '10px' }}></div>
+            <div style={{ display: 'flex', gap: '0.3rem', alignItems: 'center' }}>
+              <span>5G</span>
+              <span>100%</span>
+            </div>
+          </div>
+
+          {/* WhatsApp Header */}
+          <div style={{ padding: '0.65rem 1rem', background: '#202c33', display: 'flex', gap: '0.75rem', alignItems: 'center', borderBottom: '1px solid #2a3942' }}>
+            <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: 'linear-gradient(135deg, #0f766e, #10b981)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.1rem', fontWeight: 700, color: 'white', boxShadow: '0 2px 6px rgba(0,0,0,0.2)' }}>
+              🦫
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: '0.9rem', fontWeight: 700, color: '#e9edef', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                Ferretería Castor
+                <span style={{ fontSize: '0.7rem', color: '#00a884' }}>✓</span>
+              </div>
+              <span style={{ fontSize: '0.7rem', color: '#00a884' }}>Cuenta de empresa • En línea</span>
+            </div>
+          </div>
+
+          {/* Chat Messages Thread */}
+          <div style={{ flexGrow: 1, padding: '1rem', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.6rem', backgroundImage: 'radial-gradient(circle, #182229 10%, transparent 11%)', backgroundSize: '14px 14px' }}>
+            {messages.map((m, idx) => {
+              const isUser = m.direction === 'inbound'
+              return (
+                <div key={m.id || idx} style={{ alignSelf: isUser ? 'flex-end' : 'flex-start', maxWidth: '82%', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                  <div style={{
+                    padding: '0.6rem 0.85rem',
+                    borderRadius: isUser ? '12px 0 12px 12px' : '0 12px 12px 12px',
+                    background: isUser ? '#005c4b' : '#202c33',
+                    color: '#e9edef',
+                    fontSize: '0.82rem',
+                    lineHeight: 1.4,
+                    boxShadow: '0 1px 2px rgba(0,0,0,0.2)',
+                    whiteSpace: 'pre-line'
+                  }}>
+                    {m.message}
+                  </div>
+
+                  {/* Interactive WhatsApp Buttons */}
+                  {!isUser && m.buttons && m.buttons.length > 0 && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', marginTop: '0.15rem' }}>
+                      {m.buttons.map((btnText: string, bIdx: number) => (
+                        <button
+                          key={bIdx}
+                          onClick={() => handleSendMessage(btnText)}
+                          style={{
+                            width: '100%',
+                            padding: '0.55rem',
+                            background: '#202c33',
+                            border: '1px solid #2a3942',
+                            color: '#00a884',
+                            borderRadius: '8px',
+                            fontSize: '0.78rem',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '0.35rem',
+                            boxShadow: '0 1px 2px rgba(0,0,0,0.15)',
+                            transition: 'all 0.15s ease'
+                          }}
+                        >
+                          {btnText}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+
+          {/* Chat Footer Input */}
+          <form 
+            onSubmit={(e) => { e.preventDefault(); handleSendMessage(); }} 
+            style={{ padding: '0.6rem 0.75rem', background: '#202c33', display: 'flex', gap: '0.5rem', alignItems: 'center', borderTop: '1px solid #2a3942' }}
+          >
+            <input 
+              type="text" 
+              value={message} 
+              onChange={e => setMessage(e.target.value)} 
+              placeholder="Escribe un mensaje..." 
+              style={{ flexGrow: 1, padding: '0.65rem 0.9rem', borderRadius: '18px', border: '1px solid #2a3942', background: '#2a3942', color: 'white', outline: 'none', fontSize: '0.82rem' }} 
+            />
+            <button 
+              type="submit" 
+              style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#00a884', border: 'none', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.9rem', cursor: 'pointer' }}
+            >
+              ➤
+            </button>
+          </form>
+
+          {/* 🪟 IN-APP BROWSER SLIDE-UP SHEET (Jelou.ia Style) */}
+          <div style={{
+            position: 'absolute',
+            inset: 0,
+            background: 'white',
+            zIndex: 100,
+            transform: showWebview ? 'translateY(0)' : 'translateY(100%)',
+            transition: 'transform 0.35s cubic-bezier(0.16, 1, 0.3, 1)',
+            display: 'flex',
+            flexDirection: 'column',
+            boxShadow: '0 -10px 40px rgba(0,0,0,0.5)'
+          }}>
+            {/* Top Bar del Visor Interno de WhatsApp */}
+            <div style={{ 
+              height: '48px', 
+              background: '#111b21', 
+              color: '#e9edef', 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'space-between', 
+              padding: '0 1rem', 
+              borderBottom: '1px solid #222e35',
+              fontSize: '0.8rem'
+            }}>
+              <button 
+                onClick={() => setShowWebview(false)} 
+                style={{ background: 'transparent', border: 'none', color: '#8696a0', fontSize: '1.2rem', cursor: 'pointer', padding: '0.25rem' }}
+              >
+                ✕
+              </button>
+              
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                <span style={{ fontWeight: 700, fontSize: '0.78rem', color: '#e9edef' }}>WhatsApp</span>
+                <span style={{ fontSize: '0.65rem', color: '#8696a0', display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
+                  🔒 catalogo.ferreteriacastor.com
+                </span>
+              </div>
+
+              <div style={{ color: '#8696a0', fontSize: '1rem' }}>⋮</div>
+            </div>
+
+            {/* Iframe del Catálogo Oficial */}
+            <iframe 
+              src={`${CATALOG_WEBVIEW_URL}?phone=${phone}&sucursal=Centro`}
+              style={{ width: '100%', flexGrow: 1, border: 'none' }}
+              title="Catálogo In-App Castor"
+            />
+          </div>
+
+        </div>
       </div>
     </div>
   )

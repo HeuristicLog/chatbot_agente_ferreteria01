@@ -173,6 +173,49 @@ async def proxy_chatwoot_webhook(request: Request):
             raise HTTPException(status_code=502, detail="Error forwarding Chatwoot webhook to Backend.")
 
 
+# ─── Catalog Webview & API Proxy ───────────────────────────────
+
+@app.get("/catalogo", response_class=Response)
+async def proxy_catalogo(request: Request):
+    """Proxy the catalog HTML webview from backend with query parameters."""
+    query_str = str(request.url.query)
+    url = f"{chatbot_api_url}/catalogo"
+    if query_str:
+        url += f"?{query_str}"
+    async with httpx.AsyncClient() as client:
+        try:
+            resp = await client.get(url, timeout=15.0)
+            return Response(content=resp.content, status_code=resp.status_code, media_type=resp.headers.get("content-type", "text/html"))
+        except Exception as e:
+            logger.error(f"Error proxying catalog webview: {e}")
+            raise HTTPException(status_code=502, detail="Error cargando catálogo.")
+
+@app.api_route("/api/catalog/{path:path}", methods=["GET", "POST", "PUT", "DELETE"])
+async def proxy_catalog_api(path: str, request: Request):
+    """Proxy catalog REST API requests to backend."""
+    url = f"{chatbot_api_url}/api/catalog/{path}"
+    query_str = str(request.url.query)
+    if query_str:
+        url += f"?{query_str}"
+    body = await request.body()
+    headers = dict(request.headers)
+    headers.pop("host", None)
+    headers.pop("content-length", None)
+    async with httpx.AsyncClient() as client:
+        try:
+            resp = await client.request(
+                method=request.method,
+                url=url,
+                content=body,
+                headers=headers,
+                timeout=15.0
+            )
+            return Response(content=resp.content, status_code=resp.status_code, media_type=resp.headers.get("content-type", "application/json"))
+        except Exception as e:
+            logger.error(f"Error proxying catalog API: {e}")
+            raise HTTPException(status_code=502, detail="Error en API de catálogo.")
+
+
 # ─── Send Text ─────────────────────────────────────────────────
 
 @app.post("/send", dependencies=[Depends(verify_internal_auth)])

@@ -137,6 +137,14 @@ async def _send_cta_url(phone: str, body: str, display_text: str, url: str, head
         if phone_number_id in mapping:
             payload["access_token"] = mapping[phone_number_id].get("access_token")
 
+    async with httpx.AsyncClient() as client:
+        await client.post(
+            f"{GATEWAY_URL}/send/cta_url",
+            json=payload,
+            headers=headers,
+            timeout=10.0
+        )
+
 async def _send_flow(phone: str, body: str, flow_id: str, flow_cta: str, flow_token: str = "token_01", screen: str = "CATALOG_SCREEN", header: str = "", footer: str = "", internal_key: str = "change_me", phone_number_id: Optional[str] = None) -> bool:
     """Envía mensaje interactivo con WhatsApp Flow oficial de Meta (pantalla emergente nativa)."""
     headers = {"X-Internal-API-Key": internal_key}
@@ -213,29 +221,27 @@ async def send_main_menu(phone: str, internal_key: str, phone_number_id: Optiona
     )
 
 async def send_catalog_link(phone: str, internal_key: str, phone_number_id: Optional[str] = None, sucursal: Optional[str] = "Centro"):
-    """Envía el catálogo interactivo (WhatsApp Flow nativo o Lista interactiva en chat)."""
+    """Envía el catálogo interactivo (In-App Browser Webview estilo Jelou.ia / Yalo)."""
     import os
-    from app.config import settings
-    flow_id = os.getenv("WHATSAPP_FLOW_ID") or settings.WHATSAPP_FLOW_ID
-    flow_sent = False
-    if flow_id:
-        body = (
-            "¡Bienvenido a la tienda virtual de *Ferretería Castor*! 🦫\n\n"
-            "Toca el botón *Ver Catálogo 🛍️* para abrir la pantalla emergente interactiva de productos y carrito directamente en WhatsApp."
-        )
-        flow_sent = await _send_flow(
-            phone=phone,
-            body=body,
-            flow_id=flow_id,
-            flow_cta="Ver Catálogo 🛍️",
-            header="🛠️ Ferretería Castor",
-            footer="Tienda Oficial • Compras en WhatsApp",
-            internal_key=internal_key,
-            phone_number_id=phone_number_id
-        )
-    if not flow_sent:
-        from app.services import in_chat_cart_service as in_chat_cart
-        await in_chat_cart.send_categories_menu(phone, internal_key, phone_number_id=phone_number_id)
+    clean_phone = phone.replace("+", "").replace(" ", "").strip()
+    ngrok_url = os.getenv("CATALOG_BASE_URL", "https://usable-thorn-kabob.ngrok-free.dev")
+    catalog_url = f"{ngrok_url}/catalogo?phone={clean_phone}&sucursal={sucursal or 'Centro'}"
+    
+    body = (
+        "¡Bienvenido a la tienda virtual de *Ferretería Castor*! 🦫✨\n\n"
+        "Toca el botón *🛍️ Abrir Tienda Castor* para explorar nuestro catálogo interactivo con fotos, buscador en vivo y carrito de compras sin salir de WhatsApp:"
+    )
+    
+    await _send_cta_url(
+        phone=phone,
+        body=body,
+        display_text="🛍️ Abrir Tienda Castor",
+        url=catalog_url,
+        header="🛠️ Ferretería Castor",
+        footer="Tienda Oficial • Compras Seguras en WhatsApp",
+        internal_key=internal_key,
+        phone_number_id=phone_number_id
+    )
 
 async def send_faq_list(phone: str, internal_key: str, phone_number_id: Optional[str] = None):
     """Lista de categorías de preguntas frecuentes."""
