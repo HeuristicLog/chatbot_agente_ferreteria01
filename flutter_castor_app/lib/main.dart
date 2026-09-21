@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'providers/cart_provider.dart';
 import 'screens/catalog_home_screen.dart';
 
@@ -30,7 +29,6 @@ class CastorApp extends StatelessWidget {
             secondary: const Color(0xFF10B981),
             brightness: Brightness.light,
           ),
-          textTheme: GoogleFonts.interTextTheme(ThemeData.light().textTheme),
           scaffoldBackgroundColor: const Color(0xFFF8FAFC),
           cardColor: Colors.white,
           appBarTheme: const AppBarTheme(
@@ -48,7 +46,6 @@ class CastorApp extends StatelessWidget {
             secondary: const Color(0xFF10B981),
             brightness: Brightness.dark,
           ),
-          textTheme: GoogleFonts.interTextTheme(ThemeData.dark().textTheme),
           scaffoldBackgroundColor: const Color(0xFF0F172A),
           cardColor: const Color(0xFF1E293B),
           appBarTheme: const AppBarTheme(
