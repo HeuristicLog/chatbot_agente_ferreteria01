@@ -166,7 +166,7 @@ class ProductCard extends StatelessWidget {
                           icon: const Icon(Icons.remove, size: 14),
                           color: const Color(0xFF0F766E),
                           onPressed: () => cart.removeSingleItem(product.id),
-                          constraints: const Size(28, 28),
+                          constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
                           padding: EdgeInsets.zero,
                         ),
                         Text(
@@ -183,7 +183,7 @@ class ProductCard extends StatelessWidget {
                           onPressed: quantity < sucursalStock
                               ? () => cart.addItem(product)
                               : null,
-                          constraints: const Size(28, 28),
+                          constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
                           padding: EdgeInsets.zero,
                         ),
                       ],

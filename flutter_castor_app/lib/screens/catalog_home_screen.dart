@@ -124,7 +124,7 @@ class _CatalogHomeScreenState extends State<CatalogHomeScreen> {
                       color: Colors.red,
                       shape: BoxShape.circle,
                     ),
-                    constraints: const Size(18, 18),
+                    constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
                     child: Center(
                       child: Text(
                         '${cart.totalItemCount}',

@@ -180,7 +180,7 @@ class _CartBottomSheetState extends State<CartBottomSheet> {
                 IconButton(
                   icon: const Icon(Icons.close),
                   onPressed: () => Navigator.pop(context),
-                  constraints: const Size(32, 32),
+                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                   padding: EdgeInsets.zero,
                 ),
               ],
