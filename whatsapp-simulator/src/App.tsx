@@ -1,17 +1,21 @@
 import { useState, useEffect } from 'react'
 
 const GATEWAY_URL = 'http://localhost:8095';
-const CATALOG_WEBVIEW_URL = 'http://localhost:8085/catalogo';
 
 export default function App() {
   const [phone, setPhone] = useState('593984407038')
   const [message, setMessage] = useState('')
   const [messages, setMessages] = useState<any[]>([])
   const [showWebview, setShowWebview] = useState(false)
+  const [catalogEngine, setCatalogEngine] = useState<'flutter' | 'yelow'>('yelow')
   const [toast, setToast] = useState<string | null>(null)
 
+  const catalogUrl = catalogEngine === 'flutter' 
+    ? 'http://localhost:8092' 
+    : `http://localhost:8085/catalogo?phone=${phone}&sucursal=Centro`;
+
   useEffect(() => {
-    // Load local inbound history
+    // Load local chat history
     const stored = localStorage.getItem(`chat_history:${phone}`)
     if (stored) {
       setMessages(JSON.parse(stored))
@@ -20,12 +24,44 @@ export default function App() {
         { 
           id: 'welcome', 
           direction: 'outbound', 
-          message: '¡Hola! 👋 Soy Castor 🦫, el asistente virtual de Ferretería Castor.\n\nEstoy aquí para ayudarte con catálogo interactivo, pedidos y asesoría.',
-          buttons: ['🛍️ Catálogo y Carrito', '📦 Mi pedido', '👨‍💼 Hablar con asesor']
+          message: '¡Hola! 👋 Soy Castor 🦫, el asistente virtual de Ferretería Castor.\n\n¿En qué podemos ayudarte hoy? Explora nuestro catálogo interactivo sin salir de WhatsApp.',
+          buttons: ['🛍️ Ver Catálogo y Comprar', '📦 Consultar mi Pedido', '👨‍💼 Hablar con Asesor']
         }
       ])
     }
   }, [phone])
+
+  // Listen to postMessage from in-app catalog iframe
+  useEffect(() => {
+    const handleFrameMessage = (event: MessageEvent) => {
+      try {
+        if (event.data && typeof event.data === 'object') {
+          if (event.data.type === 'ORDER_PLACED' || event.data.order_number) {
+            setShowWebview(false);
+            const orderNum = event.data.order_number || '#CAST-2026-DEMO';
+            const total = event.data.total ? `$${event.data.total}` : '';
+            const confirmMsg = `✅ *¡Pedido Confirmado!* 🎉\n\nTu orden *${orderNum}* por un valor de *${total}* ha sido registrada exitosamente en Ferretería Castor.\n\nEn breve un asesor despachará tu solicitud.`;
+            setMessages(prev => {
+              const updated = [...prev, {
+                id: `order-conf-${Date.now()}`,
+                direction: 'outbound',
+                message: confirmMsg,
+                timestamp: new Date().toISOString()
+              }];
+              localStorage.setItem(`chat_history:${phone}`, JSON.stringify(updated));
+              return updated;
+            });
+            showToast(`¡Orden ${orderNum} registrada!`);
+          }
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    };
+
+    window.addEventListener('message', handleFrameMessage);
+    return () => window.removeEventListener('message', handleFrameMessage);
+  }, [phone]);
 
   // Poll gateway for outbound messages sent by chatbot
   useEffect(() => {
@@ -37,10 +73,9 @@ export default function App() {
           setMessages(prev => {
             const inboundList = prev.filter(m => m.direction === 'inbound')
             const outboundList = result.data.map((m: any, idx: number) => {
-              // Extract buttons if standard menu
               let btns: string[] = []
-              if (m.message.includes('Catálogo') || m.message.includes('Castor')) {
-                btns = ['🛍️ Catálogo y Carrito', '📦 Mi pedido', '👨‍💼 Hablar con asesor']
+              if (m.message.includes('Catálogo') || m.message.includes('Castor') || m.message.includes('Hola')) {
+                btns = ['🛍️ Ver Catálogo y Comprar', '📦 Consultar mi Pedido', '👨‍💼 Hablar con Asesor']
               }
               return {
                 id: `out-${idx}-${m.timestamp}`,
@@ -65,7 +100,7 @@ export default function App() {
           })
         }
       } catch {
-        // Gateway might be offline during build
+        // Gateway polling
       }
     }, 1500)
     
@@ -84,9 +119,8 @@ export default function App() {
     
     const msgId = `sim-msg-${Math.random().toString(36).substring(2, 9)}`
     
-    // Check if clicking catalog button
-    if (text.includes('Catálogo') || text.includes('Carrito') || text.includes('Tienda')) {
-      // Auto trigger In-App Webview sheet for high-end demo
+    // Si el usuario presiona el botón del catálogo, abrimos el In-App Webview integrado en WhatsApp
+    if (text.includes('Catálogo') || text.includes('Carrito') || text.includes('Comprar') || text.toLowerCase().includes('catalogo')) {
       setShowWebview(true)
     }
 
@@ -96,7 +130,7 @@ export default function App() {
       message_id: msgId,
       metadata: { 
         provider: "meta",
-        interactive_id: text.includes('Catálogo') ? 'flow_catalogo' : (text.includes('pedido') ? 'flow_pedido' : (text.includes('asesor') ? 'flow_asesor' : undefined))
+        interactive_id: text.includes('Catálogo') ? 'flow_catalogo' : (text.includes('Pedido') ? 'flow_pedido' : (text.includes('Asesor') ? 'flow_asesor' : undefined))
       }
     }
     
@@ -114,7 +148,7 @@ export default function App() {
     })
     
     try {
-      showToast('Enviando mensaje...')
+      showToast('Enviando a WhatsApp...')
       const response = await fetch(`${GATEWAY_URL}/webhooks/whatsapp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -122,10 +156,10 @@ export default function App() {
       })
       const result = await response.json()
       if (result.status === 'received' || result.status === 'processed') {
-        showToast('Mensaje procesado.')
+        showToast('Mensaje entregado.')
       }
     } catch {
-      showToast('Error al conectar con la Gateway.')
+      showToast('Error de conexión.')
     }
   }
 
@@ -135,8 +169,8 @@ export default function App() {
       { 
         id: 'welcome', 
         direction: 'outbound', 
-        message: '¡Hola! 👋 Soy Castor 🦫, el asistente virtual de Ferretería Castor.\n\nEstoy aquí para ayudarte con catálogo interactivo, pedidos y asesoría.',
-        buttons: ['🛍️ Catálogo y Carrito', '📦 Mi pedido', '👨‍💼 Hablar con asesor']
+        message: '¡Hola! 👋 Soy Castor 🦫, el asistente virtual de Ferretería Castor.\n\n¿En qué podemos ayudarte hoy? Explora nuestro catálogo interactivo sin salir de WhatsApp.',
+        buttons: ['🛍️ Ver Catálogo y Comprar', '📦 Consultar mi Pedido', '👨‍💼 Hablar con Asesor']
       }
     ])
     setShowWebview(false)
@@ -151,13 +185,13 @@ export default function App() {
       )}
       
       {/* Control Panel Lateral */}
-      <div style={{ width: '360px', background: '#111b21', borderRight: '1px solid #222e35', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', overflowY: 'auto' }}>
+      <div style={{ width: '360px', background: '#111b21', borderRight: '1px solid #222e35', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem', overflowY: 'auto' }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <span style={{ fontSize: '1.5rem' }}>🦫</span>
             <div>
               <h2 style={{ color: '#00a884', fontSize: '1.1rem', margin: 0, fontWeight: 700 }}>Ferretería Castor</h2>
-              <p style={{ fontSize: '0.75rem', color: '#8696a0', margin: 0 }}>Simulador Móvil WhatsApp</p>
+              <p style={{ fontSize: '0.75rem', color: '#8696a0', margin: 0 }}>Simulador Oficial WhatsApp & In-App</p>
             </div>
           </div>
         </div>
@@ -165,42 +199,61 @@ export default function App() {
         {/* Acceso Rápido al Webview */}
         <div style={{ background: 'linear-gradient(135deg, #0f766e, #065f46)', padding: '1rem', borderRadius: '0.75rem', color: 'white', boxShadow: '0 4px 12px rgba(15,118,110,0.25)' }}>
           <div style={{ fontSize: '0.85rem', fontWeight: 700, marginBottom: '0.25rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-            <span>🛍️</span> In-App Browser (Jelou.ia Style)
+            <span>🛍️</span> In-App Browser (Navegación Interna)
           </div>
           <p style={{ fontSize: '0.72rem', opacity: 0.9, marginBottom: '0.75rem', lineHeight: 1.3 }}>
-            Abre la ventana emergente interna de productos y compras directamente en el visor del teléfono.
+            Abre la tienda interactiva directamente dentro de WhatsApp sin salir de la conversación.
           </p>
           <button 
             onClick={() => setShowWebview(prev => !prev)} 
             style={{ width: '100%', padding: '0.6rem', background: 'white', color: '#0f766e', border: 'none', borderRadius: '0.5rem', fontWeight: 700, fontSize: '0.8rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }}
           >
-            {showWebview ? '✕ Cerrar In-App Webview' : '✨ Abrir In-App Webview'}
+            {showWebview ? '✕ Cerrar Catálogo In-App' : '✨ Abrir Catálogo In-App'}
           </button>
+        </div>
+
+        {/* Selector de Motor de Catálogo */}
+        <div style={{ background: '#202c33', padding: '0.85rem', borderRadius: '0.5rem', border: '1px solid #222e35' }}>
+          <label style={{ display: 'block', fontSize: '0.75rem', color: '#8696a0', marginBottom: '0.4rem', fontWeight: 600 }}>Motor del Catálogo In-App</label>
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <button 
+              onClick={() => setCatalogEngine('yelow')} 
+              style={{ flex: 1, padding: '0.5rem', borderRadius: '0.35rem', border: catalogEngine === 'yelow' ? '2px solid #00a884' : '1px solid #3b4a54', background: catalogEngine === 'yelow' ? '#005c4b' : '#2a3942', color: 'white', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer' }}
+            >
+              ⚡ In-App Webview
+            </button>
+            <button 
+              onClick={() => setCatalogEngine('flutter')} 
+              style={{ flex: 1, padding: '0.5rem', borderRadius: '0.35rem', border: catalogEngine === 'flutter' ? '2px solid #00a884' : '1px solid #3b4a54', background: catalogEngine === 'flutter' ? '#005c4b' : '#2a3942', color: 'white', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer' }}
+            >
+              🦫 Flutter Web
+            </button>
+          </div>
         </div>
         
         {/* Selector de Teléfono */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
           <div>
-            <label style={{ display: 'block', fontSize: '0.75rem', color: '#8696a0', marginBottom: '0.4rem', fontWeight: 600 }}>Número del Cliente en Simulación</label>
+            <label style={{ display: 'block', fontSize: '0.75rem', color: '#8696a0', marginBottom: '0.4rem', fontWeight: 600 }}>Número del Cliente</label>
             <select 
               value={phone} 
               onChange={e => setPhone(e.target.value)} 
               style={{ width: '100%', padding: '0.65rem', borderRadius: '0.5rem', border: '1px solid #222e35', background: '#202c33', color: 'white', outline: 'none', fontSize: '0.8rem' }}
             >
-              <option value="593984407038">+593 98 440 7038 (Kevin - Teléfono Principal)</option>
-              <option value="593988888888">+593 98 888 8888 (Cliente Demo 1)</option>
-              <option value="593987654321">+593 98 765 4321 (Cliente Demo 2)</option>
+              <option value="593984407038">+593 98 440 7038 (Kevin - Teléfono)</option>
+              <option value="593988921136">+593 98 892 1136 (WhatsApp Demo)</option>
+              <option value="593988888888">+593 98 888 8888 (Cliente Demo)</option>
             </select>
           </div>
 
-          {/* Botones de Prueba Rápida */}
+          {/* Botones de Acción Rápida */}
           <div style={{ background: '#202c33', padding: '0.85rem', borderRadius: '0.5rem', border: '1px solid #222e35' }}>
-            <span style={{ fontSize: '0.75rem', color: '#8696a0', fontWeight: 600, display: 'block', marginBottom: '0.5rem' }}>Mensajes Rápidos</span>
+            <span style={{ fontSize: '0.75rem', color: '#8696a0', fontWeight: 600, display: 'block', marginBottom: '0.5rem' }}>Acciones Rápidas</span>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.4rem' }}>
               <button onClick={() => handleSendMessage('hola')} style={{ padding: '0.5rem', background: '#2a3942', color: '#e9edef', border: '1px solid #3b4a54', borderRadius: '0.35rem', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 600 }}>"hola"</button>
-              <button onClick={() => handleSendMessage('🛍️ Catálogo y Carrito')} style={{ padding: '0.5rem', background: '#2a3942', color: '#00a884', border: '1px solid #3b4a54', borderRadius: '0.35rem', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 600 }}>"🛍️ Catálogo"</button>
-              <button onClick={() => handleSendMessage('📦 Mi pedido')} style={{ padding: '0.5rem', background: '#2a3942', color: '#e9edef', border: '1px solid #3b4a54', borderRadius: '0.35rem', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 600 }}>"📦 Mi pedido"</button>
-              <button onClick={() => handleSendMessage('👨‍💼 Hablar con asesor')} style={{ padding: '0.5rem', background: '#2a3942', color: '#e9edef', border: '1px solid #3b4a54', borderRadius: '0.35rem', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 600 }}>"👨‍💼 Asesor"</button>
+              <button onClick={() => handleSendMessage('🛍️ Ver Catálogo y Comprar')} style={{ padding: '0.5rem', background: '#2a3942', color: '#00a884', border: '1px solid #3b4a54', borderRadius: '0.35rem', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 600 }}>"🛍️ Catálogo"</button>
+              <button onClick={() => handleSendMessage('📦 Consultar mi Pedido')} style={{ padding: '0.5rem', background: '#2a3942', color: '#e9edef', border: '1px solid #3b4a54', borderRadius: '0.35rem', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 600 }}>"📦 Pedido"</button>
+              <button onClick={() => handleSendMessage('👨‍💼 Hablar con Asesor')} style={{ padding: '0.5rem', background: '#2a3942', color: '#e9edef', border: '1px solid #3b4a54', borderRadius: '0.35rem', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 600 }}>"👨‍💼 Asesor"</button>
             </div>
           </div>
         </div>
@@ -213,14 +266,14 @@ export default function App() {
         </button>
       </div>
 
-      {/* Frame del Teléfono Móvil (Mockup) */}
+      {/* Frame del Teléfono Móvil (Mockup Realista) */}
       <div style={{ flexGrow: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem', background: '#080d10' }}>
         <div style={{ 
           width: '390px', 
           height: '780px', 
           maxHeight: '94vh', 
           background: '#0b141a', 
-          borderRadius: '42px', 
+          borderRadius: '44px', 
           border: '10px solid #202c33', 
           boxShadow: '0 25px 60px -15px rgba(0,0,0,0.8), 0 0 0 2px #3b4a54', 
           display: 'flex', 
@@ -229,10 +282,13 @@ export default function App() {
           overflow: 'hidden' 
         }}>
           
-          {/* Barra de Estado del Móvil */}
-          <div style={{ height: '34px', background: '#202c33', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 1.25rem', fontSize: '0.72rem', color: '#e9edef', fontWeight: 600 }}>
+          {/* Dynamic Island / Barra Superior del Móvil */}
+          <div style={{ height: '36px', background: '#202c33', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 1.25rem', fontSize: '0.72rem', color: '#e9edef', fontWeight: 600, zIndex: 110 }}>
             <span>9:41</span>
-            <div style={{ width: '80px', height: '14px', background: '#0b141a', borderRadius: '10px' }}></div>
+            <div style={{ width: '90px', height: '18px', background: '#0b141a', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#1e293b', marginRight: '4px' }}></div>
+              <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#0ea5e9' }}></div>
+            </div>
             <div style={{ display: 'flex', gap: '0.3rem', alignItems: 'center' }}>
               <span>5G</span>
               <span>100%</span>
@@ -249,7 +305,7 @@ export default function App() {
                 Ferretería Castor
                 <span style={{ fontSize: '0.7rem', color: '#00a884' }}>✓</span>
               </div>
-              <span style={{ fontSize: '0.7rem', color: '#00a884' }}>Cuenta de empresa • En línea</span>
+              <span style={{ fontSize: '0.7rem', color: '#00a884' }}>Cuenta de empresa oficial • En línea</span>
             </div>
           </div>
 
@@ -272,7 +328,7 @@ export default function App() {
                     {m.message}
                   </div>
 
-                  {/* Interactive WhatsApp Buttons */}
+                  {/* WhatsApp Interactive Buttons */}
                   {!isUser && m.buttons && m.buttons.length > 0 && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', marginTop: '0.15rem' }}>
                       {m.buttons.map((btnText: string, bIdx: number) => (
@@ -316,7 +372,7 @@ export default function App() {
               type="text" 
               value={message} 
               onChange={e => setMessage(e.target.value)} 
-              placeholder="Escribe un mensaje..." 
+              placeholder="Escribe un mensaje o 'catálogo'..." 
               style={{ flexGrow: 1, padding: '0.65rem 0.9rem', borderRadius: '18px', border: '1px solid #2a3942', background: '#2a3942', color: 'white', outline: 'none', fontSize: '0.82rem' }} 
             />
             <button 
@@ -327,11 +383,11 @@ export default function App() {
             </button>
           </form>
 
-          {/* 🪟 IN-APP BROWSER SLIDE-UP SHEET (Jelou.ia Style) */}
+          {/* 🪟 IN-APP BROWSER SLIDE-UP SHEET (Navegación Interna sin salir de WhatsApp) */}
           <div style={{
             position: 'absolute',
             inset: 0,
-            background: 'white',
+            background: '#f8fafc',
             zIndex: 100,
             transform: showWebview ? 'translateY(0)' : 'translateY(100%)',
             transition: 'transform 0.35s cubic-bezier(0.16, 1, 0.3, 1)',
@@ -341,7 +397,7 @@ export default function App() {
           }}>
             {/* Top Bar del Visor Interno de WhatsApp */}
             <div style={{ 
-              height: '48px', 
+              height: '46px', 
               background: '#111b21', 
               color: '#e9edef', 
               display: 'flex', 
@@ -349,30 +405,38 @@ export default function App() {
               justifyContent: 'space-between', 
               padding: '0 1rem', 
               borderBottom: '1px solid #222e35',
-              fontSize: '0.8rem'
+              fontSize: '0.8rem',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.2)'
             }}>
               <button 
                 onClick={() => setShowWebview(false)} 
                 style={{ background: 'transparent', border: 'none', color: '#8696a0', fontSize: '1.2rem', cursor: 'pointer', padding: '0.25rem' }}
+                title="Cerrar Catálogo"
               >
                 ✕
               </button>
               
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                <span style={{ fontWeight: 700, fontSize: '0.78rem', color: '#e9edef' }}>WhatsApp</span>
-                <span style={{ fontSize: '0.65rem', color: '#8696a0', display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
+                <span style={{ fontWeight: 700, fontSize: '0.78rem', color: '#e9edef' }}>WhatsApp Business</span>
+                <span style={{ fontSize: '0.65rem', color: '#00a884', display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
                   🔒 catalogo.ferreteriacastor.com
                 </span>
               </div>
 
-              <div style={{ color: '#8696a0', fontSize: '1rem' }}>⋮</div>
+              <button 
+                onClick={() => setShowWebview(false)} 
+                style={{ background: '#202c33', border: '1px solid #3b4a54', color: '#00a884', fontSize: '0.7rem', borderRadius: '4px', padding: '0.2rem 0.5rem', cursor: 'pointer', fontWeight: 600 }}
+              >
+                Listo
+              </button>
             </div>
 
             {/* Iframe del Catálogo Oficial */}
             <iframe 
-              src={`${CATALOG_WEBVIEW_URL}?phone=${phone}&sucursal=Centro`}
-              style={{ width: '100%', flexGrow: 1, border: 'none' }}
+              src={catalogUrl}
+              style={{ width: '100%', flexGrow: 1, border: 'none', background: '#f8fafc' }}
               title="Catálogo In-App Castor"
+              allow="camera; microphone; geolocation"
             />
           </div>
 
