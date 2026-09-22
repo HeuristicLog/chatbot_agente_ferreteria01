@@ -19,6 +19,15 @@ class MetaWhatsAppProvider(WhatsAppProvider):
         
         entry = raw_payload.get("entry", [])
         if not entry:
+            if "phone" in raw_payload and "message" in raw_payload:
+                import datetime
+                return [IncomingMessage(
+                    phone=str(raw_payload["phone"]),
+                    message=str(raw_payload["message"]),
+                    message_id=str(raw_payload.get("message_id", f"msg-{int(datetime.datetime.now().timestamp())}")),
+                    timestamp=raw_payload.get("timestamp", datetime.datetime.now().isoformat()),
+                    metadata=raw_payload.get("metadata", {})
+                )]
             return messages
             
         for e in entry:
