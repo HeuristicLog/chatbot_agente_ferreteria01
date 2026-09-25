@@ -141,7 +141,6 @@ async def receive_incoming_message(
     if chatwoot.is_configured:
         try:
             inbox_id = None
-            from app.config import settings
             mapping = settings.whatsapp_inbox_mapping or {}
             if dest_phone_number_id and dest_phone_number_id in mapping:
                 inbox_id = mapping[dest_phone_number_id].get("inbox_id")
@@ -166,7 +165,6 @@ async def receive_incoming_message(
         if conv.status == "waiting_agent":
             reply = "Tu solicitud sigue en espera. ✋ Pronto un asesor te atenderá. Gracias por tu paciencia."
             target_access_token = None
-            from app.config import settings
             mapping = settings.whatsapp_inbox_mapping or {}
             if dest_phone_number_id and dest_phone_number_id in mapping:
                 target_access_token = mapping[dest_phone_number_id].get("access_token")
@@ -188,14 +186,12 @@ async def receive_incoming_message(
             await save_message(db, conv.id, "outbound", "assistant", "Menú principal enviado")
             return {"status": "processed"}
 
-        # ── Flujo: Catálogo Emergente en WhatsApp (CTA URL Webview)
+        # ── Flujo: Catálogo Nativo en WhatsApp (100% dentro del chat)
         if interactive_id == "flow_catalogo":
             await clear_flow_state(redis_client, payload.phone)
-            suc_name = "Centro"
-            if dest_phone_number_id and dest_phone_number_id in (settings.whatsapp_inbox_mapping or {}):
-                suc_name = settings.whatsapp_inbox_mapping[dest_phone_number_id].get("sucursal", "Centro")
-            await flows.send_catalog_link(payload.phone, internal_api_key, phone_number_id=dest_phone_number_id, sucursal=suc_name)
-            await save_message(db, conv.id, "outbound", "assistant", "Tarjeta de catálogo emergente enviada")
+            from app.services import in_chat_cart_service as in_chat_cart
+            await in_chat_cart.send_categories_menu(payload.phone, internal_api_key, phone_number_id=dest_phone_number_id)
+            await save_message(db, conv.id, "outbound", "assistant", "Menú de catálogo nativo enviado")
             return {"status": "processed"}
 
         # ── Catálogo: Categorías
@@ -401,15 +397,21 @@ async def receive_incoming_message(
         await save_message(db, conv.id, "outbound", "assistant", "Menú de bienvenida enviado")
         return {"status": "processed"}
 
-    # Catálogo / Productos / Carrito Emergente en WhatsApp
-    catalog_keywords = ["catalogo", "catálogo", "productos", "inventario", "precios", "tienda", "carrito", "comprar", "lista de productos"]
+    # Catálogo / Productos / Carrito 100% Nativo en WhatsApp
+    catalog_keywords = ["catalogo", "catálogo", "productos", "inventario", "precios", "tienda", "comprar", "lista de productos"]
     if any(k in clean_msg for k in catalog_keywords):
         await clear_flow_state(redis_client, payload.phone)
-        suc_name = "Centro"
-        if dest_phone_number_id and dest_phone_number_id in (settings.whatsapp_inbox_mapping or {}):
-            suc_name = settings.whatsapp_inbox_mapping[dest_phone_number_id].get("sucursal", "Centro")
-        await flows.send_catalog_link(payload.phone, internal_api_key, phone_number_id=dest_phone_number_id, sucursal=suc_name)
-        await save_message(db, conv.id, "outbound", "assistant", "Tarjeta de catálogo emergente enviada")
+        from app.services import in_chat_cart_service as in_chat_cart
+        await in_chat_cart.send_categories_menu(payload.phone, internal_api_key, phone_number_id=dest_phone_number_id)
+        await save_message(db, conv.id, "outbound", "assistant", "Menú de catálogo nativo enviado")
+        return {"status": "processed"}
+
+    # Ver Carrito directo
+    if "carrito" in clean_msg or "mi carrito" in clean_msg:
+        await clear_flow_state(redis_client, payload.phone)
+        from app.services import in_chat_cart_service as in_chat_cart
+        await in_chat_cart.send_cart_view(payload.phone, redis_client, internal_api_key, phone_number_id=dest_phone_number_id)
+        await save_message(db, conv.id, "outbound", "assistant", "Vista de carrito enviada")
         return {"status": "processed"}
 
     # Código de Pedido directo (ej. CAST-2026-1024 o OP-101)
@@ -445,7 +447,6 @@ async def _do_handoff(phone: str, conv, db, redis_client, flowise_service: Flowi
         msg = "⚠️ No pudimos conectarte en este momento. Por favor intenta más tarde o llámanos directamente."
         
         target_access_token = None
-        from app.config import settings
         mapping = settings.whatsapp_inbox_mapping or {}
         if phone_number_id and phone_number_id in mapping:
             target_access_token = mapping[phone_number_id].get("access_token")
@@ -456,7 +457,6 @@ async def _do_handoff(phone: str, conv, db, redis_client, flowise_service: Flowi
     except Exception as e:
         logger.error(f"Handoff error: {e}")
         target_access_token = None
-        from app.config import settings
         mapping = settings.whatsapp_inbox_mapping or {}
         if phone_number_id and phone_number_id in mapping:
             target_access_token = mapping[phone_number_id].get("access_token")
@@ -497,7 +497,6 @@ async def chatwoot_webhook(
         # Reverse lookup phone_number_id and access_token based on Chatwoot inbox_id
         target_phone_number_id = None
         target_access_token = None
-        from app.config import settings
         mapping = settings.whatsapp_inbox_mapping or {}
         for pid, mapping_info in mapping.items():
             if mapping_info.get("inbox_id") == inbox_id:
@@ -581,7 +580,6 @@ async def chatwoot_webhook(
             # Reverse lookup phone_number_id and access_token based on Chatwoot inbox_id
             target_phone_number_id = None
             target_access_token = None
-            from app.config import settings
             mapping = settings.whatsapp_inbox_mapping or {}
             for pid, mapping_info in mapping.items():
                 if mapping_info.get("inbox_id") == inbox_id:
