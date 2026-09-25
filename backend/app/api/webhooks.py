@@ -186,12 +186,11 @@ async def receive_incoming_message(
             await save_message(db, conv.id, "outbound", "assistant", "Menú principal enviado")
             return {"status": "processed"}
 
-        # ── Flujo: Catálogo Nativo en WhatsApp (100% dentro del chat)
+        # ── Flujo: Catálogo In-App Webview Interactivo (Pantalla emergente dentro de WhatsApp)
         if interactive_id == "flow_catalogo":
             await clear_flow_state(redis_client, payload.phone)
-            from app.services import in_chat_cart_service as in_chat_cart
-            await in_chat_cart.send_categories_menu(payload.phone, internal_api_key, phone_number_id=dest_phone_number_id)
-            await save_message(db, conv.id, "outbound", "assistant", "Menú de catálogo nativo enviado")
+            await flows.send_catalog_link(payload.phone, internal_api_key, phone_number_id=dest_phone_number_id)
+            await save_message(db, conv.id, "outbound", "assistant", "Tarjeta de catálogo emergente enviada")
             return {"status": "processed"}
 
         # ── Catálogo: Categorías
@@ -397,13 +396,12 @@ async def receive_incoming_message(
         await save_message(db, conv.id, "outbound", "assistant", "Menú de bienvenida enviado")
         return {"status": "processed"}
 
-    # Catálogo / Productos / Carrito 100% Nativo en WhatsApp
+    # Catálogo / Productos / Tienda In-App Webview
     catalog_keywords = ["catalogo", "catálogo", "productos", "inventario", "precios", "tienda", "comprar", "lista de productos"]
     if any(k in clean_msg for k in catalog_keywords):
         await clear_flow_state(redis_client, payload.phone)
-        from app.services import in_chat_cart_service as in_chat_cart
-        await in_chat_cart.send_categories_menu(payload.phone, internal_api_key, phone_number_id=dest_phone_number_id)
-        await save_message(db, conv.id, "outbound", "assistant", "Menú de catálogo nativo enviado")
+        await flows.send_catalog_link(payload.phone, internal_api_key, phone_number_id=dest_phone_number_id)
+        await save_message(db, conv.id, "outbound", "assistant", "Tarjeta de catálogo emergente enviada")
         return {"status": "processed"}
 
     # Ver Carrito directo
