@@ -186,12 +186,15 @@ async def receive_incoming_message(
             await save_message(db, conv.id, "outbound", "assistant", "Menú principal enviado")
             return {"status": "processed"}
 
-        # ── Flujo: Catálogo 100% Nativo dentro de WhatsApp (Sin enlaces externos ni navegadores)
+        # ── Flujo: Catálogo Oficial Meta WhatsApp Flow (Pantalla emergente nativa con la 'X')
         if interactive_id == "flow_catalogo":
             await clear_flow_state(redis_client, payload.phone)
-            from app.services import in_chat_cart_service as in_chat_cart
-            await in_chat_cart.send_categories_menu(payload.phone, internal_api_key, phone_number_id=dest_phone_number_id)
-            await save_message(db, conv.id, "outbound", "assistant", "Menú de catálogo nativo enviado")
+            sent = await flows.send_catalog_flow(payload.phone, internal_api_key, phone_number_id=dest_phone_number_id)
+            if not sent:
+                # Fallback a lista interactiva nativa si Flow no se pudo enviar
+                from app.services import in_chat_cart_service as in_chat_cart
+                await in_chat_cart.send_categories_menu(payload.phone, internal_api_key, phone_number_id=dest_phone_number_id)
+            await save_message(db, conv.id, "outbound", "assistant", "Catálogo interactivo enviado")
             return {"status": "processed"}
 
         # ── Catálogo: Categorías
@@ -397,13 +400,15 @@ async def receive_incoming_message(
         await save_message(db, conv.id, "outbound", "assistant", "Menú de bienvenida enviado")
         return {"status": "processed"}
 
-    # Catálogo / Productos / Carrito 100% Nativo en WhatsApp
+    # Catálogo / Productos / Tienda Meta WhatsApp Flow (Pantalla emergente nativa)
     catalog_keywords = ["catalogo", "catálogo", "productos", "inventario", "precios", "tienda", "comprar", "lista de productos"]
     if any(k in clean_msg for k in catalog_keywords):
         await clear_flow_state(redis_client, payload.phone)
-        from app.services import in_chat_cart_service as in_chat_cart
-        await in_chat_cart.send_categories_menu(payload.phone, internal_api_key, phone_number_id=dest_phone_number_id)
-        await save_message(db, conv.id, "outbound", "assistant", "Menú de catálogo nativo enviado")
+        sent = await flows.send_catalog_flow(payload.phone, internal_api_key, phone_number_id=dest_phone_number_id)
+        if not sent:
+            from app.services import in_chat_cart_service as in_chat_cart
+            await in_chat_cart.send_categories_menu(payload.phone, internal_api_key, phone_number_id=dest_phone_number_id)
+        await save_message(db, conv.id, "outbound", "assistant", "Catálogo interactivo enviado")
         return {"status": "processed"}
 
     # Ver Carrito directo

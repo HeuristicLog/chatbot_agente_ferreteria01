@@ -220,6 +220,28 @@ async def send_main_menu(phone: str, internal_key: str, phone_number_id: Optiona
         phone_number_id=phone_number_id
     )
 
+async def send_catalog_flow(phone: str, internal_key: str, phone_number_id: Optional[str] = None):
+    """Envía el catálogo interactivo mediante WhatsApp Flow oficial de Meta (pantalla emergente nativa)."""
+    import os
+    from datetime import datetime
+    flow_id = os.getenv("WHATSAPP_FLOW_ID", "2881017522260067")
+    body = (
+        "¡Bienvenido al catálogo oficial de *Ferretería Castor*! 🦫✨\n\n"
+        "Toca el botón *Ver detalles* para explorar nuestro catálogo interactivo y realizar tu pedido sin salir de WhatsApp:"
+    )
+    return await _send_flow(
+        phone=phone,
+        body=body,
+        flow_id=flow_id,
+        flow_cta="Ver detalles",
+        flow_token=f"castor_{phone}_{int(datetime.utcnow().timestamp())}",
+        screen="CATALOG_SCREEN",
+        header="🛠️ Ferretería Castor",
+        footer="Tienda Oficial • WhatsApp Flow",
+        internal_key=internal_key,
+        phone_number_id=phone_number_id
+    )
+
 async def send_catalog_link(phone: str, internal_key: str, phone_number_id: Optional[str] = None, sucursal: Optional[str] = "Centro"):
     """Envía el catálogo interactivo (In-App Browser Webview estilo Jelou.ia / Yalo)."""
     import os
