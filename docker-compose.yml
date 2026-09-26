@@ -203,6 +203,18 @@ services:
     depends_on:
       - whatsapp-gateway
 
+  castor-flutter-app:
+    image: castor-flutter-app:latest
+    build:
+      context: ./flutter_castor_app
+      dockerfile: Dockerfile
+    container_name: castor-app
+    restart: unless-stopped
+    ports:
+      - "8092:80"
+    networks:
+      - ferreteria-net
+
   frontend-admin:
     build:
       context: ./frontend-admin
