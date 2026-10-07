@@ -24,13 +24,15 @@ app.add_middleware(
     allow_headers=["*"]
 )
 
-# Startup DB Initialisation
-@app.on_event("startup")
-async def startup():
-    logger.info("Initializing mock logistics tables...")
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    logger.info("Mock logistics tables verified.")
+@app.get("/", tags=["Root"])
+async def root():
+    return {
+        "service": "Mock Logistics Production API",
+        "status": "online",
+        "version": "1.0.0",
+        "docs": "/docs",
+        "health": "/health"
+    }
 
 # Bearer token helper
 async def get_current_driver(

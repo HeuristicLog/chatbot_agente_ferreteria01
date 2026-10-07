@@ -183,64 +183,53 @@ async def _send_flow(phone: str, body: str, flow_id: str, flow_cta: str, flow_to
 # ─────────────────────────────────────────────
 
 async def send_welcome_menu(phone: str, internal_key: str, name: str = "", phone_number_id: Optional[str] = None):
-    """Menú de bienvenida con los 3 botones principales."""
-    greeting = f"¡Hola{' ' + name if name else ''}! 😊" 
+    """Menú de bienvenida con acceso directo al Catálogo y Carrito interactivo (In-App Browser)."""
+    import os
+    clean_phone = phone.replace("+", "").replace(" ", "").strip()
+    ngrok_url = os.getenv("CATALOG_BASE_URL", "https://usable-thorn-kabob.ngrok-free.dev")
+    catalog_url = f"{ngrok_url}/catalogo?phone={clean_phone}&sucursal=Centro"
+    
+    greeting = f"¡Hola{' ' + name if name else ''}! 😊"
     body = (
         f"{greeting} Soy *Castor* 🦫, el asistente virtual de *Ferretería Castor*.\n\n"
-        "Estoy aquí para ayudarte con nuestro catálogo interactivo, pedidos y asesoría. ¿Qué necesitas hoy?"
+        "Toca el botón *🛍️ Abrir Catálogo y Carrito* para explorar nuestra tienda completa con fotos, buscador en vivo y realizar tu pedido sin salir de WhatsApp:"
     )
-    buttons = [
-        {"id": "flow_catalogo",  "title": "🛍️ Catálogo y Carrito"},
-        {"id": "flow_pedido",    "title": "📦 Mi pedido"},
-        {"id": "flow_asesor",    "title": "👨‍💼 Hablar con asesor"},
-    ]
-    await _send_buttons(
+    await _send_cta_url(
         phone=phone,
         body=body,
-        buttons=buttons,
-        footer="Ferretería Castor • Atención 24/7",
+        display_text="🛍️ Abrir Catálogo",
+        url=catalog_url,
+        header="🛠️ Ferretería Castor",
+        footer="Tienda Oficial • Pedidos 24/7",
         internal_key=internal_key,
         phone_number_id=phone_number_id
     )
 
 async def send_main_menu(phone: str, internal_key: str, phone_number_id: Optional[str] = None):
     """Menú principal para volver desde cualquier flujo."""
-    body = "¿En qué más te puedo ayudar? Elige una opción:"
-    buttons = [
-        {"id": "flow_catalogo",  "title": "🛍️ Catálogo y Carrito"},
-        {"id": "flow_pedido",    "title": "📦 Mi pedido"},
-        {"id": "flow_asesor",    "title": "👨‍💼 Hablar con asesor"},
-    ]
-    await _send_buttons(
+    import os
+    clean_phone = phone.replace("+", "").replace(" ", "").strip()
+    ngrok_url = os.getenv("CATALOG_BASE_URL", "https://usable-thorn-kabob.ngrok-free.dev")
+    catalog_url = f"{ngrok_url}/catalogo?phone={clean_phone}&sucursal=Centro"
+    
+    body = (
+        "¿En qué más te puedo ayudar? 🦫\n\n"
+        "Toca el botón para abrir el catálogo interactivo con fotos y carrito en vivo:"
+    )
+    await _send_cta_url(
         phone=phone,
         body=body,
-        buttons=buttons,
+        display_text="🛍️ Abrir Catálogo",
+        url=catalog_url,
+        header="🛠️ Ferretería Castor",
         footer="Ferretería Castor",
         internal_key=internal_key,
         phone_number_id=phone_number_id
     )
 
 async def send_catalog_flow(phone: str, internal_key: str, phone_number_id: Optional[str] = None):
-    """Envía el catálogo interactivo mediante WhatsApp Flow oficial de Meta (pantalla emergente nativa)."""
-    import os
-    from datetime import datetime
-    flow_id = os.getenv("WHATSAPP_FLOW_ID", "2881017522260067")
-    body = (
-        "¡Bienvenido al catálogo oficial de *Ferretería Castor*! 🦫✨\n\n"
-        "Toca el botón *Ver detalles* para explorar nuestro catálogo interactivo y realizar tu pedido sin salir de WhatsApp:"
-    )
-    return await _send_flow(
-        phone=phone,
-        body=body,
-        flow_id=flow_id,
-        flow_cta="Ver detalles",
-        flow_token=f"castor_{phone}_{int(datetime.utcnow().timestamp())}",
-        screen="CATALOG_SCREEN",
-        header="🛠️ Ferretería Castor",
-        footer="Tienda Oficial • WhatsApp Flow",
-        internal_key=internal_key,
-        phone_number_id=phone_number_id
-    )
+    """Alias para enviar el catálogo interactivo In-App Browser."""
+    return await send_catalog_link(phone, internal_key, phone_number_id=phone_number_id)
 
 async def send_catalog_link(phone: str, internal_key: str, phone_number_id: Optional[str] = None, sucursal: Optional[str] = "Centro"):
     """Envía el catálogo interactivo (In-App Browser Webview estilo Jelou.ia / Yalo)."""
@@ -251,16 +240,16 @@ async def send_catalog_link(phone: str, internal_key: str, phone_number_id: Opti
     
     body = (
         "¡Bienvenido a la tienda virtual de *Ferretería Castor*! 🦫✨\n\n"
-        "Toca el botón *🛍️ Abrir Tienda Castor* para explorar nuestro catálogo interactivo con fotos, buscador en vivo y carrito de compras sin salir de WhatsApp:"
+        "Toca el botón *🛍️ Abrir Catálogo* para explorar todos los productos con fotos, buscador y carrito de compras sin salir de WhatsApp:"
     )
     
     await _send_cta_url(
         phone=phone,
         body=body,
-        display_text="🛍️ Abrir Tienda Castor",
+        display_text="🛍️ Abrir Catálogo",
         url=catalog_url,
         header="🛠️ Ferretería Castor",
-        footer="Tienda Oficial • Compras Seguras en WhatsApp",
+        footer="Tienda Oficial • Pedidos 24/7",
         internal_key=internal_key,
         phone_number_id=phone_number_id
     )
