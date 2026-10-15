@@ -99,6 +99,24 @@ async def _gateway_send_text(phone: str, message: str, phone_number_id: Optional
     except Exception as e:
         logger.error(f"Gateway send_text error: {e}")
 
+async def _gateway_send_media(phone: str, media_type: str, media_url: str, caption: str = "", phone_number_id: Optional[str] = None, access_token: Optional[str] = None):
+    headers = {"X-Internal-API-Key": internal_api_key}
+    payload = {
+        "phone": phone,
+        "media_type": media_type,
+        "media_url": media_url,
+        "caption": caption
+    }
+    if phone_number_id:
+        payload["phone_number_id"] = phone_number_id
+    if access_token:
+        payload["access_token"] = access_token
+    try:
+        async with httpx.AsyncClient() as client:
+            await client.post(f"{GATEWAY_URL}/send/media", json=payload, headers=headers, timeout=15.0)
+    except Exception as e:
+        logger.error(f"Gateway send_media error: {e}")
+
 # ─── MAIN WEBHOOK ──────────────────────────────────────────────
 
 @router.post("/webhooks/whatsapp", dependencies=[Depends(verify_internal_auth)])
@@ -522,55 +540,62 @@ async def chatwoot_webhook(
             sender = meta.get("sender", {}) if isinstance(meta, dict) else {}
             phone = sender.get("phone_number") if isinstance(sender, dict) else None
 
-        if phone and content:
-            # Limpiar el formato de teléfono (+593... -> 593...)
+        if phone:
             clean_phone = phone.replace("+", "").strip()
 
-            # Evitar bucles recursivos: Si la sesión está en estado bot_active o active, no reenviar.
+            # Cuando un asesor humano responde en Chatwoot, pasamos el estado a human_active para que el bot pause sus respuestas automáticas
             try:
                 from app.services.session_service import SessionService
                 session_id = SessionService.derive_session_id(clean_phone, target_phone_number_id)
                 from app.repositories.conversation_repository import ConversationRepository
                 repo = ConversationRepository(db)
                 conv = await repo.get_by_session_id(session_id)
-                if conv and conv.status in ["active", "bot_active"]:
-                    logger.info(f"Ignorando reenvío de Chatwoot a WhatsApp para {clean_phone} porque la sesión {session_id} está en estado {conv.status} (chatbot activo).")
-                    return {"status": "ignored_chatbot_active"}
-            except Exception as check_err:
-                logger.error(f"Error verificando estado de la conversación para evitar bucles: {check_err}")
-
-            logger.info(f"Reenvío de Chatwoot a WhatsApp ({clean_phone}, inbox: {inbox_id}, phone_number_id: {target_phone_number_id}): {content[:50]}...")
-
-            try:
-                # Enviar vía gateway con credenciales específicas de la sucursal
-                await _gateway_send_text(clean_phone, content, phone_number_id=target_phone_number_id, access_token=target_access_token, sync_to_chatwoot=False)
-
-                # Registrar mensaje localmente
-                from app.services.session_service import SessionService
-                from app.repositories.conversation_repository import ConversationRepository
-                from app.db.tables import Conversation, Message as DBMessage
-                from sqlalchemy import select
-
-                conv_repo = ConversationRepository(db)
-                session_service = SessionService(db, redis_client)
-                phone_hash = session_service.derive_phone_hash(clean_phone)
-
-                stmt = select(Conversation).where(Conversation.phone_hash == phone_hash).order_by(Conversation.last_activity_at.desc())
-                res = await db.execute(stmt)
-                conv = res.scalars().first()
-
                 if conv:
-                    db_msg = DBMessage(
-                        conversation_id=conv.id,
-                        direction="outbound",
-                        role="seller",
-                        content=content,
-                        message_type="text"
-                    )
-                    db.add(db_msg)
+                    conv.status = "human_active"
+                    db.add(conv)
                     await db.commit()
-            except Exception as e:
-                logger.error(f"Error reenviando mensaje de Chatwoot a WhatsApp: {e}")
+            except Exception as check_err:
+                logger.error(f"Error actualizando estado a human_active: {check_err}")
+
+            # 1. Reenvío de adjuntos multimedia (fotos, videos, audios, documentos)
+            attachments = payload.get("attachments", [])
+            has_sent_media = False
+            if attachments:
+                for att in attachments:
+                    file_url = att.get("data_url") or att.get("file_url")
+                    file_type = att.get("file_type", "image")
+                    if file_url:
+                        logger.info(f"Reenvío de adjunto Chatwoot ({file_type}) a WhatsApp ({clean_phone}): {file_url}")
+                        await _gateway_send_media(
+                            clean_phone,
+                            media_type=file_type,
+                            media_url=file_url,
+                            caption=content or "",
+                            phone_number_id=target_phone_number_id,
+                            access_token=target_access_token
+                        )
+                        has_sent_media = True
+
+            # 2. Reenvío de texto si no fue enviado como caption de adjunto
+            if content and not has_sent_media:
+                logger.info(f"Reenvío de Chatwoot a WhatsApp ({clean_phone}, inbox: {inbox_id}, phone_number_id: {target_phone_number_id}): {content[:50]}...")
+                try:
+                    await _gateway_send_text(clean_phone, content, phone_number_id=target_phone_number_id, access_token=target_access_token, sync_to_chatwoot=False)
+
+                    # Registrar mensaje localmente
+                    from app.db.tables import Message as DBMessage
+                    if conv:
+                        db_msg = DBMessage(
+                            conversation_id=conv.id,
+                            direction="outbound",
+                            role="seller",
+                            content=content,
+                            message_type="text"
+                        )
+                        db.add(db_msg)
+                        await db.commit()
+                except Exception as e:
+                    logger.error(f"Error reenviando mensaje de Chatwoot a WhatsApp: {e}")
 
     elif event == "conversation_status_changed":
         conversation = payload.get("conversation")

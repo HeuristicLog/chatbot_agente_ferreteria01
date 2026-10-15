@@ -101,6 +101,14 @@ class FlowPayload(BaseModel):
     phone_number_id: Optional[str] = None
     access_token: Optional[str] = None
 
+class MediaPayload(BaseModel):
+    phone: str
+    media_type: str                  # image, video, document, audio
+    media_url: str
+    caption: Optional[str] = ""
+    phone_number_id: Optional[str] = None
+    access_token: Optional[str] = None
+
 # ─── Health ────────────────────────────────────────────────────
 
 @app.get("/health")
@@ -358,6 +366,33 @@ async def send_flow(payload: FlowPayload):
     if success:
         return {"status": "sent"}
     raise HTTPException(status_code=502, detail="No fue posible enviar el mensaje de WhatsApp Flow.")
+
+# ─── Send Media Message (Images, Videos, Audio, Docs) ───────────
+
+@app.post("/send/media", dependencies=[Depends(verify_internal_auth)])
+async def send_media(payload: MediaPayload):
+    if not hasattr(provider, "send_media_message"):
+        # Fallback: send as text with URL
+        text = f"{payload.caption}\n\n📎 {payload.media_url}" if payload.caption else payload.media_url
+        success = await provider.send_text_message(
+            payload.phone,
+            text,
+            phone_number_id=payload.phone_number_id,
+            access_token=payload.access_token
+        )
+    else:
+        success = await provider.send_media_message(
+            to_phone=payload.phone,
+            media_type=payload.media_type,
+            media_url=payload.media_url,
+            caption=payload.caption or "",
+            phone_number_id=payload.phone_number_id,
+            access_token=payload.access_token
+        )
+    _log_outbound(payload.phone, f"[{payload.media_type.upper()}] {payload.caption}")
+    if success:
+        return {"status": "sent"}
+    raise HTTPException(status_code=502, detail="No fue posible enviar el archivo multimedia.")
 
 # ─── Outbound Logs ─────────────────────────────────────────────
 

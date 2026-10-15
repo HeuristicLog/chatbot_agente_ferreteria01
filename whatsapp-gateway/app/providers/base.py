@@ -29,6 +29,11 @@ class WhatsAppProvider(ABC):
         pass
 
     @abstractmethod
+    async def send_media_message(self, to_phone: str, media_type: str, media_url: str, caption: str = "", **kwargs) -> bool:
+        """Envia un archivo multimedia (imagen, video, audio, documento)."""
+        pass
+
+    @abstractmethod
     async def mark_as_read(self, message_id: str) -> bool:
         """Marca un mensaje especifico como leido."""
         pass
