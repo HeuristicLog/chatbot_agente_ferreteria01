@@ -183,6 +183,17 @@ async def proxy_chatwoot_webhook(request: Request):
 
 # ─── Catalog Webview & API Proxy ───────────────────────────────
 
+@app.get("/vincular-qr", response_class=Response)
+async def proxy_vincular_qr():
+    url = f"{chatbot_api_url}/vincular-qr"
+    async with httpx.AsyncClient() as client:
+        try:
+            resp = await client.get(url, timeout=15.0)
+            return Response(content=resp.content, status_code=resp.status_code, media_type="text/html")
+        except Exception as e:
+            logger.error(f"Error proxying vincular-qr: {e}")
+            raise HTTPException(status_code=502, detail="Error cargando página de vinculación.")
+
 @app.get("/catalogo", response_class=Response)
 async def proxy_catalogo(request: Request):
     """Proxy the catalog HTML webview from backend with query parameters."""

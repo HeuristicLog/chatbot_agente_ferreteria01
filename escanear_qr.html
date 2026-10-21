@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Vincular WhatsApp - Mega Ferretería Bonilla</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-950 text-white min-h-screen flex flex-col items-center justify-center p-6">
+  <div class="max-w-lg w-full bg-slate-900 border border-slate-800 rounded-3xl p-8 shadow-2xl text-center">
+    
+    <div class="inline-flex items-center justify-center w-16 h-16 bg-emerald-500/10 text-emerald-400 rounded-2xl mb-4 border border-emerald-500/20">
+      <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path>
+      </svg>
+    </div>
+
+    <h1 class="text-2xl font-bold tracking-tight text-white mb-2">Vincular WhatsApp Business</h1>
+    <p class="text-sm text-slate-400 mb-6">Escanea este código con tu celular para conectar tu WhatsApp a <strong>Chatwoot</strong> y al <strong>Bot Castor</strong> sin desinstalar nada.</p>
+
+    <!-- QR Container -->
+    <div class="bg-white p-4 rounded-2xl inline-block shadow-inner mb-6 relative">
+      <img id="qr-image" src="" alt="Código QR WhatsApp" class="w-64 h-64 object-contain rounded-lg">
+      <div id="loading" class="absolute inset-0 bg-white/90 flex flex-col items-center justify-center rounded-2xl text-slate-800 font-medium">
+        <div class="w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mb-2"></div>
+        <span>Cargando código QR...</span>
+      </div>
+      <div id="connected" class="hidden absolute inset-0 bg-emerald-600 flex flex-col items-center justify-center rounded-2xl text-white font-bold p-4">
+        <svg class="w-16 h-16 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+        </svg>
+        <span class="text-xl">¡WhatsApp Conectado!</span>
+        <span class="text-xs text-emerald-100 font-normal mt-1">Ya puedes atender desde Chatwoot y tu celular.</span>
+      </div>
+    </div>
+
+    <!-- Instructions -->
+    <div class="bg-slate-800/50 rounded-2xl p-4 text-left border border-slate-800 mb-6 space-y-2 text-xs text-slate-300">
+      <div class="flex items-start space-x-3">
+        <span class="flex-shrink-0 w-5 h-5 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center font-bold">1</span>
+        <span>Abre <strong>WhatsApp Business</strong> en tu celular.</span>
+      </div>
+      <div class="flex items-start space-x-3">
+        <span class="flex-shrink-0 w-5 h-5 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center font-bold">2</span>
+        <span>Toca los <strong>3 puntos</strong> arriba a la derecha y selecciona <strong>Dispositivos vinculados</strong>.</span>
+      </div>
+      <div class="flex items-start space-x-3">
+        <span class="flex-shrink-0 w-5 h-5 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center font-bold">3</span>
+        <span>Toca <strong>Vincular un dispositivo</strong> y apunta tu cámara a este código.</span>
+      </div>
+    </div>
+
+    <!-- Status -->
+    <div class="text-xs text-slate-500 flex items-center justify-center space-x-2">
+      <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+      <span id="status-text">Actualizando código automáticamente cada 15s...</span>
+    </div>
+
+  </div>
+
+  <script>
+    const qrImg = document.getElementById('qr-image');
+    const loading = document.getElementById('loading');
+    const connectedDiv = document.getElementById('connected');
+    const statusText = document.getElementById('status-text');
+
+    async function checkStatus() {
+      try {
+        const resp = await fetch('http://localhost:8082/instance/connectionState/sucursal_centro', {
+          headers: { 'apikey': 'ferreteria_evolution_key_2026' }
+        });
+        const data = await resp.json();
+        if (data.instance && data.instance.state === 'open') {
+          connectedDiv.classList.remove('hidden');
+          loading.classList.add('hidden');
+          statusText.innerText = 'Dispositivo vinculado con éxito.';
+          return true;
+        }
+      } catch (e) {
+        console.error(e);
+      }
+      return false;
+    }
+
+    async function loadQR() {
+      const isConnected = await checkStatus();
+      if (isConnected) return;
+
+      try {
+        const resp = await fetch('http://localhost:8082/instance/connect/sucursal_centro', {
+          headers: { 'apikey': 'ferreteria_evolution_key_2026' }
+        });
+        const data = await resp.json();
+        if (data.base64) {
+          qrImg.src = data.base64;
+          loading.classList.add('hidden');
+        } else if (data.instance && data.instance.state === 'open') {
+          connectedDiv.classList.remove('hidden');
+          loading.classList.add('hidden');
+        }
+      } catch (err) {
+        console.error('Error cargando QR:', err);
+      }
+    }
+
+    loadQR();
+    setInterval(loadQR, 15000);
+  </script>
+</body>
+</html>

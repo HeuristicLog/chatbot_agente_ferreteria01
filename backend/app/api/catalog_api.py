@@ -1003,3 +1003,18 @@ CATALOG_HTML_TEMPLATE = """<!DOCTYPE html>
 </body>
 </html>
 """
+
+@router.get("/vincular-qr", response_class=HTMLResponse)
+async def vincular_qr_page():
+    html_path = "/app/escanear_qr.html"
+    local_path = "C:/Users/User/Desktop/KEVIN/ChatbotFlowise/escanear_qr.html"
+    import os
+    if os.path.exists(html_path):
+        with open(html_path, "r", encoding="utf-8") as f:
+            return f.read()
+    elif os.path.exists(local_path):
+        with open(local_path, "r", encoding="utf-8") as f:
+            return f.read()
+    else:
+        return "<h1>Página de vinculación no encontrada</h1>"
+
