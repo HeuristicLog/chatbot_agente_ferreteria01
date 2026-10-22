@@ -305,3 +305,42 @@ class VehicleLead(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
+
+class VehicleCartItem(Base):
+    __tablename__ = "vehicle_cart_items"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    customer_phone = Column(String(50), nullable=False, index=True)
+    vehicle_id = Column(UUID(as_uuid=True), ForeignKey("vehicles.id", ondelete="CASCADE"), nullable=False)
+    down_payment_percent = Column(Integer, nullable=False, default=20)
+    down_payment_amount = Column(Numeric(10, 2), nullable=False, default=0.0)
+    term_months = Column(Integer, nullable=False, default=48)
+    estimated_monthly_fee = Column(Numeric(10, 2), nullable=False, default=0.0)
+    status = Column(String(50), nullable=False, default="in_cart")          # in_cart, quoted, reserved
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+class VehicleQuote(Base):
+    __tablename__ = "vehicle_quotes"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    quote_code = Column(String(50), nullable=False, unique=True, index=True) # ej: COT-AUTO-1001
+    customer_phone = Column(String(50), nullable=False, index=True)
+    customer_name = Column(String(150), nullable=True, default="Cliente WhatsApp")
+    city = Column(String(100), nullable=True, default="Quito")
+    vehicle_id = Column(UUID(as_uuid=True), ForeignKey("vehicles.id", ondelete="SET NULL"), nullable=True)
+    vehicle_name = Column(String(200), nullable=False)
+    vehicle_price = Column(Numeric(10, 2), nullable=False)
+    down_payment = Column(Numeric(10, 2), nullable=False)
+    financed_amount = Column(Numeric(10, 2), nullable=False)
+    term_months = Column(Integer, nullable=False, default=48)
+    monthly_fee = Column(Numeric(10, 2), nullable=False)
+    insurance_included = Column(Boolean, nullable=False, default=True)
+    trade_in_used_car = Column(Boolean, nullable=False, default=False)
+    used_car_details = Column(Text, nullable=True)
+    status = Column(String(50), nullable=False, default="pendiente")         # pendiente, contactado, aprobado, entregado
+    chatwoot_conversation_id = Column(Integer, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+

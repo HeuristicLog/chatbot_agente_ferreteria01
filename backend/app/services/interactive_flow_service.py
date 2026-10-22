@@ -1,4 +1,4 @@
-"""
+﻿"""
 Interactive Flow Service
 Motor de flujos conversacionales interactivos para WhatsApp.
 Gestiona menús con botones, listas de selección y flujos guiados multi-paso.
@@ -187,20 +187,22 @@ async def send_welcome_menu(phone: str, internal_key: str, name: str = "", phone
     import os
     clean_phone = phone.replace("+", "").replace(" ", "").strip()
     ngrok_url = os.getenv("CATALOG_BASE_URL", "https://usable-thorn-kabob.ngrok-free.dev")
-    catalog_url = f"{ngrok_url}/catalogo?phone={clean_phone}&sucursal=Centro"
+    catalog_url = f"{ngrok_url}/catalogo-autos?phone={clean_phone}&sucursal=Centro"
     
     greeting = f"¡Hola{' ' + name if name else ''}! 😊"
     body = (
-        f"{greeting} Soy *Castor* 🦫, el asistente virtual de *Ferretería Castor*.\n\n"
-        "Toca el botón *🛍️ Abrir Catálogo y Carrito* para explorar nuestra tienda completa con fotos, buscador en vivo y realizar tu pedido sin salir de WhatsApp:"
+        f"{greeting} Te damos la bienvenida a *AutoEcuador Motors* 🇪🇨, tu concesionario multimarca oficial.\n\n"
+        "Soy *Alex*, tu asesor comercial inteligente para vehículos nuevos y seminuevos.\n\n"
+
+        "Toca el botón *🚘 Explorar Vitrina & Cotizador* para ver los modelos 2026 con fotos reales, simular tu crédito en vivo y reservar tu Test Drive sin salir de WhatsApp:"
     )
     await _send_cta_url(
         phone=phone,
         body=body,
-        display_text="🛍️ Abrir Catálogo",
+        display_text="🚘 Explorar Vitrina",
         url=catalog_url,
-        header="🛠️ Ferretería Castor",
-        footer="Tienda Oficial • Pedidos 24/7",
+        header="🚗 AutoEcuador Motors",
+        footer="Concesionario Oficial • Financiamiento 24/7",
         internal_key=internal_key,
         phone_number_id=phone_number_id
     )
@@ -210,7 +212,7 @@ async def send_main_menu(phone: str, internal_key: str, phone_number_id: Optiona
     import os
     clean_phone = phone.replace("+", "").replace(" ", "").strip()
     ngrok_url = os.getenv("CATALOG_BASE_URL", "https://usable-thorn-kabob.ngrok-free.dev")
-    catalog_url = f"{ngrok_url}/catalogo?phone={clean_phone}&sucursal=Centro"
+    catalog_url = f"{ngrok_url}/catalogo-autos?phone={clean_phone}&sucursal=Centro"
     
     body = (
         "¿En qué más te puedo ayudar? 🦫\n\n"
@@ -219,10 +221,10 @@ async def send_main_menu(phone: str, internal_key: str, phone_number_id: Optiona
     await _send_cta_url(
         phone=phone,
         body=body,
-        display_text="🛍️ Abrir Catálogo",
+        display_text="🚘 Explorar Vitrina",
         url=catalog_url,
-        header="🛠️ Ferretería Castor",
-        footer="Ferretería Castor",
+        header="🚗 AutoEcuador Motors",
+        footer="AutoEcuador Motors",
         internal_key=internal_key,
         phone_number_id=phone_number_id
     )
@@ -236,20 +238,20 @@ async def send_catalog_link(phone: str, internal_key: str, phone_number_id: Opti
     import os
     clean_phone = phone.replace("+", "").replace(" ", "").strip()
     ngrok_url = os.getenv("CATALOG_BASE_URL", "https://usable-thorn-kabob.ngrok-free.dev")
-    catalog_url = f"{ngrok_url}/catalogo?phone={clean_phone}&sucursal={sucursal or 'Centro'}"
+    catalog_url = f"{ngrok_url}/catalogo-autos?phone={clean_phone}&sucursal={sucursal or 'Centro'}"
     
     body = (
-        "¡Bienvenido a la tienda virtual de *Ferretería Castor*! 🦫✨\n\n"
-        "Toca el botón *🛍️ Abrir Catálogo* para explorar todos los productos con fotos, buscador y carrito de compras sin salir de WhatsApp:"
+        "¡Bienvenido a la tienda virtual de *AutoEcuador Motors*! 🦫✨\n\n"
+        "Toca el botón *🚘 Explorar Vitrina* para explorar todos los productos con fotos, buscador y carrito de compras sin salir de WhatsApp:"
     )
     
     await _send_cta_url(
         phone=phone,
         body=body,
-        display_text="🛍️ Abrir Catálogo",
+        display_text="🚘 Explorar Vitrina",
         url=catalog_url,
-        header="🛠️ Ferretería Castor",
-        footer="Tienda Oficial • Pedidos 24/7",
+        header="🚗 AutoEcuador Motors",
+        footer="Concesionario Oficial • Financiamiento 24/7",
         internal_key=internal_key,
         phone_number_id=phone_number_id
     )
@@ -570,7 +572,7 @@ async def send_ai_response_with_menu(phone: str, ai_text: str, internal_key: str
         phone=phone,
         body=ai_text,
         buttons=buttons,
-        footer="Castor • Asistente Virtual",
+        footer="AutoEcuador Motors • Asesor Virtual",
         internal_key=internal_key,
         phone_number_id=phone_number_id
     )

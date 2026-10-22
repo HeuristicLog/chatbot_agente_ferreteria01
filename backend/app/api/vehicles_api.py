@@ -1,23 +1,29 @@
 """
 Vehicles API Router — Auto Dealership Ecuador (2026)
-Handles vehicle catalog queries, financing simulations, and lead tracking from WhatsApp and the mobile webview.
+Handles vehicle catalog queries, financing simulations, in-app garage/cart, and quote tracking from WhatsApp and the mobile webview.
 """
 import logging
 import os
 import uuid
+from decimal import Decimal
 from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import HTMLResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy import delete
 from pydantic import BaseModel
+import httpx
 
 from app.db.session import get_db_session
-from app.db.tables import Vehicle, VehicleLead
+from app.db.tables import Vehicle, VehicleLead, VehicleCartItem, VehicleQuote
 from app.services.chatwoot_service import ChatwootService
+from app.config import settings
 
 logger = logging.getLogger("backend.api.vehicles")
 router = APIRouter()
+
+GATEWAY_URL = "http://whatsapp-gateway:8090"
 
 # ── Schemas ─────────────────────────────────────────────────────────────
 
@@ -31,6 +37,27 @@ class VehicleLeadCreate(BaseModel):
     term_months: Optional[int] = 48
     test_drive_requested: Optional[bool] = False
     notes: Optional[str] = None
+
+class VehicleCartItemCreate(BaseModel):
+    customer_phone: str
+    vehicle_code: str
+    down_payment_percent: Optional[int] = 20
+    down_payment_amount: Optional[float] = 0.0
+    term_months: Optional[int] = 48
+    estimated_monthly_fee: Optional[float] = 0.0
+
+class VehicleQuoteCreate(BaseModel):
+    customer_phone: str
+    customer_name: Optional[str] = "Cliente WhatsApp"
+    city: Optional[str] = "Quito"
+    vehicle_code: str
+    down_payment_percent: Optional[int] = 20
+    down_payment_amount: float
+    term_months: int = 48
+    monthly_fee: float
+    insurance_included: bool = True
+    trade_in_used_car: bool = False
+    used_car_details: Optional[str] = None
 
 
 # ── Webview Endpoint ───────────────────────────────────────────────────
@@ -151,69 +178,191 @@ async def get_vehicle_by_code(code: str, db: AsyncSession = Depends(get_db_sessi
     }
 
 
-# ── Leads & Interacción Seguimiento ───────────────────────────────────
+# ── Garaje / Carrito de Cotización en Base de Datos ─────────────────────
 
-@router.post("/api/v1/vehicles/lead", tags=["Vehículos Ecuador"])
-async def create_vehicle_lead(payload: VehicleLeadCreate, db: AsyncSession = Depends(get_db_session)):
-    """Registra una cotización o solicitud de Test Drive en la base de datos y la sincroniza con Chatwoot."""
-    clean_phone = payload.customer_phone.replace("+", "").strip()
-    phone_hash = str(uuid.uuid5(uuid.NAMESPACE_DNS, clean_phone))
+@router.get("/api/v1/vehicles/cart/{phone}", tags=["Vehículos Ecuador - Garaje"])
+async def get_customer_garage(phone: str, db: AsyncSession = Depends(get_db_session)):
+    """Obtiene los vehículos guardados en el garaje/carrito del cliente."""
+    clean_phone = phone.replace("+", "").replace(" ", "").strip()
+    query = select(VehicleCartItem, Vehicle).join(Vehicle, VehicleCartItem.vehicle_id == Vehicle.id).where(
+        VehicleCartItem.customer_phone == clean_phone,
+        VehicleCartItem.status == "in_cart"
+    ).order_by(VehicleCartItem.created_at.desc())
+    
+    result = await db.execute(query)
+    rows = result.all()
+    
+    cart_items = []
+    for cart_item, vehicle in rows:
+        cart_items.append({
+            "item_id": str(cart_item.id),
+            "vehicle_code": vehicle.code,
+            "brand": vehicle.brand,
+            "model": vehicle.model,
+            "year": vehicle.year,
+            "body_type": vehicle.body_type,
+            "image_url": vehicle.image_url,
+            "price_usd": float(vehicle.price_usd),
+            "down_payment_percent": cart_item.down_payment_percent,
+            "down_payment_amount": float(cart_item.down_payment_amount),
+            "term_months": cart_item.term_months,
+            "estimated_monthly_fee": float(cart_item.estimated_monthly_fee),
+            "created_at": cart_item.created_at.isoformat() if cart_item.created_at else None
+        })
+        
+    return {"status": "success", "count": len(cart_items), "items": cart_items}
 
-    vehicle_id = None
-    model_name = None
-    if payload.vehicle_code:
-        v_res = await db.execute(select(Vehicle).where(Vehicle.code == payload.vehicle_code))
-        veh = v_res.scalar_one_or_none()
-        if veh:
-            vehicle_id = veh.id
-            model_name = f"{veh.brand} {veh.model}"
 
-    lead_code = f"LEAD-AUTO-{uuid.uuid4().hex[:6].upper()}"
-
-    lead = VehicleLead(
-        lead_code=lead_code,
-        customer_phone=clean_phone,
-        phone_hash=phone_hash,
-        customer_name=payload.customer_name,
-        city=payload.city,
-        interested_vehicle_id=vehicle_id,
-        interested_model_name=model_name or "Modelo por definir",
-        quote_type=payload.quote_type,
-        down_payment_offered=payload.down_payment_offered,
-        term_months=payload.term_months,
-        test_drive_requested=payload.test_drive_requested,
-        status="nuevo",
-        notes=payload.notes
+@router.post("/api/v1/vehicles/cart", tags=["Vehículos Ecuador - Garaje"])
+async def add_to_customer_garage(payload: VehicleCartItemCreate, db: AsyncSession = Depends(get_db_session)):
+    """Guarda un vehículo con su configuración de cuota en el garaje del cliente."""
+    clean_phone = payload.customer_phone.replace("+", "").replace(" ", "").strip()
+    
+    v_res = await db.execute(select(Vehicle).where(Vehicle.code == payload.vehicle_code))
+    vehicle = v_res.scalar_one_or_none()
+    if not vehicle:
+        raise HTTPException(status_code=404, detail="Vehículo no encontrado.")
+        
+    # Verificar si ya existe en su garaje
+    existing_res = await db.execute(
+        select(VehicleCartItem).where(
+            VehicleCartItem.customer_phone == clean_phone,
+            VehicleCartItem.vehicle_id == vehicle.id,
+            VehicleCartItem.status == "in_cart"
+        )
     )
-
-    db.add(lead)
+    existing = existing_res.scalar_one_or_none()
+    
+    if existing:
+        existing.down_payment_percent = payload.down_payment_percent
+        existing.down_payment_amount = Decimal(str(payload.down_payment_amount))
+        existing.term_months = payload.term_months
+        existing.estimated_monthly_fee = Decimal(str(payload.estimated_monthly_fee))
+        await db.commit()
+        return {"status": "updated", "message": f"{vehicle.brand} {vehicle.model} actualizado en tu garaje."}
+    
+    new_item = VehicleCartItem(
+        customer_phone=clean_phone,
+        vehicle_id=vehicle.id,
+        down_payment_percent=payload.down_payment_percent,
+        down_payment_amount=Decimal(str(payload.down_payment_amount)),
+        term_months=payload.term_months,
+        estimated_monthly_fee=Decimal(str(payload.estimated_monthly_fee)),
+        status="in_cart"
+    )
+    db.add(new_item)
     await db.commit()
-    await db.refresh(lead)
+    
+    return {"status": "added", "message": f"{vehicle.brand} {vehicle.model} agregado a tu garaje."}
 
-    # Notificar y registrar en Chatwoot para auditoría del Gerente
+
+@router.delete("/api/v1/vehicles/cart/{item_id}", tags=["Vehículos Ecuador - Garaje"])
+async def remove_from_customer_garage(item_id: str, db: AsyncSession = Depends(get_db_session)):
+    """Elimina un vehículo del garaje/carrito."""
+    try:
+        uid = uuid.UUID(item_id)
+        await db.execute(delete(VehicleCartItem).where(VehicleCartItem.id == uid))
+        await db.commit()
+        return {"status": "deleted", "message": "Vehículo removido del garaje."}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+# ── Cotizaciones Formales & Notificación Automática ────────────────────
+
+@router.post("/api/v1/vehicles/quote", tags=["Vehículos Ecuador - Cotizaciones"])
+async def submit_formal_quote(payload: VehicleQuoteCreate, db: AsyncSession = Depends(get_db_session)):
+    """
+    Crea una cotización formal en la base de datos, envía confirmación a WhatsApp 
+    y la sincroniza con el panel de Chatwoot para auditoría del Gerente y seguimiento comercial.
+    """
+    clean_phone = payload.customer_phone.replace("+", "").replace(" ", "").strip()
+    
+    v_res = await db.execute(select(Vehicle).where(Vehicle.code == payload.vehicle_code))
+    vehicle = v_res.scalar_one_or_none()
+    if not vehicle:
+        raise HTTPException(status_code=404, detail="Vehículo no encontrado.")
+        
+    quote_code = f"COT-AUTO-{uuid.uuid4().hex[:6].upper()}"
+    total_price = Decimal(str(vehicle.price_usd))
+    down_payment = Decimal(str(payload.down_payment_amount))
+    financed_amount = total_price - down_payment
+    
+    quote = VehicleQuote(
+        quote_code=quote_code,
+        customer_phone=clean_phone,
+        customer_name=payload.customer_name or "Cliente WhatsApp",
+        city=payload.city or "Quito",
+        vehicle_id=vehicle.id,
+        vehicle_name=f"{vehicle.brand} {vehicle.model} ({vehicle.year})",
+        vehicle_price=total_price,
+        down_payment=down_payment,
+        financed_amount=financed_amount,
+        term_months=payload.term_months,
+        monthly_fee=Decimal(str(payload.monthly_fee)),
+        insurance_included=payload.insurance_included,
+        trade_in_used_car=payload.trade_in_used_car,
+        used_car_details=payload.used_car_details,
+        status="pendiente"
+    )
+    
+    db.add(quote)
+    await db.commit()
+    await db.refresh(quote)
+    
+    # 1. Enviar mensaje de confirmación a WhatsApp del cliente
+    whatsapp_message = (
+        f"🚗 *¡Cotización Oficial Generada con Éxito!*\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"📋 *Código de Cotización:* `{quote_code}`\n"
+        f"👤 *Cliente:* {payload.customer_name}\n"
+        f"📍 *Ciudad:* {payload.city}\n\n"
+        f"🚘 *Vehículo:* {vehicle.brand} {vehicle.model} ({vehicle.year})\n"
+        f"💵 *Precio con IVA (15%):* ${float(total_price):,.2f} USD\n"
+        f"💰 *Entrada propuesta:* ${float(down_payment):,.2f} ({payload.down_payment_percent}%)\n"
+        f"📅 *Plazo:* {payload.term_months} meses\n"
+        f"📊 *Cuota estimada:* ${float(payload.monthly_fee):,.2f} / mes\n"
+        f"🛡️ *Seguro Todo Riesgo:* {'Incluido con GPS' if payload.insurance_included else 'No incluido'}\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"✨ Tu solicitud de crédito ya está siendo procesada con nuestros bancos aliados (Banco Pichincha, Guayaquil, Produbanco).\n\n"
+        f"Un asesor comercial se comunicará contigo en breve para coordinar tu *Prueba de Manejo (Test Drive)*."
+    )
+    
+    try:
+        headers = {"X-Internal-API-Key": settings.INTERNAL_API_KEY}
+        gw_payload = {"phone": clean_phone, "message": whatsapp_message}
+        async with httpx.AsyncClient() as client:
+            await client.post(f"{GATEWAY_URL}/send", json=gw_payload, headers=headers, timeout=8.0)
+    except Exception as gw_err:
+        logger.error(f"Error enviando confirmación de cotización por WhatsApp: {gw_err}")
+
+    # 2. Sincronizar en Chatwoot para auditoría del Gerente
     try:
         cw = ChatwootService()
         if cw.is_configured:
-            contact_id = await cw.get_or_create_contact(clean_phone, payload.customer_name or f"Lead {clean_phone}")
+            contact_id = await cw.get_or_create_contact(clean_phone, payload.customer_name or f"Cliente {clean_phone}")
             if contact_id:
                 cw_conv_id = await cw.get_or_create_conversation(contact_id)
                 if cw_conv_id:
-                    note = f"🚗 NUEVO LEAD AUTOMOTRIZ:\n" \
-                           f"• Código: {lead_code}\n" \
-                           f"• Vehículo: {model_name or 'No especificado'}\n" \
-                           f"• Tipo: {payload.quote_type}\n" \
-                           f"• Entrada: ${payload.down_payment_offered or 0}\n" \
-                           f"• Test Drive: {'SÍ' if payload.test_drive_requested else 'No'}\n" \
-                           f"• Ciudad: {payload.city}"
+                    note = (
+                        f"🚗 *NUEVA COTIZACIÓN AUTOMOTRIZ GENERADA*\n"
+                        f"• Código: {quote_code}\n"
+                        f"• Auto: {vehicle.brand} {vehicle.model} ({vehicle.year})\n"
+                        f"• Precio: ${float(total_price):,.2f} USD\n"
+                        f"• Entrada: ${float(down_payment):,.2f} | Plazo: {payload.term_months}m\n"
+                        f"• Cuota: ${float(payload.monthly_fee):,.2f}/mes\n"
+                        f"• Retoma auto usado: {'SÍ: ' + (payload.used_car_details or '') if payload.trade_in_used_car else 'No'}\n"
+                        f"• Ciudad: {payload.city}"
+                    )
                     await cw.post_message(cw_conv_id, note, message_type="incoming")
-                    lead.chatwoot_conversation_id = cw_conv_id
+                    quote.chatwoot_conversation_id = cw_conv_id
                     await db.commit()
-    except Exception as e:
-        logger.error(f"Error sincronizando lead con Chatwoot: {e}")
+    except Exception as cw_err:
+        logger.error(f"Error sincronizando cotización con Chatwoot: {cw_err}")
 
     return {
         "status": "success",
-        "lead_code": lead_code,
-        "message": f"Lead registrado con éxito para {model_name or 'vehículo'}.",
-        "lead_id": str(lead.id)
+        "quote_code": quote_code,
+        "message": "Cotización guardada exitosamente y enviada a tu WhatsApp.",
+        "quote_id": str(quote.id)
     }

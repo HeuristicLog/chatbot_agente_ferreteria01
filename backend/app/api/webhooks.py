@@ -1,4 +1,4 @@
-"""
+﻿"""
 WhatsApp Webhook Router — Interactive Flow Engine
 Handles both text messages and interactive button/list replies.
 Routes to guided flows or Flowise AI for free-text questions.
@@ -443,6 +443,13 @@ async def receive_incoming_message(
         await flows.handle_order_result(payload.phone, sanitized, internal_api_key, redis_client, phone_number_id=dest_phone_number_id)
         await save_message(db, conv.id, "outbound", "assistant", f"Consulta de pedido {sanitized}")
         return {"status": "processed"}
+
+    # ── 4.5 Asistente Comercial Automotriz Inteligente (AutoEcuador Motors) ──
+    from app.services.auto_sales_assistant import process_auto_sales_message
+    handled = await process_auto_sales_message(payload.phone, sanitized, db, redis_client, internal_api_key, phone_number_id=dest_phone_number_id)
+    if handled:
+        await save_message(db, conv.id, "outbound", "assistant", "Respuesta comercial automotriz enviada")
+        return {"status": "processed", "session_id": session_id}
 
     # ── 5. Free-text → Flowise AI ─────────────────────────────
     ai_response = await flowise_service.get_prediction(sanitized, session_id, phone=payload.phone)
