@@ -91,6 +91,8 @@ services:
       - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-chatbot}:${POSTGRES_PASSWORD:-change_me}@postgres:5432/${POSTGRES_DB:-ferreteria_chatbot}
     ports:
       - "8081:8080"
+    volumes:
+      - ./mock-logistics-api/app:/app/app
     networks:
       - ferreteria-net
     depends_on:
@@ -138,6 +140,12 @@ services:
       - CHATWOOT_API_TOKEN=${CHATWOOT_API_TOKEN:-}
       - CHATWOOT_ACCOUNT_ID=${CHATWOOT_ACCOUNT_ID:-1}
       - CHATWOOT_INBOX_ID=${CHATWOOT_INBOX_ID:-1}
+      - WHATSAPP_PROVIDER=${WHATSAPP_PROVIDER:-mock}
+      - WHATSAPP_ACCESS_TOKEN=${WHATSAPP_ACCESS_TOKEN:-}
+      - WHATSAPP_PHONE_NUMBER_ID=${WHATSAPP_PHONE_NUMBER_ID:-}
+      - WHATSAPP_BUSINESS_ACCOUNT_ID=${WHATSAPP_BUSINESS_ACCOUNT_ID:-}
+      - WHATSAPP_VERIFY_TOKEN=${WHATSAPP_VERIFY_TOKEN:-}
+      - WHATSAPP_FLOW_ID=${WHATSAPP_FLOW_ID:-2881017522260067}
       - WHATSAPP_INBOX_MAPPING=${WHATSAPP_INBOX_MAPPING:-{}}
     ports:
       - "8085:8080"
@@ -175,6 +183,8 @@ services:
       - WHATSAPP_VERIFY_TOKEN=${WHATSAPP_VERIFY_TOKEN:-}
       - WHATSAPP_ACCESS_TOKEN=${WHATSAPP_ACCESS_TOKEN:-}
       - WHATSAPP_PHONE_NUMBER_ID=${WHATSAPP_PHONE_NUMBER_ID:-}
+      - WHATSAPP_BUSINESS_ACCOUNT_ID=${WHATSAPP_BUSINESS_ACCOUNT_ID:-}
+      - WHATSAPP_FLOW_ID=${WHATSAPP_FLOW_ID:-2881017522260067}
       - REDIS_URL=redis://redis:6379/0
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
     ports:
@@ -202,6 +212,18 @@ services:
       - ferreteria-net
     depends_on:
       - whatsapp-gateway
+
+  castor-flutter-app:
+    image: castor-flutter-app:latest
+    build:
+      context: ./flutter_castor_app
+      dockerfile: Dockerfile
+    container_name: castor-app
+    restart: unless-stopped
+    ports:
+      - "8092:80"
+    networks:
+      - ferreteria-net
 
   frontend-admin:
     build:
@@ -281,4 +303,31 @@ services:
       postgres:
         condition: service_healthy
       redis:
+        condition: service_healthy
+  evolution-api:
+    image: evoapicloud/evolution-api:latest
+    container_name: evolution-api
+    restart: unless-stopped
+    ports:
+      - "8082:8080"
+    environment:
+      - SERVER_URL=http://localhost:8082
+      - AUTHENTICATION_API_KEY=ferreteria_evolution_key_2026
+      - DATABASE_PROVIDER=postgresql
+      - DATABASE_CONNECTION_URI=postgresql://chatbot:change_me@postgres:5432/evolution?schema=public
+      - DATABASE_CONNECTION_CLIENT_NAME=evolution_db
+      - DATABASE_SAVE_DATA_INSTANCE=true
+      - DATABASE_SAVE_DATA_NEW_MESSAGE=true
+      - DATABASE_SAVE_MESSAGE_UPDATE=true
+      - DATABASE_SAVE_DATA_CONTACTS=true
+      - DATABASE_SAVE_DATA_CHATS=true
+      - REDIS_ENABLED=false
+      - CACHE_REDIS_ENABLED=false
+      - CHATWOOT_ENABLED=true
+      - WEBHOOK_GLOBAL_ENABLED=true
+      - WEBHOOK_GLOBAL_URL=http://backend:8080/webhooks/whatsapp
+    networks:
+      - ferreteria-net
+    depends_on:
+      postgres:
         condition: service_healthy

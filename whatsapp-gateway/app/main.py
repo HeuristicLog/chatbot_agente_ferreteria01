@@ -101,6 +101,14 @@ class FlowPayload(BaseModel):
     phone_number_id: Optional[str] = None
     access_token: Optional[str] = None
 
+class MediaPayload(BaseModel):
+    phone: str
+    media_type: str                  # image, video, document, audio
+    media_url: str
+    caption: Optional[str] = ""
+    phone_number_id: Optional[str] = None
+    access_token: Optional[str] = None
+
 # ─── Health ────────────────────────────────────────────────────
 
 @app.get("/health")
@@ -171,6 +179,60 @@ async def proxy_chatwoot_webhook(request: Request):
         except Exception as e:
             logger.error(f"Error forwarding Chatwoot webhook: {str(e)}")
             raise HTTPException(status_code=502, detail="Error forwarding Chatwoot webhook to Backend.")
+
+
+# ─── Catalog Webview & API Proxy ───────────────────────────────
+
+@app.get("/vincular-qr", response_class=Response)
+async def proxy_vincular_qr():
+    url = f"{chatbot_api_url}/vincular-qr"
+    async with httpx.AsyncClient() as client:
+        try:
+            resp = await client.get(url, timeout=15.0)
+            return Response(content=resp.content, status_code=resp.status_code, media_type="text/html")
+        except Exception as e:
+            logger.error(f"Error proxying vincular-qr: {e}")
+            raise HTTPException(status_code=502, detail="Error cargando página de vinculación.")
+
+@app.get("/catalogo", response_class=Response)
+async def proxy_catalogo(request: Request):
+    """Proxy the catalog HTML webview from backend with query parameters."""
+    query_str = str(request.url.query)
+    url = f"{chatbot_api_url}/catalogo"
+    if query_str:
+        url += f"?{query_str}"
+    async with httpx.AsyncClient() as client:
+        try:
+            resp = await client.get(url, timeout=15.0)
+            return Response(content=resp.content, status_code=resp.status_code, media_type=resp.headers.get("content-type", "text/html"))
+        except Exception as e:
+            logger.error(f"Error proxying catalog webview: {e}")
+            raise HTTPException(status_code=502, detail="Error cargando catálogo.")
+
+@app.api_route("/api/catalog/{path:path}", methods=["GET", "POST", "PUT", "DELETE"])
+async def proxy_catalog_api(path: str, request: Request):
+    """Proxy catalog REST API requests to backend."""
+    url = f"{chatbot_api_url}/api/catalog/{path}"
+    query_str = str(request.url.query)
+    if query_str:
+        url += f"?{query_str}"
+    body = await request.body()
+    headers = dict(request.headers)
+    headers.pop("host", None)
+    headers.pop("content-length", None)
+    async with httpx.AsyncClient() as client:
+        try:
+            resp = await client.request(
+                method=request.method,
+                url=url,
+                content=body,
+                headers=headers,
+                timeout=15.0
+            )
+            return Response(content=resp.content, status_code=resp.status_code, media_type=resp.headers.get("content-type", "application/json"))
+        except Exception as e:
+            logger.error(f"Error proxying catalog API: {e}")
+            raise HTTPException(status_code=502, detail="Error en API de catálogo.")
 
 
 # ─── Send Text ─────────────────────────────────────────────────
@@ -315,6 +377,33 @@ async def send_flow(payload: FlowPayload):
     if success:
         return {"status": "sent"}
     raise HTTPException(status_code=502, detail="No fue posible enviar el mensaje de WhatsApp Flow.")
+
+# ─── Send Media Message (Images, Videos, Audio, Docs) ───────────
+
+@app.post("/send/media", dependencies=[Depends(verify_internal_auth)])
+async def send_media(payload: MediaPayload):
+    if not hasattr(provider, "send_media_message"):
+        # Fallback: send as text with URL
+        text = f"{payload.caption}\n\n📎 {payload.media_url}" if payload.caption else payload.media_url
+        success = await provider.send_text_message(
+            payload.phone,
+            text,
+            phone_number_id=payload.phone_number_id,
+            access_token=payload.access_token
+        )
+    else:
+        success = await provider.send_media_message(
+            to_phone=payload.phone,
+            media_type=payload.media_type,
+            media_url=payload.media_url,
+            caption=payload.caption or "",
+            phone_number_id=payload.phone_number_id,
+            access_token=payload.access_token
+        )
+    _log_outbound(payload.phone, f"[{payload.media_type.upper()}] {payload.caption}")
+    if success:
+        return {"status": "sent"}
+    raise HTTPException(status_code=502, detail="No fue posible enviar el archivo multimedia.")
 
 # ─── Outbound Logs ─────────────────────────────────────────────
 

@@ -99,6 +99,24 @@ async def _gateway_send_text(phone: str, message: str, phone_number_id: Optional
     except Exception as e:
         logger.error(f"Gateway send_text error: {e}")
 
+async def _gateway_send_media(phone: str, media_type: str, media_url: str, caption: str = "", phone_number_id: Optional[str] = None, access_token: Optional[str] = None):
+    headers = {"X-Internal-API-Key": internal_api_key}
+    payload = {
+        "phone": phone,
+        "media_type": media_type,
+        "media_url": media_url,
+        "caption": caption
+    }
+    if phone_number_id:
+        payload["phone_number_id"] = phone_number_id
+    if access_token:
+        payload["access_token"] = access_token
+    try:
+        async with httpx.AsyncClient() as client:
+            await client.post(f"{GATEWAY_URL}/send/media", json=payload, headers=headers, timeout=15.0)
+    except Exception as e:
+        logger.error(f"Gateway send_media error: {e}")
+
 # ─── MAIN WEBHOOK ──────────────────────────────────────────────
 
 @router.post("/webhooks/whatsapp", dependencies=[Depends(verify_internal_auth)])
@@ -141,7 +159,6 @@ async def receive_incoming_message(
     if chatwoot.is_configured:
         try:
             inbox_id = None
-            from app.config import settings
             mapping = settings.whatsapp_inbox_mapping or {}
             if dest_phone_number_id and dest_phone_number_id in mapping:
                 inbox_id = mapping[dest_phone_number_id].get("inbox_id")
@@ -166,7 +183,6 @@ async def receive_incoming_message(
         if conv.status == "waiting_agent":
             reply = "Tu solicitud sigue en espera. ✋ Pronto un asesor te atenderá. Gracias por tu paciencia."
             target_access_token = None
-            from app.config import settings
             mapping = settings.whatsapp_inbox_mapping or {}
             if dest_phone_number_id and dest_phone_number_id in mapping:
                 target_access_token = mapping[dest_phone_number_id].get("access_token")
@@ -188,14 +204,15 @@ async def receive_incoming_message(
             await save_message(db, conv.id, "outbound", "assistant", "Menú principal enviado")
             return {"status": "processed"}
 
-        # ── Flujo: Catálogo Emergente en WhatsApp (CTA URL Webview)
+        # ── Flujo: Catálogo Oficial Meta WhatsApp Flow (Pantalla emergente nativa con la 'X')
         if interactive_id == "flow_catalogo":
             await clear_flow_state(redis_client, payload.phone)
-            suc_name = "Centro"
-            if dest_phone_number_id and dest_phone_number_id in (settings.whatsapp_inbox_mapping or {}):
-                suc_name = settings.whatsapp_inbox_mapping[dest_phone_number_id].get("sucursal", "Centro")
-            await flows.send_catalog_link(payload.phone, internal_api_key, phone_number_id=dest_phone_number_id, sucursal=suc_name)
-            await save_message(db, conv.id, "outbound", "assistant", "Tarjeta de catálogo emergente enviada")
+            sent = await flows.send_catalog_flow(payload.phone, internal_api_key, phone_number_id=dest_phone_number_id)
+            if not sent:
+                # Fallback a lista interactiva nativa si Flow no se pudo enviar
+                from app.services import in_chat_cart_service as in_chat_cart
+                await in_chat_cart.send_categories_menu(payload.phone, internal_api_key, phone_number_id=dest_phone_number_id)
+            await save_message(db, conv.id, "outbound", "assistant", "Catálogo interactivo enviado")
             return {"status": "processed"}
 
         # ── Catálogo: Categorías
@@ -401,15 +418,23 @@ async def receive_incoming_message(
         await save_message(db, conv.id, "outbound", "assistant", "Menú de bienvenida enviado")
         return {"status": "processed"}
 
-    # Catálogo / Productos / Carrito Emergente en WhatsApp
-    catalog_keywords = ["catalogo", "catálogo", "productos", "inventario", "precios", "tienda", "carrito", "comprar", "lista de productos"]
+    # Catálogo / Productos / Tienda Meta WhatsApp Flow (Pantalla emergente nativa)
+    catalog_keywords = ["catalogo", "catálogo", "productos", "inventario", "precios", "tienda", "comprar", "lista de productos"]
     if any(k in clean_msg for k in catalog_keywords):
         await clear_flow_state(redis_client, payload.phone)
-        suc_name = "Centro"
-        if dest_phone_number_id and dest_phone_number_id in (settings.whatsapp_inbox_mapping or {}):
-            suc_name = settings.whatsapp_inbox_mapping[dest_phone_number_id].get("sucursal", "Centro")
-        await flows.send_catalog_link(payload.phone, internal_api_key, phone_number_id=dest_phone_number_id, sucursal=suc_name)
-        await save_message(db, conv.id, "outbound", "assistant", "Tarjeta de catálogo emergente enviada")
+        sent = await flows.send_catalog_flow(payload.phone, internal_api_key, phone_number_id=dest_phone_number_id)
+        if not sent:
+            from app.services import in_chat_cart_service as in_chat_cart
+            await in_chat_cart.send_categories_menu(payload.phone, internal_api_key, phone_number_id=dest_phone_number_id)
+        await save_message(db, conv.id, "outbound", "assistant", "Catálogo interactivo enviado")
+        return {"status": "processed"}
+
+    # Ver Carrito directo
+    if "carrito" in clean_msg or "mi carrito" in clean_msg:
+        await clear_flow_state(redis_client, payload.phone)
+        from app.services import in_chat_cart_service as in_chat_cart
+        await in_chat_cart.send_cart_view(payload.phone, redis_client, internal_api_key, phone_number_id=dest_phone_number_id)
+        await save_message(db, conv.id, "outbound", "assistant", "Vista de carrito enviada")
         return {"status": "processed"}
 
     # Código de Pedido directo (ej. CAST-2026-1024 o OP-101)
@@ -445,7 +470,6 @@ async def _do_handoff(phone: str, conv, db, redis_client, flowise_service: Flowi
         msg = "⚠️ No pudimos conectarte en este momento. Por favor intenta más tarde o llámanos directamente."
         
         target_access_token = None
-        from app.config import settings
         mapping = settings.whatsapp_inbox_mapping or {}
         if phone_number_id and phone_number_id in mapping:
             target_access_token = mapping[phone_number_id].get("access_token")
@@ -456,7 +480,6 @@ async def _do_handoff(phone: str, conv, db, redis_client, flowise_service: Flowi
     except Exception as e:
         logger.error(f"Handoff error: {e}")
         target_access_token = None
-        from app.config import settings
         mapping = settings.whatsapp_inbox_mapping or {}
         if phone_number_id and phone_number_id in mapping:
             target_access_token = mapping[phone_number_id].get("access_token")
@@ -497,7 +520,6 @@ async def chatwoot_webhook(
         # Reverse lookup phone_number_id and access_token based on Chatwoot inbox_id
         target_phone_number_id = None
         target_access_token = None
-        from app.config import settings
         mapping = settings.whatsapp_inbox_mapping or {}
         for pid, mapping_info in mapping.items():
             if mapping_info.get("inbox_id") == inbox_id:
@@ -518,55 +540,62 @@ async def chatwoot_webhook(
             sender = meta.get("sender", {}) if isinstance(meta, dict) else {}
             phone = sender.get("phone_number") if isinstance(sender, dict) else None
 
-        if phone and content:
-            # Limpiar el formato de teléfono (+593... -> 593...)
+        if phone:
             clean_phone = phone.replace("+", "").strip()
 
-            # Evitar bucles recursivos: Si la sesión está en estado bot_active o active, no reenviar.
+            # Cuando un asesor humano responde en Chatwoot, pasamos el estado a human_active para que el bot pause sus respuestas automáticas
             try:
                 from app.services.session_service import SessionService
                 session_id = SessionService.derive_session_id(clean_phone, target_phone_number_id)
                 from app.repositories.conversation_repository import ConversationRepository
                 repo = ConversationRepository(db)
                 conv = await repo.get_by_session_id(session_id)
-                if conv and conv.status in ["active", "bot_active"]:
-                    logger.info(f"Ignorando reenvío de Chatwoot a WhatsApp para {clean_phone} porque la sesión {session_id} está en estado {conv.status} (chatbot activo).")
-                    return {"status": "ignored_chatbot_active"}
-            except Exception as check_err:
-                logger.error(f"Error verificando estado de la conversación para evitar bucles: {check_err}")
-
-            logger.info(f"Reenvío de Chatwoot a WhatsApp ({clean_phone}, inbox: {inbox_id}, phone_number_id: {target_phone_number_id}): {content[:50]}...")
-
-            try:
-                # Enviar vía gateway con credenciales específicas de la sucursal
-                await _gateway_send_text(clean_phone, content, phone_number_id=target_phone_number_id, access_token=target_access_token, sync_to_chatwoot=False)
-
-                # Registrar mensaje localmente
-                from app.services.session_service import SessionService
-                from app.repositories.conversation_repository import ConversationRepository
-                from app.db.tables import Conversation, Message as DBMessage
-                from sqlalchemy import select
-
-                conv_repo = ConversationRepository(db)
-                session_service = SessionService(db, redis_client)
-                phone_hash = session_service.derive_phone_hash(clean_phone)
-
-                stmt = select(Conversation).where(Conversation.phone_hash == phone_hash).order_by(Conversation.last_activity_at.desc())
-                res = await db.execute(stmt)
-                conv = res.scalars().first()
-
                 if conv:
-                    db_msg = DBMessage(
-                        conversation_id=conv.id,
-                        direction="outbound",
-                        role="seller",
-                        content=content,
-                        message_type="text"
-                    )
-                    db.add(db_msg)
+                    conv.status = "human_active"
+                    db.add(conv)
                     await db.commit()
-            except Exception as e:
-                logger.error(f"Error reenviando mensaje de Chatwoot a WhatsApp: {e}")
+            except Exception as check_err:
+                logger.error(f"Error actualizando estado a human_active: {check_err}")
+
+            # 1. Reenvío de adjuntos multimedia (fotos, videos, audios, documentos)
+            attachments = payload.get("attachments", [])
+            has_sent_media = False
+            if attachments:
+                for att in attachments:
+                    file_url = att.get("data_url") or att.get("file_url")
+                    file_type = att.get("file_type", "image")
+                    if file_url:
+                        logger.info(f"Reenvío de adjunto Chatwoot ({file_type}) a WhatsApp ({clean_phone}): {file_url}")
+                        await _gateway_send_media(
+                            clean_phone,
+                            media_type=file_type,
+                            media_url=file_url,
+                            caption=content or "",
+                            phone_number_id=target_phone_number_id,
+                            access_token=target_access_token
+                        )
+                        has_sent_media = True
+
+            # 2. Reenvío de texto si no fue enviado como caption de adjunto
+            if content and not has_sent_media:
+                logger.info(f"Reenvío de Chatwoot a WhatsApp ({clean_phone}, inbox: {inbox_id}, phone_number_id: {target_phone_number_id}): {content[:50]}...")
+                try:
+                    await _gateway_send_text(clean_phone, content, phone_number_id=target_phone_number_id, access_token=target_access_token, sync_to_chatwoot=False)
+
+                    # Registrar mensaje localmente
+                    from app.db.tables import Message as DBMessage
+                    if conv:
+                        db_msg = DBMessage(
+                            conversation_id=conv.id,
+                            direction="outbound",
+                            role="seller",
+                            content=content,
+                            message_type="text"
+                        )
+                        db.add(db_msg)
+                        await db.commit()
+                except Exception as e:
+                    logger.error(f"Error reenviando mensaje de Chatwoot a WhatsApp: {e}")
 
     elif event == "conversation_status_changed":
         conversation = payload.get("conversation")
@@ -581,7 +610,6 @@ async def chatwoot_webhook(
             # Reverse lookup phone_number_id and access_token based on Chatwoot inbox_id
             target_phone_number_id = None
             target_access_token = None
-            from app.config import settings
             mapping = settings.whatsapp_inbox_mapping or {}
             for pid, mapping_info in mapping.items():
                 if mapping_info.get("inbox_id") == inbox_id:

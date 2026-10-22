@@ -83,3 +83,16 @@ app.include_router(agent_api.router, tags=["Agent Console APIs"])
 app.include_router(chat_api.router, tags=["Chat Façade APIs"])
 app.include_router(catalog_api.router, tags=["Catalog & Orders"])
 
+@app.get("/", tags=["Root"])
+async def root():
+    return {
+        "service": "Ferretería Castor - Backend Integration API",
+        "status": "online",
+        "version": "2.0.0",
+        "docs": "/docs",
+        "health": "/health",
+        "catalog_webview": "/catalogo",
+        "flutter_app": "http://localhost:8092",
+        "simulator": "http://localhost:8090"
+    }
+

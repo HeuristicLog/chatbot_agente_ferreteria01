@@ -19,6 +19,15 @@ class MetaWhatsAppProvider(WhatsAppProvider):
         
         entry = raw_payload.get("entry", [])
         if not entry:
+            if "phone" in raw_payload and "message" in raw_payload:
+                import datetime
+                return [IncomingMessage(
+                    phone=str(raw_payload["phone"]),
+                    message=str(raw_payload["message"]),
+                    message_id=str(raw_payload.get("message_id", f"msg-{int(datetime.datetime.now().timestamp())}")),
+                    timestamp=raw_payload.get("timestamp", datetime.datetime.now().isoformat()),
+                    metadata=raw_payload.get("metadata", {})
+                )]
             return messages
             
         for e in entry:
@@ -329,6 +338,39 @@ class MetaWhatsAppProvider(WhatsAppProvider):
         """Legacy: send up to 3 buttons from a list of strings."""
         buttons = [{"id": f"opt_{i}", "title": opt} for i, opt in enumerate(options[:3])]
         return await self.send_interactive_buttons(to_phone, message, buttons, **kwargs)
+
+    async def send_media_message(self, to_phone: str, media_type: str, media_url: str, caption: str = "", **kwargs) -> bool:
+        """Send media (image, video, document, audio) via Meta Cloud API."""
+        phone_number_id = kwargs.get("phone_number_id") or self.phone_number_id
+        access_token = kwargs.get("access_token") or self.access_token
+        api_url = f"https://graph.facebook.com/v20.0/{phone_number_id}/messages"
+        headers = {
+            "Authorization": f"Bearer {access_token}",
+            "Content-Type": "application/json"
+        }
+        valid_type = media_type.lower() if media_type.lower() in ["image", "video", "document", "audio"] else "image"
+        media_payload: Dict[str, Any] = {"link": media_url}
+        if caption and valid_type in ["image", "video", "document"]:
+            media_payload["caption"] = caption
+
+        payload = {
+            "messaging_product": "whatsapp",
+            "recipient_type": "individual",
+            "to": to_phone,
+            "type": valid_type,
+            valid_type: media_payload
+        }
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.post(api_url, json=payload, headers=headers, timeout=15.0)
+                if response.status_code in [200, 201]:
+                    logger.info(f"Meta media ({valid_type}) sent to {to_phone} via phone_number_id {phone_number_id}")
+                    return True
+                logger.error(f"Failed to send Meta media: {response.status_code} - {response.text}")
+                return False
+        except Exception as e:
+            logger.error(f"Error sending Meta media message: {str(e)}")
+            return False
 
     async def mark_as_read(self, message_id: str) -> bool:
         headers = {

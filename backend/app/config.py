@@ -48,6 +48,12 @@ class Settings(BaseSettings):
     CHATWOOT_API_TOKEN: str = Field("")
     CHATWOOT_ACCOUNT_ID: int = Field(1)
     CHATWOOT_INBOX_ID: int = Field(1)
+    # WhatsApp Meta Cloud API
+    WHATSAPP_PROVIDER: str = Field("mock")
+    WHATSAPP_ACCESS_TOKEN: str = Field("")
+    WHATSAPP_PHONE_NUMBER_ID: str = Field("")
+    WHATSAPP_BUSINESS_ACCOUNT_ID: str = Field("")
+    WHATSAPP_VERIFY_TOKEN: str = Field("")
     WHATSAPP_FLOW_ID: str = Field("2881017522260067")
     WHATSAPP_INBOX_MAPPING: str = Field("{}")
 

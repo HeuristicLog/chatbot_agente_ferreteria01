@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Vincular WhatsApp - Mega Ferretería Bonilla</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-950 text-white min-h-screen flex flex-col items-center justify-center p-6">
+  <div class="max-w-lg w-full bg-slate-900 border border-slate-800 rounded-3xl p-8 shadow-2xl text-center">
+    
+    <div class="inline-flex items-center justify-center w-16 h-16 bg-emerald-500/10 text-emerald-400 rounded-2xl mb-4 border border-emerald-500/20">
+      <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path>
+      </svg>
+    </div>
+
+    <h1 class="text-2xl font-bold tracking-tight text-white mb-2">Vincular WhatsApp</h1>
+    <p class="text-sm text-slate-400 mb-6">Conecta tu WhatsApp físico a <strong>Chatwoot</strong> y al <strong>Bot Castor</strong> sin cerrar sesión en tu teléfono.</p>
+
+    <!-- QR Container -->
+    <div class="bg-white p-4 rounded-2xl inline-block shadow-inner mb-4 relative">
+      <img id="qr-image" src="" alt="Código QR WhatsApp" class="w-64 h-64 object-contain rounded-lg">
+      <div id="loading" class="absolute inset-0 bg-white/90 flex flex-col items-center justify-center rounded-2xl text-slate-800 font-medium">
+        <div class="w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mb-2"></div>
+        <span id="loading-text">Generando código QR...</span>
+      </div>
+      <div id="connected" class="hidden absolute inset-0 bg-emerald-600 flex flex-col items-center justify-center rounded-2xl text-white font-bold p-4">
+        <svg class="w-16 h-16 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+        </svg>
+        <span class="text-xl">¡WhatsApp Conectado!</span>
+        <span class="text-xs text-emerald-100 font-normal mt-1">Sincronizado con Chatwoot y el Bot con éxito.</span>
+      </div>
+    </div>
+
+    <!-- Countdown & Controls -->
+    <div class="flex items-center justify-between text-xs text-slate-400 px-4 mb-4">
+      <span id="timer-text">El código expira en: <strong id="countdown" class="text-emerald-400">45</strong>s</span>
+      <button onclick="manualRefresh()" class="hover:text-white underline text-slate-400 text-xs">🔄 Actualizar QR</button>
+    </div>
+
+    <!-- Instructions -->
+    <div class="bg-slate-800/50 rounded-2xl p-4 text-left border border-slate-800 mb-4 space-y-2 text-xs text-slate-300">
+      <div class="flex items-start space-x-3">
+        <span class="flex-shrink-0 w-5 h-5 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center font-bold">1</span>
+        <span>Abre <strong>WhatsApp</strong> en tu teléfono.</span>
+      </div>
+      <div class="flex items-start space-x-3">
+        <span class="flex-shrink-0 w-5 h-5 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center font-bold">2</span>
+        <span>Ve a <strong>Ajustes / Menú (3 puntos)</strong> &gt; <strong>Dispositivos vinculados</strong>.</span>
+      </div>
+      <div class="flex items-start space-x-3">
+        <span class="flex-shrink-0 w-5 h-5 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center font-bold">3</span>
+        <span>Toca <strong>Vincular un dispositivo</strong> y enfoca la cámara a este código.</span>
+      </div>
+    </div>
+
+    <!-- Troubleshooting Box -->
+    <div class="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-3 text-left mb-4 text-xs text-amber-200">
+      <div class="font-semibold text-amber-300 mb-1">💡 ¿Te salió "No se pudo vincular"?</div>
+      <ul class="list-disc pl-4 space-y-1 text-slate-300">
+        <li>Revisa que en tu WhatsApp no tengas más de 4 dispositivos vinculados (elimina uno antiguo si es necesario).</li>
+        <li>Si el escaneo falló, haz clic abajo en <strong>"Reiniciar Sesión Limpia"</strong> para renovar la conexión desde cero.</li>
+      </ul>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="flex items-center justify-center space-x-3">
+      <button onclick="cleanReset()" id="btn-reset" class="bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium py-2 px-4 rounded-xl border border-slate-700 transition">
+        🧹 Reiniciar Sesión Limpia
+      </button>
+      <a href="http://localhost:3010/app/accounts/1/dashboard" target="_blank" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold py-2 px-4 rounded-xl transition">
+        Abrir Chatwoot →
+      </a>
+    </div>
+
+    <!-- Status -->
+    <div class="text-xs text-slate-500 mt-4 flex items-center justify-center space-x-2">
+      <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+      <span id="status-text">Esperando escaneo desde tu celular...</span>
+    </div>
+
+  </div>
+
+  <script>
+    const qrImg = document.getElementById('qr-image');
+    const loading = document.getElementById('loading');
+    const loadingText = document.getElementById('loading-text');
+    const connectedDiv = document.getElementById('connected');
+    const statusText = document.getElementById('status-text');
+    const countdownEl = document.getElementById('countdown');
+    
+    let countdown = 45;
+    let timerInterval = null;
+    let isConnected = false;
+
+    async function checkStatus() {
+      if (isConnected) return true;
+      try {
+        const resp = await fetch('http://localhost:8082/instance/connectionState/sucursal_centro', {
+          headers: { 'apikey': 'ferreteria_evolution_key_2026' }
+        });
+        const data = await resp.json();
+        if (data.instance && data.instance.state === 'open') {
+          isConnected = true;
+          connectedDiv.classList.remove('hidden');
+          loading.classList.add('hidden');
+          statusText.innerText = '¡Dispositivo vinculado con éxito!';
+          clearInterval(timerInterval);
+          return true;
+        }
+      } catch (e) {
+        console.error('Error verificando estado:', e);
+      }
+      return false;
+    }
+
+    async function loadQR() {
+      const open = await checkStatus();
+      if (open) return;
+
+      loading.classList.remove('hidden');
+      loadingText.innerText = 'Generando nuevo código QR...';
+
+      try {
+        const resp = await fetch('http://localhost:8082/instance/connect/sucursal_centro', {
+          headers: { 'apikey': 'ferreteria_evolution_key_2026' }
+        });
+        const data = await resp.json();
+        if (data.base64) {
+          qrImg.src = data.base64;
+          loading.classList.add('hidden');
+          resetCountdown();
+        } else if (data.instance && data.instance.state === 'open') {
+          isConnected = true;
+          connectedDiv.classList.remove('hidden');
+          loading.classList.add('hidden');
+        }
+      } catch (err) {
+        console.error('Error cargando QR:', err);
+        loadingText.innerText = 'Error al cargar código. Intenta de nuevo.';
+      }
+    }
+
+    function resetCountdown() {
+      countdown = 45;
+      countdownEl.innerText = countdown;
+      if (timerInterval) clearInterval(timerInterval);
+      timerInterval = setInterval(() => {
+        countdown--;
+        if (countdown >= 0) {
+          countdownEl.innerText = countdown;
+        }
+        if (countdown === 0) {
+          loadQR();
+        }
+      }, 1000);
+    }
+
+    function manualRefresh() {
+      loadQR();
+    }
+
+    async function cleanReset() {
+      const btn = document.getElementById('btn-reset');
+      btn.innerText = 'Reiniciando...';
+      btn.disabled = true;
+      try {
+        await fetch('http://localhost:8082/instance/delete/sucursal_centro', {
+          method: 'DELETE',
+          headers: { 'apikey': 'ferreteria_evolution_key_2026' }
+        });
+
+        await fetch('http://localhost:8082/instance/create', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': 'ferreteria_evolution_key_2026'
+          },
+          body: JSON.stringify({
+            instanceName: 'sucursal_centro',
+            token: 'sucursal_centro_token',
+            qrcode: true,
+            integration: 'WHATSAPP-BAILEYS',
+            chatwootAccountId: '1',
+            chatwootToken: 'naCTc3dv6qfvbhfwVar9CmDA',
+            chatwootUrl: 'http://chatwoot-web:3000',
+            chatwootSignMsg: false,
+            chatwootReopenConversation: true,
+            chatwootConversationPending: false,
+            chatwootImportContacts: true,
+            chatwootNameInbox: 'WhatsApp Sucursal Centro'
+          })
+        });
+
+        btn.innerText = '¡Sesión limpia!';
+        setTimeout(() => {
+          btn.innerText = '🧹 Reiniciar Sesión Limpia';
+          btn.disabled = false;
+        }, 2000);
+
+        loadQR();
+      } catch (err) {
+        console.error('Error en cleanReset:', err);
+        btn.innerText = 'Error';
+        setTimeout(() => { btn.disabled = false; btn.innerText = '🧹 Reiniciar Sesión Limpia'; }, 2000);
+      }
+    }
+
+    // Polling ligero solo de estado cada 3s (sin regenerar socket)
+    setInterval(checkStatus, 3000);
+
+    // Carga inicial
+    loadQR();
+  </script>
+</body>
+</html>

@@ -75,21 +75,21 @@ class ChatwootService:
 
         headers = self._get_headers()
         try:
-            # 1. Buscar conversaciones del contacto
+            target_inbox_id = inbox_id or self.inbox_id
+            # 1. Buscar conversaciones del contacto en el inbox destino
             async with httpx.AsyncClient() as client:
                 convs_url = f"{self.base_url}/api/v1/accounts/{self.account_id}/contacts/{contact_id}/conversations"
                 resp = await client.get(convs_url, headers=headers, timeout=10.0)
                 if resp.status_code == 200:
                     convs = resp.json().get("payload", [])
-                    # Retornar la última conversación abierta
-                    open_convs = [c for c in convs if c.get("status") != "resolved"]
+                    # Retornar la última conversación abierta en este inbox
+                    open_convs = [c for c in convs if c.get("status") != "resolved" and (not target_inbox_id or c.get("inbox_id") == target_inbox_id)]
                     if open_convs:
                         conv_id = open_convs[0].get("id")
-                        logger.info(f"Conversación abierta encontrada en Chatwoot: ID {conv_id}")
+                        logger.info(f"Conversación abierta encontrada en Chatwoot (Inbox {target_inbox_id}): ID {conv_id}")
                         return conv_id
 
             # 2. Crear conversación
-            target_inbox_id = inbox_id or self.inbox_id
             create_payload = {
                 "inbox_id": target_inbox_id,
                 "contact_id": contact_id,
