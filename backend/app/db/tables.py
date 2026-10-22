@@ -246,3 +246,62 @@ class OrderItem(Base):
     quantity = Column(Integer, nullable=False, default=1)
     subtotal = Column(Numeric(10, 2), nullable=False)
 
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# CONCESIONARIO DE AUTOS ECUADOR — MODELOS DE VEHÍCULOS Y SEGUIMIENTO DE LEADS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class Vehicle(Base):
+    __tablename__ = "vehicles"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    code = Column(String(50), nullable=False, unique=True, index=True)      # ej: AUT-CHEV-DMAX-2026
+    brand = Column(String(100), nullable=False, index=True)                 # Chevrolet, Kia, Toyota, etc.
+    model = Column(String(150), nullable=False, index=True)                 # D-Max Premier 3.0L Diésel 4x4
+    year = Column(Integer, nullable=False, default=2026)
+    body_type = Column(String(100), nullable=False, index=True)             # SUV, Camioneta (Pickup), Sedán, Hatchback
+    engine = Column(String(100), nullable=False)                            # 3.0L Diésel Turbo 190 HP
+    fuel_type = Column(String(50), nullable=False, default="Gasolina")      # Gasolina, Diésel, Híbrido, Eléctrico
+    transmission = Column(String(150), nullable=False)                      # Manual 6 Vel, Automática 6 Vel, CVT
+    traction = Column(String(150), nullable=False, default="4x2")           # 4x2 FWD, 4x4 con Reductora, AWD
+    passenger_capacity = Column(Integer, nullable=False, default=5)         # 5 o 7 pasajeros
+    trunk_capacity_liters = Column(Integer, nullable=True)                  # Capacidad de cajuela / balde
+    price_usd = Column(Numeric(10, 2), nullable=False)                      # Precio venta al público con IVA
+    min_down_payment = Column(Numeric(10, 2), nullable=False)               # Entrada mínima (20% - 25%)
+    estimated_monthly_fee = Column(Numeric(10, 2), nullable=False)          # Cuota estimada a 48/60 meses
+    description = Column(Text, nullable=True)
+    safety_features = Column(JSONB, nullable=False, default=list)           # [6 Airbags, ABS+EBD, Control de estabilidad ESP]
+    equipment = Column(JSONB, nullable=False, default=list)                 # [Pantalla 10", Apple CarPlay, Cámara 360]
+    colors_available = Column(JSONB, nullable=False, default=list)          # [Blanco, Plata, Negro, Rojo, Gris]
+    image_url = Column(String(500), nullable=False)                         # Foto frontal destacada
+    gallery_urls = Column(JSONB, nullable=False, default=list)              # Fotos secundarias e interiores
+    stock_units = Column(Integer, nullable=False, default=1)
+    is_featured = Column(Boolean, nullable=False, default=False)            # Destacado en vitrina
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+class VehicleLead(Base):
+    __tablename__ = "vehicle_leads"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    lead_code = Column(String(50), nullable=False, unique=True, index=True) # ej: LEAD-2026-001
+    customer_phone = Column(String(50), nullable=False, index=True)
+    phone_hash = Column(String(255), nullable=False, index=True)
+    customer_name = Column(String(150), nullable=True)
+    city = Column(String(100), nullable=True)                              # Quito, Guayaquil, Cuenca, etc.
+    interested_vehicle_id = Column(UUID(as_uuid=True), ForeignKey("vehicles.id", ondelete="SET NULL"), nullable=True)
+    interested_model_name = Column(String(150), nullable=True)
+    quote_type = Column(String(50), nullable=False, default="credito")      # contado, credito, retoma_usado
+    down_payment_offered = Column(Numeric(10, 2), nullable=True)            # Entrada que tiene el cliente
+    term_months = Column(Integer, nullable=True, default=48)                # Plazo deseado: 12, 24, 36, 48, 60 meses
+    test_drive_requested = Column(Boolean, nullable=False, default=False)
+    test_drive_date = Column(DateTime(timezone=True), nullable=True)
+    assigned_seller_id = Column(UUID(as_uuid=True), ForeignKey("sellers.id", ondelete="SET NULL"), nullable=True)
+    status = Column(String(50), nullable=False, default="nuevo")            # nuevo, cotizado, test_drive_agendado, en_credito, ganado, perdido
+    chatwoot_conversation_id = Column(Integer, nullable=True)
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+

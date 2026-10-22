@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>AutoEcuador 2026 | Catálogo y Cotizador de Vehículos Nuevos</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
+    body { font-family: 'Outfit', sans-serif; }
+    .glass-card { background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.08); }
+    .badge-hybrid { background: linear-gradient(135deg, #10b981 0%, #059669 100%); }
+    .badge-pickup { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); }
+    .badge-suv { background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen pb-24">
+
+  <!-- Header -->
+  <header class="sticky top-0 z-40 bg-slate-900/95 backdrop-blur-md border-b border-slate-800 px-4 py-3 shadow-lg">
+    <div class="max-w-6xl mx-auto flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 to-rose-600 flex items-center justify-center text-white font-black text-xl shadow-md">
+          <i class="fa-solid fa-car-side"></i>
+        </div>
+        <div>
+          <h1 class="text-base font-bold tracking-tight text-white flex items-center gap-1.5">
+            AutoEcuador <span class="text-xs px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 font-semibold border border-amber-500/30">2026</span>
+          </h1>
+          <p class="text-[11px] text-slate-400">Catálogo Oficial de Vehículos Nuevos & Financiamiento</p>
+        </div>
+      </div>
+      <a href="https://wa.me/593988921136" target="_blank" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold px-3.5 py-2 rounded-xl flex items-center gap-1.5 transition shadow-sm">
+        <i class="fa-brands fa-whatsapp text-sm"></i>
+        <span class="hidden sm:inline">Asesor en Vivo</span>
+      </a>
+    </div>
+  </header>
+
+  <!-- Banner Promocional -->
+  <div class="max-w-6xl mx-auto px-4 mt-4">
+    <div class="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 border border-slate-800 rounded-3xl p-5 shadow-xl relative overflow-hidden">
+      <div class="relative z-10 max-w-lg">
+        <span class="text-[10px] font-bold uppercase tracking-wider text-amber-400 bg-amber-400/10 px-2.5 py-1 rounded-full border border-amber-400/20">
+          Plan Financiamiento 2026
+        </span>
+        <h2 class="text-xl sm:text-2xl font-black text-white mt-2 leading-tight">
+          Llévate tu auto nuevo desde el <span class="text-amber-400">20% de entrada</span>
+        </h2>
+        <p class="text-xs text-slate-300 mt-1.5">
+          Aprobación inmediata en 24h, cuotas hasta 60 meses y recibimos tu vehículo usado como parte de pago.
+        </p>
+      </div>
+      <div class="absolute -right-10 -bottom-10 opacity-20 text-9xl text-slate-100 pointer-events-none hidden md:block">
+        <i class="fa-solid fa-car"></i>
+      </div>
+    </div>
+  </div>
+
+  <!-- Filters & Search -->
+  <div class="max-w-6xl mx-auto px-4 mt-5 space-y-3">
+    <!-- Search Bar -->
+    <div class="relative">
+      <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3.5 text-slate-400 text-sm"></i>
+      <input type="text" id="search-input" oninput="filterVehicles()" placeholder="Buscar por marca, modelo (ej. D-Max, Sportage, Tracker, Hilux)..." 
+        class="w-full bg-slate-900 border border-slate-800 text-white pl-10 pr-4 py-2.5 rounded-2xl text-xs sm:text-sm focus:outline-none focus:border-amber-500 transition">
+    </div>
+
+    <!-- Category Pills -->
+    <div class="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none text-xs">
+      <button onclick="setCategory('all')" class="cat-pill active px-4 py-2 rounded-xl font-medium whitespace-nowrap bg-amber-500 text-slate-950 shadow-sm" data-cat="all">
+        Todos (<span id="count-all">0</span>)
+      </button>
+      <button onclick="setCategory('SUV')" class="cat-pill px-4 py-2 rounded-xl font-medium whitespace-nowrap bg-slate-900 text-slate-300 border border-slate-800 hover:text-white" data-cat="SUV">
+        🚙 SUVs Familiares
+      </button>
+      <button onclick="setCategory('Camioneta (Pickup)')" class="cat-pill px-4 py-2 rounded-xl font-medium whitespace-nowrap bg-slate-900 text-slate-300 border border-slate-800 hover:text-white" data-cat="Camioneta (Pickup)">
+        🛻 Camionetas 4x4
+      </button>
+      <button onclick="setCategory('Híbrido')" class="cat-pill px-4 py-2 rounded-xl font-medium whitespace-nowrap bg-slate-900 text-slate-300 border border-slate-800 hover:text-white" data-cat="Híbrido">
+        ⚡ Híbridos (Sin Pico y Placa)
+      </button>
+      <button onclick="setCategory('Chevrolet')" class="cat-pill px-4 py-2 rounded-xl font-medium whitespace-nowrap bg-slate-900 text-slate-300 border border-slate-800 hover:text-white" data-cat="Chevrolet">
+        Chevrolet
+      </button>
+      <button onclick="setCategory('Kia')" class="cat-pill px-4 py-2 rounded-xl font-medium whitespace-nowrap bg-slate-900 text-slate-300 border border-slate-800 hover:text-white" data-cat="Kia">
+        Kia
+      </button>
+      <button onclick="setCategory('Toyota')" class="cat-pill px-4 py-2 rounded-xl font-medium whitespace-nowrap bg-slate-900 text-slate-300 border border-slate-800 hover:text-white" data-cat="Toyota">
+        Toyota
+      </button>
+    </div>
+  </div>
+
+  <!-- Vehicle Grid -->
+  <main class="max-w-6xl mx-auto px-4 mt-6">
+    <div id="vehicle-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+      <!-- Loading skeleton -->
+      <div class="col-span-full py-16 text-center text-slate-500 text-sm">
+        <div class="w-8 h-8 border-4 border-amber-500 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+        Cargando catálogo automotriz de Ecuador...
+      </div>
+    </div>
+  </main>
+
+  <!-- Modal Ficha Técnica & Simulador de Crédito -->
+  <div id="vehicle-modal" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div class="bg-slate-900 border border-slate-800 w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-t-3xl sm:rounded-3xl shadow-2xl p-6 relative">
+      
+      <!-- Close button -->
+      <button onclick="closeModal()" class="absolute right-4 top-4 w-9 h-9 rounded-full bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center transition">
+        <i class="fa-solid fa-xmark text-lg"></i>
+      </button>
+
+      <!-- Content Container -->
+      <div id="modal-content"></div>
+
+    </div>
+  </div>
+
+  <script>
+    let vehicles = [];
+    let currentCategory = 'all';
+
+    async function loadVehicles() {
+      try {
+        const resp = await fetch('/api/v1/vehicles');
+        const data = await resp.json();
+        vehicles = data.data || [];
+        document.getElementById('count-all').innerText = vehicles.length;
+        renderVehicles(vehicles);
+      } catch (e) {
+        console.error('Error cargando vehículos:', e);
+        document.getElementById('vehicle-grid').innerHTML = `
+          <div class="col-span-full text-center py-10 text-rose-400 text-sm">
+            No se pudo cargar el catálogo. Por favor recarga la página.
+          </div>
+        `;
+      }
+    }
+
+    function setCategory(cat) {
+      currentCategory = cat;
+      document.querySelectorAll('.cat-pill').forEach(btn => {
+        if (btn.getAttribute('data-cat') === cat) {
+          btn.className = 'cat-pill active px-4 py-2 rounded-xl font-medium whitespace-nowrap bg-amber-500 text-slate-950 shadow-sm';
+        } else {
+          btn.className = 'cat-pill px-4 py-2 rounded-xl font-medium whitespace-nowrap bg-slate-900 text-slate-300 border border-slate-800 hover:text-white';
+        }
+      });
+      filterVehicles();
+    }
+
+    function filterVehicles() {
+      const q = document.getElementById('search-input').value.toLowerCase().trim();
+      const filtered = vehicles.filter(v => {
+        const matchSearch = v.brand.toLowerCase().includes(q) || 
+                            v.model.toLowerCase().includes(q) || 
+                            v.body_type.toLowerCase().includes(q);
+        
+        let matchCat = true;
+        if (currentCategory === 'Híbrido') {
+          matchCat = v.fuel_type === 'Híbrido';
+        } else if (currentCategory === 'Chevrolet' || currentCategory === 'Kia' || currentCategory === 'Toyota') {
+          matchCat = v.brand === currentCategory;
+        } else if (currentCategory !== 'all') {
+          matchCat = v.body_type === currentCategory;
+        }
+
+        return matchSearch && matchCat;
+      });
+
+      renderVehicles(filtered);
+    }
+
+    function renderVehicles(list) {
+      const grid = document.getElementById('vehicle-grid');
+      if (list.length === 0) {
+        grid.innerHTML = `
+          <div class="col-span-full py-16 text-center text-slate-400">
+            <i class="fa-solid fa-car-tunnel text-4xl mb-3 text-slate-600"></i>
+            <p class="text-sm">No encontramos vehículos con esos filtros.</p>
+          </div>
+        `;
+        return;
+      }
+
+      grid.innerHTML = list.map(v => {
+        let badgeClass = 'badge-suv';
+        if (v.body_type.includes('Pickup')) badgeClass = 'badge-pickup';
+        if (v.fuel_type === 'Híbrido') badgeClass = 'badge-hybrid';
+
+        const priceFmt = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(v.price_usd);
+        const downFmt = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(v.min_down_payment);
+        const monthlyFmt = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(v.estimated_monthly_fee);
+
+        return `
+          <div class="glass-card rounded-3xl overflow-hidden hover:border-amber-500/50 transition duration-300 flex flex-col justify-between group shadow-xl">
+            <!-- Image & Badges -->
+            <div class="relative h-52 bg-slate-900 overflow-hidden">
+              <img src="${v.image_url}" alt="${v.model}" class="w-full h-full object-cover group-hover:scale-105 transition duration-500">
+              <div class="absolute top-3 left-3 flex flex-wrap gap-1.5">
+                <span class="${badgeClass} text-white font-bold text-[10px] uppercase px-2.5 py-1 rounded-full shadow-md">
+                  ${v.fuel_type === 'Híbrido' ? '⚡ Híbrido' : v.body_type}
+                </span>
+                <span class="bg-black/60 backdrop-blur-md text-white text-[10px] font-semibold px-2 py-1 rounded-full border border-white/10">
+                  Año ${v.year}
+                </span>
+              </div>
+              <div class="absolute bottom-2 right-2 bg-emerald-500/90 text-slate-950 text-[10px] font-extrabold px-2 py-0.5 rounded-full shadow">
+                ${v.stock_units} en stock
+              </div>
+            </div>
+
+            <!-- Content -->
+            <div class="p-5 flex-1 flex flex-col justify-between">
+              <div>
+                <span class="text-xs font-semibold uppercase tracking-wider text-amber-400">${v.brand}</span>
+                <h3 class="text-lg font-bold text-white mt-0.5 leading-snug">${v.model}</h3>
+                
+                <!-- Quick Specs Pills -->
+                <div class="grid grid-cols-2 gap-2 mt-3 text-[11px] text-slate-300">
+                  <div class="flex items-center gap-1.5 bg-slate-900/60 p-2 rounded-xl border border-slate-800">
+                    <i class="fa-solid fa-gears text-amber-400"></i>
+                    <span class="truncate">${v.transmission}</span>
+                  </div>
+                  <div class="flex items-center gap-1.5 bg-slate-900/60 p-2 rounded-xl border border-slate-800">
+                    <i class="fa-solid fa-gas-pump text-amber-400"></i>
+                    <span class="truncate">${v.fuel_type}</span>
+                  </div>
+                  <div class="flex items-center gap-1.5 bg-slate-900/60 p-2 rounded-xl border border-slate-800">
+                    <i class="fa-solid fa-users text-amber-400"></i>
+                    <span>${v.passenger_capacity} Pasajeros</span>
+                  </div>
+                  <div class="flex items-center gap-1.5 bg-slate-900/60 p-2 rounded-xl border border-slate-800">
+                    <i class="fa-solid fa-shield-halved text-amber-400"></i>
+                    <span>6+ Airbags</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Price & CTA -->
+              <div class="mt-4 pt-4 border-t border-slate-800">
+                <div class="flex items-baseline justify-between">
+                  <div>
+                    <span class="text-[10px] text-slate-400 uppercase font-medium">Precio Contado (Inc. IVA)</span>
+                    <div class="text-xl font-black text-white">${priceFmt}</div>
+                  </div>
+                  <div class="text-right">
+                    <span class="text-[10px] text-emerald-400 font-semibold">Cuotas desde</span>
+                    <div class="text-sm font-bold text-emerald-400">${monthlyFmt} <span class="text-[10px] font-normal text-slate-400">/mes</span></div>
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2 mt-3.5">
+                  <button onclick="openModal('${v.code}')" class="bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold py-2.5 px-3 rounded-xl border border-slate-700 transition flex items-center justify-center gap-1.5">
+                    <i class="fa-solid fa-file-invoice"></i>
+                    <span>Ver Ficha</span>
+                  </button>
+                  <a href="https://wa.me/593988921136?text=${encodeURIComponent(`Hola, me interesa cotizar el ${v.brand} ${v.model} (${priceFmt}). ¿Tienen disponibilidad para Test Drive?`)}" 
+                    target="_blank" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-2.5 px-3 rounded-xl transition flex items-center justify-center gap-1.5 shadow-md">
+                    <i class="fa-brands fa-whatsapp text-sm"></i>
+                    <span>Cotizar</span>
+                  </a>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function openModal(code) {
+      const v = vehicles.find(item => item.code === code);
+      if (!v) return;
+
+      const price = Number(v.price_usd);
+      const initialDown = Number(v.min_down_payment);
+
+      const content = document.getElementById('modal-content');
+      content.innerHTML = `
+        <div class="space-y-4">
+          <!-- Image Header -->
+          <div class="rounded-2xl overflow-hidden relative h-56 bg-slate-950">
+            <img src="${v.image_url}" alt="${v.model}" class="w-full h-full object-cover">
+            <div class="absolute bottom-3 left-3 bg-slate-900/90 backdrop-blur-md px-3 py-1 rounded-xl text-xs font-bold text-white border border-white/10">
+              ${v.brand} ${v.model} (${v.year})
+            </div>
+          </div>
+
+          <!-- Description -->
+          <p class="text-xs text-slate-300 leading-relaxed">${v.description}</p>
+
+          <!-- Ficha Técnica -->
+          <div class="bg-slate-950/60 p-4 rounded-2xl border border-slate-800 space-y-2.5">
+            <h4 class="text-xs font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
+              <i class="fa-solid fa-list-check"></i> Ficha Técnica Completa
+            </h4>
+            <div class="grid grid-cols-2 gap-2 text-xs">
+              <div class="text-slate-400">Motor: <strong class="text-white">${v.engine}</strong></div>
+              <div class="text-slate-400">Combustible: <strong class="text-white">${v.fuel_type}</strong></div>
+              <div class="text-slate-400">Transmisión: <strong class="text-white">${v.transmission}</strong></div>
+              <div class="text-slate-400">Tracción: <strong class="text-white">${v.traction}</strong></div>
+              <div class="text-slate-400">Capacidad: <strong class="text-white">${v.passenger_capacity} pasajeros</strong></div>
+              <div class="text-slate-400">Maletero/Balde: <strong class="text-white">${v.trunk_capacity_liters} Litros</strong></div>
+            </div>
+          </div>
+
+          <!-- Seguridad y Equipamiento -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+            <div class="bg-slate-950/60 p-3.5 rounded-2xl border border-slate-800">
+              <div class="font-bold text-emerald-400 mb-1.5 flex items-center gap-1">
+                <i class="fa-solid fa-shield-halved"></i> Seguridad
+              </div>
+              <ul class="space-y-1 text-slate-300 list-disc pl-4 text-[11px]">
+                ${(v.safety_features || []).map(s => `<li>${s}</li>`).join('')}
+              </ul>
+            </div>
+            <div class="bg-slate-950/60 p-3.5 rounded-2xl border border-slate-800">
+              <div class="font-bold text-amber-400 mb-1.5 flex items-center gap-1">
+                <i class="fa-solid fa-sliders"></i> Equipamiento & Conectividad
+              </div>
+              <ul class="space-y-1 text-slate-300 list-disc pl-4 text-[11px]">
+                ${(v.equipment || []).map(e => `<li>${e}</li>`).join('')}
+              </ul>
+            </div>
+          </div>
+
+          <!-- Simulador de Crédito en Vivo -->
+          <div class="bg-gradient-to-br from-slate-950 to-slate-900 p-4 rounded-2xl border border-amber-500/30">
+            <div class="flex items-center justify-between mb-3">
+              <h4 class="text-xs font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
+                <i class="fa-solid fa-calculator"></i> Simulador de Crédito Automotriz
+              </h4>
+              <span class="text-[10px] text-slate-400">Tasa referencial Ecuador: 12.5%</span>
+            </div>
+
+            <!-- Entrada Slider -->
+            <div class="space-y-1 mb-3">
+              <div class="flex justify-between text-xs">
+                <span class="text-slate-300">Entrada inicial:</span>
+                <span id="slider-down-val" class="font-bold text-white">$${initialDown.toFixed(0)} (20%)</span>
+              </div>
+              <input type="range" id="input-down-percent" min="20" max="60" step="5" value="20" 
+                oninput="updateFinancing(${price})" class="w-full accent-amber-500 cursor-pointer">
+            </div>
+
+            <!-- Plazo Slider -->
+            <div class="space-y-1 mb-3">
+              <div class="flex justify-between text-xs">
+                <span class="text-slate-300">Plazo financiamiento:</span>
+                <span id="slider-term-val" class="font-bold text-white">48 meses</span>
+              </div>
+              <input type="range" id="input-term-months" min="12" max="60" step="12" value="48" 
+                oninput="updateFinancing(${price})" class="w-full accent-amber-500 cursor-pointer">
+            </div>
+
+            <!-- Resultado de Cuota -->
+            <div class="bg-slate-900/90 p-3 rounded-xl border border-slate-800 flex items-center justify-between">
+              <div>
+                <span class="text-[10px] text-slate-400 uppercase font-semibold">Cuota Mensual Estimada</span>
+                <div id="result-monthly" class="text-xl font-black text-emerald-400">$0.00 / mes</div>
+              </div>
+              <div class="text-right text-[11px] text-slate-400">
+                Saldo a financiar: <strong id="result-financed" class="text-white">$0.00</strong>
+              </div>
+            </div>
+          </div>
+
+          <!-- Botones de Acción WhatsApp -->
+          <div class="space-y-2 pt-2">
+            <button onclick="sendQuoteToWhatsApp('${v.brand}', '${v.model}', ${price})" 
+              class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 px-4 rounded-xl text-xs sm:text-sm flex items-center justify-center gap-2 transition shadow-lg">
+              <i class="fa-brands fa-whatsapp text-lg"></i>
+              <span>Solicitar Pre-Aprobación de Crédito por WhatsApp</span>
+            </button>
+            <button onclick="scheduleTestDrive('${v.brand}', '${v.model}')" 
+              class="w-full bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold py-2.5 px-4 rounded-xl text-xs flex items-center justify-center gap-2 transition border border-slate-700">
+              <i class="fa-solid fa-calendar-check text-amber-400"></i>
+              <span>Agendar Prueba de Manejo (Test Drive)</span>
+            </button>
+          </div>
+
+        </div>
+      `;
+
+      updateFinancing(price);
+      document.getElementById('vehicle-modal').classList.remove('hidden');
+    }
+
+    function updateFinancing(totalPrice) {
+      const downPercent = Number(document.getElementById('input-down-percent').value);
+      const termMonths = Number(document.getElementById('input-term-months').value);
+
+      const downAmount = totalPrice * (downPercent / 100);
+      const financedAmount = totalPrice - downAmount;
+
+      // Fórmula de cuota con tasa anual de 12.5% (Tasa mensual r = 0.125 / 12)
+      const monthlyRate = 0.125 / 12;
+      const monthlyFee = (financedAmount * monthlyRate * Math.pow(1 + monthlyRate, termMonths)) / (Math.pow(1 + monthlyRate, termMonths) - 1);
+
+      document.getElementById('slider-down-val').innerText = `$${Math.round(downAmount).toLocaleString()} (${downPercent}%)`;
+      document.getElementById('slider-term-val').innerText = `${termMonths} meses (${termMonths / 12} años)`;
+      document.getElementById('result-financed').innerText = `$${Math.round(financedAmount).toLocaleString()}`;
+      document.getElementById('result-monthly').innerText = `$${Math.round(monthlyFee).toLocaleString()} / mes`;
+    }
+
+    function sendQuoteToWhatsApp(brand, model, price) {
+      const downVal = document.getElementById('slider-down-val').innerText;
+      const termVal = document.getElementById('slider-term-val').innerText;
+      const monthlyVal = document.getElementById('result-monthly').innerText;
+
+      const msg = `Hola AutoEcuador, deseo solicitar la pre-aprobación de crédito para el vehículo:\n\n` +
+                  `🚗 *Modelo:* ${brand} ${model}\n` +
+                  `💰 *Precio de lista:* $${price.toLocaleString()} USD\n` +
+                  `💵 *Entrada propuesta:* ${downVal}\n` +
+                  `📅 *Plazo:* ${termVal}\n` +
+                  `📊 *Cuota estimada:* ${monthlyVal}\n\n` +
+                  `Por favor ayúdenme con los requisitos y el contacto de un asesor comercial.`;
+
+      window.open(`https://wa.me/593988921136?text=${encodeURIComponent(msg)}`, '_blank');
+    }
+
+    function scheduleTestDrive(brand, model) {
+      const msg = `Hola AutoEcuador, deseo agendar una prueba de manejo (Test Drive) para el *${brand} ${model} 2026*. ¿En qué sucursales y horarios tienen disponibilidad?`;
+      window.open(`https://wa.me/593988921136?text=${encodeURIComponent(msg)}`, '_blank');
+    }
+
+    function closeModal() {
+      document.getElementById('vehicle-modal').classList.add('hidden');
+    }
+
+    // Cerrar con Escape
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeModal();
+    });
+
+    loadVehicles();
+  </script>
+</body>
+</html>
