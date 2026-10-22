@@ -32,10 +32,9 @@ VEHICLES_DATA = [
         "safety_features": ["6 Airbags (frontales, laterales y de cortina)", "Frenos ABS + EBD + ESC", "Asistente de arranque en pendiente (HSA) y descenso (HDC)", "Control de balanceo de remolque"],
         "equipment": ["Pantalla táctil 9'' inalámbrica con Apple CarPlay y Android Auto", "Climatizador automático bizona", "Asientos de cuero con ajuste eléctrico", "Cámara de reversa con guías dinámicas", "Estribos y barra de lujo originales"],
         "colors_available": ["Blanco Cumbre", "Plata Switchblade", "Negro Óbice", "Gris Mercurio", "Rojo Vulcano"],
-        "image_url": "https://images.unsplash.com/photo-1559416523-140ddc3d238c?w=900&auto=format&fit=crop&q=80",
+        "image_url": "https://upload.wikimedia.org/wikipedia/commons/4/47/2020_Isuzu_D-Max_LS-U_front.jpg",
         "gallery_urls": [
-            "https://images.unsplash.com/photo-1559416523-140ddc3d238c?w=900&auto=format&fit=crop&q=80",
-            "https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?w=900&auto=format&fit=crop&q=80"
+            "https://upload.wikimedia.org/wikipedia/commons/4/47/2020_Isuzu_D-Max_LS-U_front.jpg"
         ],
         "stock_units": 6,
         "is_featured": True,
@@ -60,10 +59,9 @@ VEHICLES_DATA = [
         "safety_features": ["6 Airbags en todas las versiones", "Alerta de colisión frontal con frenado autónomo de emergencia", "Control de estabilidad y tracción StabiliTrak", "Sensor de punto ciego"],
         "equipment": ["Techo solar panorámico corredizo", "Rines deportivos de 17'' color negro brillante RS", "Cargador inalámbrico para smartphone", "Sistema OnStar con Wi-Fi nativo para 7 dispositivos", "Encendido por botón Keyless"],
         "colors_available": ["Rojo Carmín", "Blanco Niebla", "Negro Metálico", "Gris Ceniza"],
-        "image_url": "https://images.unsplash.com/photo-1549399542-7e3f8b79c341?w=900&auto=format&fit=crop&q=80",
+        "image_url": "https://upload.wikimedia.org/wikipedia/commons/6/66/2022_Chevrolet_Tracker_1.2_Turbo_LTZ%2C_front_%28Argentina%29.jpg",
         "gallery_urls": [
-            "https://images.unsplash.com/photo-1549399542-7e3f8b79c341?w=900&auto=format&fit=crop&q=80",
-            "https://images.unsplash.com/photo-1583121274602-3e2820c69888?w=900&auto=format&fit=crop&q=80"
+            "https://upload.wikimedia.org/wikipedia/commons/6/66/2022_Chevrolet_Tracker_1.2_Turbo_LTZ%2C_front_%28Argentina%29.jpg"
         ],
         "stock_units": 8,
         "is_featured": True,
@@ -84,13 +82,13 @@ VEHICLES_DATA = [
         "price_usd": Decimal("26490.00"),
         "min_down_payment": Decimal("5298.00"),
         "estimated_monthly_fee": Decimal("445.00"),
-        "description": "El SUV familiar preferido del Ecuador. Diseño vanguardista, amplitud interior inigualable y la mejor garantía del mercado nacional (10 años o 160.000 km).",
+        "description": "El SUV familiar preferido del Ecuador. Diseño vanguardista NQ5 con faros boomerang LED, amplitud interior inigualable y garantía de 10 años o 160.000 km.",
         "safety_features": ["6 Airbags", "Frenos de disco a las 4 ruedas con ABS + EBD", "Control electrónico de estabilidad (ESC)", "Asistente de arranque en pendientes (HAC)"],
         "equipment": ["Pantalla táctil panorámica curva de 12.3''", "Cámara de visión posterior con guías de parqueo", "Modos de manejo seleccionables (Eco, Normal, Sport)", "Rines de aleación de aluminio 18''", "Faros LED con luces diurnas DRL"],
         "colors_available": ["Blanco Perla", "Gris Gravedad", "Negro Fusión", "Azul Océano"],
-        "image_url": "https://images.unsplash.com/photo-1563720223185-11003d516935?w=900&auto=format&fit=crop&q=80",
+        "image_url": "https://upload.wikimedia.org/wikipedia/commons/2/29/%2723-%2725_Kia_Sportage.JPG",
         "gallery_urls": [
-            "https://images.unsplash.com/photo-1563720223185-11003d516935?w=900&auto=format&fit=crop&q=80"
+            "https://upload.wikimedia.org/wikipedia/commons/2/29/%2723-%2725_Kia_Sportage.JPG"
         ],
         "stock_units": 5,
         "is_featured": True,
@@ -115,9 +113,9 @@ VEHICLES_DATA = [
         "safety_features": ["6 Airbags", "Frenos ABS con asistente de frenado BAS", "Control de estabilidad ESC", "Sensores de parqueo posteriores"],
         "equipment": ["Pantalla táctil 8'' con Apple CarPlay y Android Auto inalámbrico", "Difusor de aire acondicionado para la segunda fila", "Barras de techo integradas para equipaje", "Rines de aluminio 16''"],
         "colors_available": ["Rojo Intenso", "Blanco Polar", "Plata Claro", "Gris Acero"],
-        "image_url": "https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=900&auto=format&fit=crop&q=80",
+        "image_url": "https://upload.wikimedia.org/wikipedia/commons/7/75/2021_Kia_Sonet_1.5_Premiere_%28Indonesia%29_front_view_02.jpg",
         "gallery_urls": [
-            "https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=900&auto=format&fit=crop&q=80"
+            "https://upload.wikimedia.org/wikipedia/commons/7/75/2021_Kia_Sonet_1.5_Premiere_%28Indonesia%29_front_view_02.jpg"
         ],
         "stock_units": 10,
         "is_featured": True,
@@ -142,9 +140,9 @@ VEHICLES_DATA = [
         "safety_features": ["7 Airbags (incluye airbag de rodilla para conductor)", "Chasis de alta rigidez GOA", "Control de tracción activo A-TRC", "Control de estabilidad VSC"],
         "equipment": ["Pantalla táctil 8'' con conectividad móvil", "Aire acondicionado de enfriamiento rápido", "Protección anticorrosiva de fábrica", "Ganchos de amarre reforzados en balde"],
         "colors_available": ["Blanco Sólido", "Plata Metálico", "Gris Oscuro", "Negro Mica"],
-        "image_url": "https://images.unsplash.com/photo-1559416523-140ddc3d238c?w=900&auto=format&fit=crop&q=80",
+        "image_url": "https://upload.wikimedia.org/wikipedia/commons/c/cc/2021_Toyota_Hilux_Revo_Prerunner_Double-Cab_2.4_Entry.jpg",
         "gallery_urls": [
-            "https://images.unsplash.com/photo-1559416523-140ddc3d238c?w=900&auto=format&fit=crop&q=80"
+            "https://upload.wikimedia.org/wikipedia/commons/c/cc/2021_Toyota_Hilux_Revo_Prerunner_Double-Cab_2.4_Entry.jpg"
         ],
         "stock_units": 4,
         "is_featured": True,
@@ -169,9 +167,9 @@ VEHICLES_DATA = [
         "safety_features": ["Toyota Safety Sense (Sistema de precolisión, alerta de salida de carril)", "6 Airbags", "Control crucero adaptativo", "Frenos de disco en las 4 ruedas con ABS"],
         "equipment": ["Clúster de instrumentos digital 7''", "Pantalla multimedia de 10'' con conectividad inalámbrica", "Modo de conducción 100% eléctrico EV Mode", "Encendido Smart Key"],
         "colors_available": ["Blanco Perlado", "Plata Metal", "Azul Noche", "Gris Titanio"],
-        "image_url": "https://images.unsplash.com/photo-1541899481282-d53bffe3c35d?w=900&auto=format&fit=crop&q=80",
+        "image_url": "https://upload.wikimedia.org/wikipedia/commons/f/f4/Toyota_Yaris_Cross_Hybrid_%28XP210%29_1X7A1846.jpg",
         "gallery_urls": [
-            "https://images.unsplash.com/photo-1541899481282-d53bffe3c35d?w=900&auto=format&fit=crop&q=80"
+            "https://upload.wikimedia.org/wikipedia/commons/f/f4/Toyota_Yaris_Cross_Hybrid_%28XP210%29_1X7A1846.jpg"
         ],
         "stock_units": 7,
         "is_featured": True,
@@ -196,9 +194,9 @@ VEHICLES_DATA = [
         "safety_features": ["6 Airbags", "Control electrónico de estabilidad ESC", "Asistente de arranque en pendiente HAC", "Sensor de presión de neumáticos TPMS individual"],
         "equipment": ["Luces delanteras ocultas LED integradas en parrilla", "Pantalla de infoentretenimiento de 8'' con CarPlay inalámbrico", "Rines de aleación aerodinámicos de 18''", "Salidas de aire multi-aire difuso sin corrientes directas"],
         "colors_available": ["Blanco Atlas", "Negro Phantom", "Gris Amazon", "Rojo Atardecer"],
-        "image_url": "https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?w=900&auto=format&fit=crop&q=80",
+        "image_url": "https://upload.wikimedia.org/wikipedia/commons/f/f1/Hyundai_Tucson_%28NX4%29_1X7A0424.jpg",
         "gallery_urls": [
-            "https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?w=900&auto=format&fit=crop&q=80"
+            "https://upload.wikimedia.org/wikipedia/commons/f/f1/Hyundai_Tucson_%28NX4%29_1X7A0424.jpg"
         ],
         "stock_units": 5,
         "is_featured": False,
@@ -223,9 +221,9 @@ VEHICLES_DATA = [
         "safety_features": ["6 Airbags", "Cámara de visión periférica 360° en alta definición", "Asistente de frenado de emergencia BAS", "Control de tracción TCS"],
         "equipment": ["Techo corredizo eléctrico sunroof", "Pantalla ultra panorámica de 10.25''", "Asientos forrados en eco-cuero de alta calidad", "Cargador inalámbrico para celular"],
         "colors_available": ["Rojo Fuego", "Blanco Nieve", "Gris Cuarzo", "Negro Noche"],
-        "image_url": "https://images.unsplash.com/photo-1549399542-7e3f8b79c341?w=900&auto=format&fit=crop&q=80",
+        "image_url": "https://upload.wikimedia.org/wikipedia/commons/e/ed/2020_Chery_Tiggo_5X_%28facelift%2C_front%29.jpg",
         "gallery_urls": [
-            "https://images.unsplash.com/photo-1549399542-7e3f8b79c341?w=900&auto=format&fit=crop&q=80"
+            "https://upload.wikimedia.org/wikipedia/commons/e/ed/2020_Chery_Tiggo_5X_%28facelift%2C_front%29.jpg"
         ],
         "stock_units": 12,
         "is_featured": True,
@@ -250,9 +248,9 @@ VEHICLES_DATA = [
         "safety_features": ["6 Airbags", "Frenos de disco en las 4 ruedas con ABS+EBD", "Control electrónico antivuelco RMI", "Alerta de tráfico cruzado posterior"],
         "equipment": ["Asientos de cuero con calefacción", "Cámara 360° con vista 3D", "Botón de encendido Start/Stop sin llave", "Rines de lujo de 18'' bitono"],
         "colors_available": ["Negro Titán", "Blanco Glaciar", "Plata Luna", "Rojo Rubí"],
-        "image_url": "https://images.unsplash.com/photo-1559416523-140ddc3d238c?w=900&auto=format&fit=crop&q=80",
+        "image_url": "https://upload.wikimedia.org/wikipedia/commons/6/6f/Great_Wall_Pao_001.jpg",
         "gallery_urls": [
-            "https://images.unsplash.com/photo-1559416523-140ddc3d238c?w=900&auto=format&fit=crop&q=80"
+            "https://upload.wikimedia.org/wikipedia/commons/6/6f/Great_Wall_Pao_001.jpg"
         ],
         "stock_units": 6,
         "is_featured": True,
