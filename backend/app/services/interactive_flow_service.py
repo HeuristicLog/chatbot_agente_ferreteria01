@@ -1,4 +1,4 @@
-﻿"""
+"""
 Interactive Flow Service
 Motor de flujos conversacionales interactivos para WhatsApp.
 Gestiona menús con botones, listas de selección y flujos guiados multi-paso.
@@ -215,8 +215,8 @@ async def send_main_menu(phone: str, internal_key: str, phone_number_id: Optiona
     catalog_url = f"{ngrok_url}/catalogo-autos?phone={clean_phone}&sucursal=Centro"
     
     body = (
-        "¿En qué más te puedo ayudar? 🦫\n\n"
-        "Toca el botón para abrir el catálogo interactivo con fotos y carrito en vivo:"
+        "¿En qué más te puedo asesorar? 🚗✨\n\n"
+        "Toca el botón para abrir la vitrina interactiva con fotos reales, simulación de crédito y tu garaje virtual:"
     )
     await _send_cta_url(
         phone=phone,
@@ -224,7 +224,7 @@ async def send_main_menu(phone: str, internal_key: str, phone_number_id: Optiona
         display_text="🚘 Explorar Vitrina",
         url=catalog_url,
         header="🚗 AutoEcuador Motors",
-        footer="AutoEcuador Motors",
+        footer="AutoEcuador Motors • Asesoría 24/7",
         internal_key=internal_key,
         phone_number_id=phone_number_id
     )
@@ -241,8 +241,8 @@ async def send_catalog_link(phone: str, internal_key: str, phone_number_id: Opti
     catalog_url = f"{ngrok_url}/catalogo-autos?phone={clean_phone}&sucursal={sucursal or 'Centro'}"
     
     body = (
-        "¡Bienvenido a la tienda virtual de *AutoEcuador Motors*! 🦫✨\n\n"
-        "Toca el botón *🚘 Explorar Vitrina* para explorar todos los productos con fotos, buscador y carrito de compras sin salir de WhatsApp:"
+        "¡Bienvenido a la vitrina virtual de *AutoEcuador Motors* 🇪🇨! 🚘✨\n\n"
+        "Toca el botón *🚘 Explorar Vitrina* para ver todos los vehículos 2026 con fotos reales, calcular tu cuota mensual y solicitar tu cotización formal sin salir de WhatsApp:"
     )
     
     await _send_cta_url(
@@ -257,27 +257,27 @@ async def send_catalog_link(phone: str, internal_key: str, phone_number_id: Opti
     )
 
 async def send_faq_list(phone: str, internal_key: str, phone_number_id: Optional[str] = None):
-    """Lista de categorías de preguntas frecuentes."""
+    """Lista de categorías de preguntas frecuentes automotrices."""
     sections = [
         {
-            "title": "📋 Categorías",
+            "title": "📋 Consultas Frecuentes AutoEcuador",
             "rows": [
-                {"id": "faq_envios",    "title": "🚚 Envíos y entregas",    "description": "Tiempos, costos y cobertura"},
-                {"id": "faq_garantia",  "title": "🔧 Garantías",             "description": "Política de garantía y devolución"},
-                {"id": "faq_horarios",  "title": "🕐 Horarios",             "description": "Horarios de la tienda"},
-                {"id": "faq_pagos",     "title": "💳 Métodos de pago",       "description": "Formas de pago aceptadas"},
-                {"id": "faq_ubicacion", "title": "📍 Ubicaciones",           "description": "Dónde encontrarnos"},
-                {"id": "faq_mayoreo",   "title": "🏭 Compras al por mayor",   "description": "Descuentos por volumen"},
+                {"id": "faq_financiamiento", "title": "💳 Crédito Vehicular",         "description": "Entradas, plazos y bancos aliados"},
+                {"id": "faq_retoma",         "title": "🔄 Plan Retoma (Usados)",      "description": "Recibimos tu auto como parte de pago"},
+                {"id": "faq_hibridos",       "title": "⚡ Híbridos y Pico y Placa",   "description": "Exención de restricción y ahorro"},
+                {"id": "faq_garantia",       "title": "🛡️ Garantía de Fábrica",       "description": "Hasta 10 años o 160.000 km"},
+                {"id": "faq_testdrive",      "title": "🏎️ Test Drive a Domicilio",    "description": "Prueba de manejo sin costo"},
+                {"id": "faq_ubicacion",      "title": "📍 Showrooms y Concesionarios","description": "Quito, Guayaquil, Cuenca y Ambato"},
             ]
         }
     ]
     await _send_list(
         phone=phone,
-        body="Selecciona la categoría sobre la que tienes dudas y te respondo al instante:",
-        button_text="Ver categorías",
+        body="Selecciona la categoría automotriz sobre la que deseas información y te respondo al instante:",
+        button_text="Ver opciones",
         sections=sections,
-        header="❓ Preguntas Frecuentes",
-        footer="Toca una opción para ver la respuesta",
+        header="❓ Asesoría Comercial AutoEcuador",
+        footer="Toca una opción para ver los detalles",
         internal_key=internal_key,
         phone_number_id=phone_number_id
     )
@@ -463,57 +463,56 @@ async def handle_ticket_result(phone: str, ticket_id: str, internal_key: str, re
     )
 
 async def send_faq_answer(phone: str, faq_id: str, internal_key: str, phone_number_id: Optional[str] = None):
-    """Responde una pregunta frecuente específica."""
+    """Responde una consulta automotriz específica."""
     answers = {
-        "faq_envios": (
-            "🚚 *Envíos y Entregas*\n\n"
-            "• *Gratis* en compras superiores a *$150* dentro de Quito\n"
-            "• *$5 adicionales* en compras menores a $150\n"
-            "• Tiempo estándar: *24 a 48 horas hábiles*\n"
-            "• Cobertura: Quito urbano y valles\n\n"
-            "📞 Para entregas urgentes contáctanos directamente."
+        "faq_financiamiento": (
+            "💳 *Crédito Vehicular AutoEcuador Motors*\n\n"
+            "• *Entrada mínima:* Desde el *20%* del valor del vehículo\n"
+            "• *Plazos de financiamiento:* De *12 hasta 72 meses*\n"
+            "• *Bancos y Cooperativas Aliadas:* Banco Pichincha, Banco Guayaquil, Produbanco, Coop. JEP, Coop. Policía Nacional\n"
+            "• *Tiempo de pre-aprobación:* Menos de *24 horas hábiles* con solo tu cédula y planilla de servicios\n"
+            "• *Tasa preferencial:* Desde 12.99% anual fija"
+        ),
+        "faq_retoma": (
+            "🔄 *Plan Retoma de Vehículos Usados*\n\n"
+            "¡Aceptamos tu auto actual como parte de pago de tu 0 km!\n\n"
+            "• *Avalúo técnico sin costo:* En cualquiera de nuestros talleres o a domicilio en menos de 2 horas\n"
+            "• *Precio comercial justo:* Pagamos el valor real de mercado ecuatoriano\n"
+            "• *Trámite ágil:* Nosotros gestionamos el contrato, traspaso y levantamiento de gravámenes\n"
+            "• El monto acordado se deduce de inmediato de la entrada de tu nuevo auto."
+        ),
+        "faq_hibridos": (
+            "⚡ *Beneficios de Vehículos Híbridos en Ecuador*\n\n"
+            "• 🚫 *Cero Pico y Placa:* Circulas todos los días y a toda hora sin restricción en Quito y Guayaquil\n"
+            "• ⛽ *Ahorro de combustible:* Hasta *75 km por galón* (ahorro de más del 60% frente a motores convencionales)\n"
+            "• 🔋 *Auto-recargable:* La batería se regenera automáticamente al frenar, ¡no requiere enchufarse!\n"
+            "• 💰 *Beneficio tributario:* 0% de aranceles de importación"
         ),
         "faq_garantia": (
-            "🔧 *Garantía y Devoluciones*\n\n"
-            "• *1 año* de garantía contra defectos de fabricación\n"
-            "• Devoluciones: primeros *5 días hábiles* tras la compra\n"
-            "• Requisitos: factura original + producto sin uso en empaque sellado\n\n"
-            "⚠️ No aplica para desgaste normal de uso."
+            "🛡️ *Garantía Oficial de Fábrica*\n\n"
+            "• *Cobertura extendida:* Hasta *10 años o 160.000 km* (según la marca del modelo)\n"
+            "• *Red nacional de talleres:* Mantenimiento preventivo en Quito, Guayaquil, Cuenca, Manta, Ambato y Loja\n"
+            "• *Repuestos 100% genuinos:* Stock permanente de fábrica y auxilio mecánico 24/7 en carretera"
         ),
-        "faq_horarios": (
-            "🕐 *Horarios de Atención*\n\n"
-            "• *Lunes a Viernes:* 07:30 AM – 06:00 PM\n"
-            "• *Sábados:* 08:00 AM – 02:00 PM\n"
-            "• *Domingos:* Cerrado 🚫\n\n"
-            "Este chatbot está disponible *24/7* para consultas."
-        ),
-        "faq_pagos": (
-            "💳 *Métodos de Pago*\n\n"
-            "• Efectivo 💵\n"
-            "• Tarjetas de crédito/débito 💳\n"
-            "• Transferencia bancaria 🏦\n"
-            "• PayPhone / Deuna 📱\n"
-            "• Crédito directo (clientes registrados) 📋"
+        "faq_testdrive": (
+            "🏎️ *Test Drive (Prueba de Manejo)*\n\n"
+            "• Prueba el vehículo de tus sueños antes de tomar una decisión\n"
+            "• *Modalidad:* En concesionario o *a domicilio* (te llevamos el auto a tu casa u oficina)\n"
+            "• *Sin costo ni compromiso*\n"
+            "• *Requisitos:* Licencia de conducir vigente y cédula"
         ),
         "faq_ubicacion": (
-            "📍 *Ubicaciones*\n\n"
-            "🏪 *Sucursal Principal*\n"
-            "Av. 10 de Agosto N45-23, Quito\n\n"
-            "🏪 *Sucursal Norte*\n"
-            "Av. Eloy Alfaro N56-10, Quito\n\n"
-            "📌 Encuéntranos en Google Maps:\n"
-            "https://maps.google.com/?q=Ferreteria+Castor+Quito"
-        ),
-        "faq_mayoreo": (
-            "🏭 *Compras al Por Mayor*\n\n"
-            "• Descuentos desde el *10%* en pedidos mayores a $500\n"
-            "• Hasta *25%* para distribuidores registrados\n"
-            "• Crédito disponible para empresas\n\n"
-            "Para cotizaciones especiales, un asesor te atenderá personalmente."
+            "📍 *Red de Concesionarios y Showrooms AutoEcuador*\n\n"
+            "🏢 *Quito Norte:* Av. Los Granados y 6 de Diciembre\n"
+            "🏢 *Quito Sur:* Av. Maldonado y Morán Valverde\n"
+            "🏢 *Guayaquil:* Av. Juan Tanca Marengo Km 2.5\n"
+            "🏢 *Cuenca:* Av. España y Huayna Cápac\n"
+            "🏢 *Ambato:* Av. Atahualpa y Los Chasquis\n\n"
+            "🕒 *Horario:* Lunes a Viernes 08h30 a 18h30 | Sábados 09h00 a 16h00"
         ),
     }
     
-    answer = answers.get(faq_id, "❓ Lo siento, no tengo información sobre esa categoría en este momento.")
+    answer = answers.get(faq_id, "❓ Lo siento, no tengo información sobre esa consulta en este momento.")
     
     # Enviar respuesta + botones de navegación
     buttons = [

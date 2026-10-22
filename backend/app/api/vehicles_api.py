@@ -366,3 +366,72 @@ async def submit_formal_quote(payload: VehicleQuoteCreate, db: AsyncSession = De
         "message": "Cotización guardada exitosamente y enviada a tu WhatsApp.",
         "quote_id": str(quote.id)
     }
+
+
+# ── Registro de Leads y Test Drive ────────────────────────────────────
+
+@router.post("/api/v1/vehicles/lead", tags=["Vehículos Ecuador - Leads"])
+async def register_vehicle_lead(payload: VehicleLeadCreate, db: AsyncSession = Depends(get_db_session)):
+    """
+    Registra un lead comercial o solicitud de Test Drive desde la vitrina de WhatsApp o webview.
+    Sincroniza con Chatwoot y la base de datos de gestión comercial.
+    """
+    clean_phone = payload.customer_phone.replace("+", "").replace(" ", "").strip()
+    phone_hash = f"hash_{clean_phone}"
+
+    vehicle = None
+    if payload.vehicle_code:
+        v_res = await db.execute(select(Vehicle).where(Vehicle.code == payload.vehicle_code))
+        vehicle = v_res.scalar_one_or_none()
+
+    lead_code = f"LEAD-AUTO-{uuid.uuid4().hex[:6].upper()}"
+
+    lead = VehicleLead(
+        lead_code=lead_code,
+        customer_phone=clean_phone,
+        phone_hash=phone_hash,
+        customer_name=payload.customer_name or "Cliente WhatsApp",
+        city=payload.city or "Quito",
+        interested_vehicle_id=vehicle.id if vehicle else None,
+        interested_model_name=f"{vehicle.brand} {vehicle.model}" if vehicle else None,
+        quote_type=payload.quote_type or "credito",
+        down_payment_offered=Decimal(str(payload.down_payment_offered)) if payload.down_payment_offered is not None else None,
+        term_months=payload.term_months,
+        test_drive_requested=payload.test_drive_requested or False,
+        status="test_drive_agendado" if payload.test_drive_requested else "nuevo",
+        notes=payload.notes
+    )
+
+    db.add(lead)
+    await db.commit()
+    await db.refresh(lead)
+
+    # Sincronizar en Chatwoot
+    try:
+        cw = ChatwootService()
+        if cw.is_configured:
+            contact_id = await cw.get_or_create_contact(clean_phone, payload.customer_name or f"Cliente {clean_phone}")
+            if contact_id:
+                cw_conv_id = await cw.get_or_create_conversation(contact_id)
+                if cw_conv_id:
+                    note = (
+                        f"🏎️ *NUEVO LEAD / SOLICITUD DE TEST DRIVE*\n"
+                        f"• Código: {lead_code}\n"
+                        f"• Cliente: {payload.customer_name}\n"
+                        f"• Vehículo: {vehicle.brand + ' ' + vehicle.model if vehicle else 'General'}\n"
+                        f"• Tipo de interés: {'Prueba de Manejo (Test Drive)' if payload.test_drive_requested else payload.quote_type}\n"
+                        f"• Ciudad: {payload.city}\n"
+                        f"• Notas: {payload.notes or 'Ninguna'}"
+                    )
+                    await cw.post_message(cw_conv_id, note, message_type="incoming")
+                    lead.chatwoot_conversation_id = cw_conv_id
+                    await db.commit()
+    except Exception as cw_err:
+        logger.error(f"Error sincronizando lead con Chatwoot: {cw_err}")
+
+    return {
+        "status": "success",
+        "lead_code": lead_code,
+        "message": "Solicitud de Test Drive y atención personalizada registrada exitosamente.",
+        "lead_id": str(lead.id)
+    }

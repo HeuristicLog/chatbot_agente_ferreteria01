@@ -1,4 +1,4 @@
-﻿"""
+"""
 WhatsApp Webhook Router — Interactive Flow Engine
 Handles both text messages and interactive button/list replies.
 Routes to guided flows or Flowise AI for free-text questions.
@@ -87,6 +87,21 @@ async def _gateway_send_text(phone: str, message: str, phone_number_id: Optional
         except Exception as cw_err:
             logger.error(f"Error sincronizando salida de texto del bot con Chatwoot: {cw_err}")
 
+    # Intentar enviar via Evolution API si está activa
+    try:
+        clean_p = phone.replace("+", "").replace(" ", "").strip()
+        async with httpx.AsyncClient() as client:
+            evo_resp = await client.post(
+                "http://evolution-api:8080/message/sendText/sucursal_centro",
+                json={"number": clean_p, "text": message},
+                headers={"apikey": "ferreteria_evolution_key_2026"},
+                timeout=5.0
+            )
+            if evo_resp.status_code in [200, 201]:
+                return
+    except Exception as evo_e:
+        logger.debug(f"Evolution send fallback: {evo_e}")
+
     headers = {"X-Internal-API-Key": internal_api_key}
     payload = {"phone": phone, "message": message}
     if phone_number_id:
@@ -121,12 +136,72 @@ async def _gateway_send_media(phone: str, media_type: str, media_url: str, capti
 
 @router.post("/webhooks/whatsapp", dependencies=[Depends(verify_internal_auth)])
 async def receive_incoming_message(
-    payload: IncomingWhatsAppMessage,
+    raw_payload: Dict[str, Any] = Body(...),
     db: AsyncSession = Depends(get_db_session),
     redis_client: redis.Redis = Depends(get_redis)
 ):
     session_service = SessionService(db, redis_client)
     flowise_service = FlowiseService()
+
+    # Detectar formato: Evolution API v2 vs Gateway / Test Mock
+    if "data" in raw_payload and isinstance(raw_payload["data"], dict) and "key" in raw_payload["data"]:
+        data = raw_payload["data"]
+        key = data.get("key", {})
+        
+        # Ignorar mensajes salientes enviados desde el teléfono propio
+        if key.get("fromMe", False):
+            return {"status": "ignored_outbound"}
+            
+        remote_jid = key.get("remoteJid", "")
+        # Ignorar grupos de WhatsApp
+        if "@g.us" in remote_jid:
+            return {"status": "ignored_group"}
+            
+        phone = remote_jid.split("@")[0].replace("+", "").replace(" ", "").strip()
+        if not phone:
+            return {"status": "ignored_no_phone"}
+            
+        msg_obj = data.get("message", {}) or {}
+        extracted_text = ""
+        interactive_id = ""
+        
+        if "conversation" in msg_obj and msg_obj["conversation"]:
+            extracted_text = str(msg_obj["conversation"])
+        elif "extendedTextMessage" in msg_obj and isinstance(msg_obj["extendedTextMessage"], dict):
+            extracted_text = str(msg_obj["extendedTextMessage"].get("text", ""))
+        elif "buttonsResponseMessage" in msg_obj:
+            interactive_id = msg_obj["buttonsResponseMessage"].get("selectedButtonId", "")
+            extracted_text = msg_obj["buttonsResponseMessage"].get("selectedDisplayText", interactive_id)
+        elif "listResponseMessage" in msg_obj:
+            single = msg_obj["listResponseMessage"].get("singleSelectReply", {})
+            interactive_id = single.get("selectedRowId", "")
+            extracted_text = msg_obj["listResponseMessage"].get("title", interactive_id)
+        elif "templateButtonReplyMessage" in msg_obj:
+            interactive_id = msg_obj["templateButtonReplyMessage"].get("selectedId", "")
+            extracted_text = msg_obj["templateButtonReplyMessage"].get("selectedDisplayText", interactive_id)
+            
+        if not extracted_text and not interactive_id:
+            return {"status": "ignored_unsupported_type"}
+            
+        metadata = {
+            "provider": "evolution",
+            "push_name": data.get("pushName", ""),
+            "instance": raw_payload.get("instance", "sucursal_centro")
+        }
+        if interactive_id:
+            metadata["interactive_id"] = interactive_id
+            
+        payload = IncomingWhatsAppMessage(
+            phone=phone,
+            message=extracted_text,
+            message_id=key.get("id"),
+            metadata=metadata
+        )
+    else:
+        # Formato Gateway estándar / Simulator / Pytest
+        if not raw_payload.get("phone") or not raw_payload.get("message"):
+            return {"status": "ignored_invalid_payload"}
+        payload = IncomingWhatsAppMessage(**raw_payload)
 
     dest_phone_number_id = payload.metadata.get("phone_number_id")
     session_id = session_service.derive_session_id(payload.phone, dest_phone_number_id)
@@ -146,10 +221,11 @@ async def receive_incoming_message(
     await redis_client.set(f"phone_map:{phone_hash}", payload.phone)
 
     # Idempotency check
-    msg_id_key = f"msg_id:{payload.message_id}"
-    if await redis_client.get(msg_id_key):
-        return {"status": "duplicate"}
-    await redis_client.set(msg_id_key, "1", ex=3600)
+    if payload.message_id:
+        msg_id_key = f"msg_id:{payload.message_id}"
+        if await redis_client.get(msg_id_key):
+            return {"status": "duplicate"}
+        await redis_client.set(msg_id_key, "1", ex=3600)
 
     sanitized = sanitize_user_input(payload.message)
 
@@ -664,7 +740,7 @@ async def chatwoot_webhook(
 
                         await redis_client.delete(f"flow_state:{clean_phone}")
 
-                        msg = "✅ *Atención al cliente finalizada.* El asistente virtual Castor vuelve a estar activo. Escribe *hola* para ver el menú principal."
+                        msg = "✅ *Atención al cliente finalizada.* El asesor comercial virtual Alex de AutoEcuador Motors 🇪🇨 vuelve a estar activo. Escribe *hola* para ver el menú o explorar vehículos."
                         await _gateway_send_text(clean_phone, msg, phone_number_id=target_phone_number_id, access_token=target_access_token)
 
                         db_msg = DBMessage(
