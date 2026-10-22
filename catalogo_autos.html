@@ -36,12 +36,26 @@
         </div>
       </div>
       
-      <!-- Garage Trigger Button -->
-      <button onclick="toggleGarageDrawer()" class="relative bg-slate-800 hover:bg-slate-700 text-amber-400 border border-slate-700 px-3.5 py-2 rounded-2xl flex items-center gap-2 text-xs font-bold transition shadow-md">
-        <i class="fa-solid fa-warehouse text-sm"></i>
-        <span class="hidden sm:inline">Mi Garaje</span>
-        <span id="garage-badge" class="bg-amber-500 text-slate-950 font-black text-[10px] w-5 h-5 rounded-full flex items-center justify-center">0</span>
-      </button>
+      <!-- Actions Header -->
+      <div class="flex items-center gap-2">
+        <button onclick="requestAdvisorNow()" class="bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-slate-700 px-3 py-2 rounded-2xl flex items-center gap-1.5 text-xs font-bold transition shadow-md" title="Hablar con Asesor Comercial en WhatsApp">
+          <i class="fa-solid fa-headset text-sm"></i>
+          <span class="hidden sm:inline">Asesor</span>
+        </button>
+
+        <!-- Garage Trigger Button -->
+        <button onclick="toggleGarageDrawer()" class="relative bg-slate-800 hover:bg-slate-700 text-amber-400 border border-slate-700 px-3 py-2 rounded-2xl flex items-center gap-1.5 text-xs font-bold transition shadow-md">
+          <i class="fa-solid fa-warehouse text-sm"></i>
+          <span class="hidden sm:inline">Mi Garaje</span>
+          <span id="garage-badge" class="bg-amber-500 text-slate-950 font-black text-[10px] w-5 h-5 rounded-full flex items-center justify-center">0</span>
+        </button>
+
+        <!-- Close & Return to WhatsApp Button -->
+        <button onclick="closeWebviewAndReturn()" class="bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30 px-3 py-2 rounded-2xl flex items-center gap-1.5 text-xs font-bold transition shadow-md" title="Cerrar vitrina y volver a WhatsApp">
+          <i class="fa-solid fa-xmark text-sm"></i>
+          <span>Volver a WhatsApp</span>
+        </button>
+      </div>
     </div>
   </header>
 
@@ -164,6 +178,33 @@
           <span>Solicitar Aprobación de Todo Mi Garaje</span>
         </button>
       </div>
+    </div>
+  </div>
+
+  <!-- Modal Éxito y Retorno a WhatsApp -->
+  <div id="quote-success-modal" class="hidden fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-emerald-500/30 rounded-3xl p-6 text-center max-w-sm w-full shadow-2xl">
+      <div class="w-16 h-16 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-3xl mx-auto mb-4 animate-bounce">
+        <i class="fa-solid fa-circle-check"></i>
+      </div>
+      <h3 id="success-title" class="text-lg font-black text-white">¡Cotización Oficial Generada!</h3>
+      <p class="text-xs text-slate-300 mt-2">
+        Tu solicitud ha sido guardada en la base de datos con código <code id="success-quote-code" class="text-emerald-400 font-mono font-bold"></code>.
+      </p>
+      <div id="success-details-box" class="bg-slate-950 border border-slate-800 rounded-2xl p-3 my-4 text-xs text-left space-y-1 text-slate-300">
+        <div class="flex justify-between"><span>Vehículo:</span> <strong id="success-vehicle-name" class="text-amber-400"></strong></div>
+        <div class="flex justify-between"><span>Entrada:</span> <strong id="success-down-amt" class="text-white"></strong></div>
+        <div class="flex justify-between"><span>Cuota mensual:</span> <strong id="success-monthly-fee" class="text-emerald-400 font-bold"></strong></div>
+        <div class="flex justify-between"><span>Plazo:</span> <strong id="success-term" class="text-white"></strong></div>
+      </div>
+      <div class="p-3 bg-emerald-950/40 border border-emerald-500/20 rounded-2xl mb-4 text-[11px] text-emerald-300 flex items-center gap-2 text-left">
+        <i class="fa-brands fa-whatsapp text-xl text-emerald-400"></i>
+        <span>Los detalles completos y tu asesor comercial asignado te esperan ahora en WhatsApp.</span>
+      </div>
+      <button onclick="finishAndReturnToWhatsApp()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3.5 rounded-xl text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg transition">
+        <i class="fa-brands fa-whatsapp text-lg"></i>
+        <span>Cerrar y Continuar en WhatsApp</span>
+      </button>
     </div>
   </div>
 
@@ -508,10 +549,68 @@
       else box.classList.add('hidden');
     }
 
-    let calculatedDown = 0;
-    let calculatedMonthly = 0;
-    let selectedDownPercent = 20;
-    let selectedTermMonths = 48;
+    let currentSuccessQuoteCode = '';
+    let currentSuccessVehicleName = '';
+
+    // ── RETORNO A WHATSAPP Y COMUNICACIÓN BIDIRECCIONAL ──
+    function closeWebviewAndReturn() {
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage({ type: 'CLOSE_WEBVIEW' }, '*');
+      }
+      try {
+        window.close();
+      } catch (e) {}
+      setTimeout(() => {
+        window.location.href = `https://wa.me/593988921136?text=Hola%20Alex,%20estaba%20explorando%20la%20vitrina%20de%20autos.`;
+      }, 350);
+    }
+
+    async function requestAdvisorNow() {
+      try {
+        await fetch('/api/v1/vehicles/lead', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            customer_phone: customerPhone,
+            customer_name: "Cliente WhatsApp",
+            city: "Quito",
+            quote_type: "asesor_humano",
+            notes: "Cliente solicitó hablar con un asesor comercial humano desde la vitrina virtual"
+          })
+        });
+      } catch (e) {
+        console.error(e);
+      }
+
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage({ type: 'CONNECT_ADVISOR' }, '*');
+      }
+
+      showToast("Conectando con tu asesor comercial en WhatsApp...");
+      setTimeout(() => {
+        try { window.close(); } catch(e){}
+        window.location.href = `https://wa.me/593988921136?text=Hola%20Alex,%20deseo%20hablar%20directamente%20con%20un%20asesor%20comercial.`;
+      }, 1000);
+    }
+
+    function finishAndReturnToWhatsApp() {
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage({
+          type: 'QUOTE_CONFIRMED',
+          quote_code: currentSuccessQuoteCode,
+          vehicle_name: currentSuccessVehicleName,
+          customer_phone: customerPhone
+        }, '*');
+      }
+
+      try {
+        window.close();
+      } catch (e) {}
+
+      setTimeout(() => {
+        window.location.href = `https://wa.me/593988921136?text=Hola%20Alex,%20acabo%20de%20generar%20mi%20cotizaci%C3%B3n%20${currentSuccessQuoteCode}%20en%20la%20vitrina.%20Deseo%20continuar%20por%20aqu%C3%AD.`;
+      }, 400);
+    }
 
     function updateFinancing(totalPrice) {
       selectedDownPercent = Number(document.getElementById('input-down-percent').value);
@@ -559,9 +658,32 @@
         const res = await resp.json();
 
         if (res.status === 'success') {
-          showToast(`¡Cotización ${res.quote_code} guardada y enviada a tu WhatsApp!`);
+          currentSuccessQuoteCode = res.quote_code;
+          const v = vehicles.find(item => item.code === vehicleCode);
+          currentSuccessVehicleName = v ? `${v.brand} ${v.model}` : vehicleCode;
+
+          document.getElementById('success-title').innerText = '¡Cotización Oficial Generada!';
+          document.getElementById('success-quote-code').innerText = res.quote_code;
+          document.getElementById('success-vehicle-name').innerText = currentSuccessVehicleName;
+          document.getElementById('success-down-amt').innerText = `$${Math.round(calculatedDown).toLocaleString()} USD (${selectedDownPercent}%)`;
+          document.getElementById('success-monthly-fee').innerText = `$${Math.round(calculatedMonthly).toLocaleString()} / mes`;
+          document.getElementById('success-term').innerText = `${selectedTermMonths} meses`;
+          
           closeModal();
           loadGarage();
+          document.getElementById('quote-success-modal').classList.remove('hidden');
+
+          // Notificar al iframe padre (Simulador o In-App Webview)
+          if (window.parent && window.parent !== window) {
+            window.parent.postMessage({
+              type: 'QUOTE_CONFIRMED',
+              quote_code: res.quote_code,
+              vehicle_name: currentSuccessVehicleName,
+              customer_phone: customerPhone,
+              monthly_fee: Math.round(calculatedMonthly),
+              down_payment: Math.round(calculatedDown)
+            }, '*');
+          }
         } else {
           showToast('Error al registrar cotización.');
         }
@@ -663,8 +785,43 @@
     }
 
     async function submitGarageBatchQuote() {
-      showToast('Solicitud enviada. El asesor Alex se comunicará contigo.');
-      toggleGarageDrawer();
+      try {
+        const resp = await fetch('/api/v1/vehicles/lead', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            customer_phone: customerPhone,
+            customer_name: "Cliente WhatsApp",
+            city: "Quito",
+            quote_type: "garaje_completo",
+            notes: "El cliente solicita cotización y aprobación crediticia para todos los vehículos guardados en su Garaje Virtual"
+          })
+        });
+        const res = await resp.json();
+        currentSuccessQuoteCode = res.lead_code || 'GARAGE-AUTO';
+        currentSuccessVehicleName = 'Mi Garaje Virtual Completo';
+
+        document.getElementById('success-title').innerText = '¡Garaje Enviado a Cotizar!';
+        document.getElementById('success-quote-code').innerText = currentSuccessQuoteCode;
+        document.getElementById('success-vehicle-name').innerText = 'Vehículos en Garaje';
+        document.getElementById('success-down-amt').innerText = 'Aprobación Multibanco';
+        document.getElementById('success-monthly-fee').innerText = 'Comparativa en WhatsApp';
+        document.getElementById('success-term').innerText = 'En revisión por Asesor';
+
+        toggleGarageDrawer();
+        document.getElementById('quote-success-modal').classList.remove('hidden');
+
+        if (window.parent && window.parent !== window) {
+          window.parent.postMessage({
+            type: 'GARAGE_BATCH_SUBMITTED',
+            lead_code: currentSuccessQuoteCode,
+            customer_phone: customerPhone
+          }, '*');
+        }
+      } catch(e) {
+        console.error(e);
+        showToast('Error al enviar el garaje.');
+      }
     }
 
     async function scheduleTestDriveLead(code, brand, model) {
@@ -679,16 +836,37 @@
           notes: `Solicitud de Test Drive desde la vitrina virtual para ${brand} ${model}`
         };
 
-        await fetch('/api/v1/vehicles/lead', {
+        const resp = await fetch('/api/v1/vehicles/lead', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
+        const res = await resp.json();
 
-        showToast(`Test Drive agendado para el ${brand} ${model}. ¡Te esperamos!`);
+        currentSuccessQuoteCode = res.lead_code || 'TEST-DRIVE';
+        currentSuccessVehicleName = `${brand} ${model}`;
+
+        document.getElementById('success-title').innerText = '¡Test Drive Agendado con Éxito!';
+        document.getElementById('success-quote-code').innerText = currentSuccessQuoteCode;
+        document.getElementById('success-vehicle-name').innerText = currentSuccessVehicleName;
+        document.getElementById('success-down-amt').innerText = '100% Gratuito';
+        document.getElementById('success-monthly-fee').innerText = 'A domicilio o Showroom';
+        document.getElementById('success-term').innerText = 'Coordinación inmediata';
+
         closeModal();
+        document.getElementById('quote-success-modal').classList.remove('hidden');
+
+        if (window.parent && window.parent !== window) {
+          window.parent.postMessage({
+            type: 'TEST_DRIVE_REQUESTED',
+            lead_code: currentSuccessQuoteCode,
+            vehicle_name: currentSuccessVehicleName,
+            customer_phone: customerPhone
+          }, '*');
+        }
       } catch (e) {
         console.error(e);
+        showToast('Error al agendar prueba.');
       }
     }
 

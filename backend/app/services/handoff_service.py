@@ -64,7 +64,7 @@ class HandoffService:
                             cw_conv_id = await chatwoot.get_or_create_conversation(cw_contact_id, inbox_id=inbox_id)
                             if cw_conv_id:
                                 await chatwoot.update_conversation_status(cw_conv_id, "open")
-                                note_text = f"🤖 *Ferretería Bot Handoff* (Re-apertura) 🤖\n\n• *Sucursal:* {sucursal or 'No especificada'}\n• *Motivo:* Re-solicitud del usuario"
+                                note_text = f"🚗 *AutoEcuador Motors — Asesoría Comercial Solicitada* 🚗\n\n• *Showroom/Sucursal:* {sucursal or 'Quito Centro'}\n• *Motivo:* Re-solicitud del cliente"
                                 await chatwoot.post_message(cw_conv_id, note_text, is_private=True)
                     except Exception as cw_err:
                         logger.error(f"Error sincronizando re-apertura en Chatwoot: {cw_err}")
@@ -132,11 +132,11 @@ class HandoffService:
                         await chatwoot.update_conversation_status(cw_conv_id, "open")
                         # Enviar nota privada con el resumen para el agente
                         note_text = (
-                            f"🤖 *Ferretería Bot Handoff* 🤖\n\n"
-                            f"• *Sucursal:* {sucursal or 'No especificada'}\n"
-                            f"• *Motivo:* {reason or 'No especificado'}\n"
-                            f"• *Resumen:* {summary or 'No especificado'}\n\n"
-                            f"💬 *Últimos 5 mensajes de contexto:*\n{history_text}"
+                            f"🚗 *AutoEcuador Motors — Cliente Esperando Asesor* 🚗\n\n"
+                            f"• *Showroom/Sede:* {sucursal or 'Quito'}\n"
+                            f"• *Motivo:* {reason or 'Consulta comercial vehicular'}\n"
+                            f"• *Resumen:* {summary or 'El cliente solicita atención personalizada para compra / cotización de vehículo'}\n\n"
+                            f"💬 *Últimos mensajes de contexto:*\n{history_text}"
                         )
                         await chatwoot.post_message(cw_conv_id, note_text, is_private=True)
             except Exception as cw_err:
@@ -167,9 +167,9 @@ class HandoffService:
                 
                 # Notificar al Cliente en su WhatsApp
                 msg_client = (
-                    f"✅ Un asesor de la *Sucursal {sucursal or 'General'}* ha tomado tu caso.\n"
+                    f"✅ Un asesor comercial de *AutoEcuador Motors ({sucursal or 'Quito'})* ha tomado tu caso.\n"
                     f"👨‍💼 Te atiende: *{assigned_seller.name}*.\n"
-                    f"En un momento se comunicará contigo."
+                    f"En breves instantes te responderá por este mismo chat de WhatsApp."
                 )
                 await self._send_gateway_message(phone, msg_client)
 
@@ -177,12 +177,12 @@ class HandoffService:
                 try:
                     if assigned_seller.whatsapp_phone:
                         msg_advisor = (
-                            f"🔔 *NUEVA ASIGNACIÓN DE CLIENTE* 🔔\n\n"
+                            f"🔔 *NUEVA ASIGNACIÓN DE CLIENTE AUTOMOTRIZ* 🔔\n\n"
                             f"• *Cliente:* +{phone}\n"
-                            f"• *Sucursal:* {sucursal or 'General'}\n"
-                            f"• *Motivo:* {reason or 'Solicitud de atención'}\n\n"
-                            f"💬 *Últimos 5 mensajes de contexto:*\n{history_text}\n\n"
-                            f"_El cliente está esperando. Por favor, atiende el chat desde Chatwoot._"
+                            f"• *Showroom:* {sucursal or 'General'}\n"
+                            f"• *Motivo:* {reason or 'Solicitud comercial de vehículos'}\n\n"
+                            f"💬 *Últimos mensajes de contexto:*\n{history_text}\n\n"
+                            f"_El cliente está esperando en WhatsApp. Por favor, atiende desde Chatwoot._"
                         )
                         await self._send_gateway_message(assigned_seller.whatsapp_phone, msg_advisor)
                 except Exception as notify_err:
@@ -190,10 +190,11 @@ class HandoffService:
             else:
                 logger.warning(f"No hay asesores disponibles en este momento para la sucursal: {sucursal}")
                 msg_client = (
-                    f"✅ *¡Listo!* Te hemos puesto en la fila de atención para la *Sucursal {sucursal or 'General'}*.\n\n"
-                    f"👨‍💼 Un asesor se comunicará contigo en breve.\n"
-                    f"⏰ Horario de atención: L-V 7:30-18:00 / S 8:00-14:00\n\n"
-                    f"_Mientras esperas, puedes escribir tu consulta y el asesor la verá._"
+                    f"✅ *¡Conexión solicitada!*\n\n"
+                    f"Te hemos conectado con nuestro equipo comercial de *AutoEcuador Motors ({sucursal or 'Sede Principal'})*.\n\n"
+                    f"👨‍💼 Un asesor comercial se comunicará contigo por este mismo chat en breve.\n"
+                    f"⏰ Horario de showrooms: L-V 08:30 a 18:30 | Sábados 09:00 a 16:00\n\n"
+                    f"_Puedes escribir tu duda o modelo de interés y el asesor la verá directamente._"
                 )
                 await self._send_gateway_message(phone, msg_client)
         except Exception as assign_err:
