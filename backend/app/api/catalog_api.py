@@ -1009,12 +1009,100 @@ async def vincular_qr_page():
     html_path = "/app/escanear_qr.html"
     local_path = "C:/Users/User/Desktop/KEVIN/ChatbotFlowise/escanear_qr.html"
     import os
+    content = ""
     if os.path.exists(html_path):
         with open(html_path, "r", encoding="utf-8") as f:
-            return f.read()
+            content = f.read()
     elif os.path.exists(local_path):
         with open(local_path, "r", encoding="utf-8") as f:
-            return f.read()
+            content = f.read()
     else:
         return "<h1>Página de vinculación no encontrada</h1>"
+    
+    # Pre-render initial QR code server-side so it appears instantaneously
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(
+                "http://evolution-api:8080/instance/connect/sucursal_centro",
+                headers={"apikey": "ferreteria_evolution_key_2026"},
+                timeout=6.0
+            )
+            if resp.status_code == 200:
+                qr_b64 = resp.json().get("base64", "")
+                if qr_b64:
+                    content = content.replace('src="" alt="Código QR WhatsApp"', f'src="{qr_b64}" alt="Código QR WhatsApp"')
+                    content = content.replace('id="loading" class="absolute', 'id="loading" class="hidden absolute')
+    except Exception as e:
+        logger.error(f"Error pre-rendering QR: {e}")
+        
+    return content
+
+
+@router.get("/api/v1/whatsapp-status")
+async def get_whatsapp_status():
+    status = "close"
+    base64_qr = None
+    try:
+        async with httpx.AsyncClient() as client:
+            state_resp = await client.get(
+                "http://evolution-api:8080/instance/connectionState/sucursal_centro",
+                headers={"apikey": "ferreteria_evolution_key_2026"},
+                timeout=5.0
+            )
+            if state_resp.status_code == 200:
+                status = state_resp.json().get("instance", {}).get("state", "close")
+            
+            if status != "open":
+                connect_resp = await client.get(
+                    "http://evolution-api:8080/instance/connect/sucursal_centro",
+                    headers={"apikey": "ferreteria_evolution_key_2026"},
+                    timeout=8.0
+                )
+                if connect_resp.status_code == 200:
+                    base64_qr = connect_resp.json().get("base64")
+    except Exception as e:
+        logger.error(f"Error checking WhatsApp status: {e}")
+    
+    return {"state": status, "base64": base64_qr}
+
+
+@router.post("/api/v1/whatsapp-reset")
+async def reset_whatsapp_session():
+    try:
+        async with httpx.AsyncClient() as client:
+            await client.delete(
+                "http://evolution-api:8080/instance/delete/sucursal_centro",
+                headers={"apikey": "ferreteria_evolution_key_2026"},
+                timeout=10.0
+            )
+            create_payload = {
+                "instanceName": "sucursal_centro",
+                "token": "sucursal_centro_token",
+                "qrcode": True,
+                "integration": "WHATSAPP-BAILEYS",
+                "chatwootAccountId": "1",
+                "chatwootToken": "naCTc3dv6qfvbhfwVar9CmDA",
+                "chatwootUrl": "http://chatwoot-web:3000",
+                "chatwootSignMsg": False,
+                "chatwootReopenConversation": True,
+                "chatwootConversationPending": False,
+                "chatwootImportContacts": True,
+                "chatwootNameInbox": "WhatsApp Sucursal Centro"
+            }
+            await client.post(
+                "http://evolution-api:8080/instance/create",
+                json=create_payload,
+                headers={"apikey": "ferreteria_evolution_key_2026"},
+                timeout=10.0
+            )
+            conn_resp = await client.get(
+                "http://evolution-api:8080/instance/connect/sucursal_centro",
+                headers={"apikey": "ferreteria_evolution_key_2026"},
+                timeout=10.0
+            )
+            base64_qr = conn_resp.json().get("base64") if conn_resp.status_code == 200 else None
+            return {"status": "reset_ok", "base64": base64_qr}
+    except Exception as e:
+        logger.error(f"Error resetting session: {e}")
+        return {"status": "error", "message": str(e)}
 

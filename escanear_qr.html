@@ -98,15 +98,13 @@
     async function checkStatus() {
       if (isConnected) return true;
       try {
-        const resp = await fetch('http://localhost:8082/instance/connectionState/sucursal_centro', {
-          headers: { 'apikey': 'ferreteria_evolution_key_2026' }
-        });
+        const resp = await fetch('/api/v1/whatsapp-status');
         const data = await resp.json();
-        if (data.instance && data.instance.state === 'open') {
+        if (data.state === 'open') {
           isConnected = true;
           connectedDiv.classList.remove('hidden');
           loading.classList.add('hidden');
-          statusText.innerText = '¡Dispositivo vinculado con éxito!';
+          statusText.innerText = '¡WhatsApp Business vinculado con éxito como entrada!';
           clearInterval(timerInterval);
           return true;
         }
@@ -121,18 +119,16 @@
       if (open) return;
 
       loading.classList.remove('hidden');
-      loadingText.innerText = 'Generando nuevo código QR...';
+      loadingText.innerText = 'Actualizando código QR...';
 
       try {
-        const resp = await fetch('http://localhost:8082/instance/connect/sucursal_centro', {
-          headers: { 'apikey': 'ferreteria_evolution_key_2026' }
-        });
+        const resp = await fetch('/api/v1/whatsapp-status');
         const data = await resp.json();
         if (data.base64) {
           qrImg.src = data.base64;
           loading.classList.add('hidden');
           resetCountdown();
-        } else if (data.instance && data.instance.state === 'open') {
+        } else if (data.state === 'open') {
           isConnected = true;
           connectedDiv.classList.remove('hidden');
           loading.classList.add('hidden');
@@ -167,40 +163,18 @@
       btn.innerText = 'Reiniciando...';
       btn.disabled = true;
       try {
-        await fetch('http://localhost:8082/instance/delete/sucursal_centro', {
-          method: 'DELETE',
-          headers: { 'apikey': 'ferreteria_evolution_key_2026' }
-        });
-
-        await fetch('http://localhost:8082/instance/create', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'apikey': 'ferreteria_evolution_key_2026'
-          },
-          body: JSON.stringify({
-            instanceName: 'sucursal_centro',
-            token: 'sucursal_centro_token',
-            qrcode: true,
-            integration: 'WHATSAPP-BAILEYS',
-            chatwootAccountId: '1',
-            chatwootToken: 'naCTc3dv6qfvbhfwVar9CmDA',
-            chatwootUrl: 'http://chatwoot-web:3000',
-            chatwootSignMsg: false,
-            chatwootReopenConversation: true,
-            chatwootConversationPending: false,
-            chatwootImportContacts: true,
-            chatwootNameInbox: 'WhatsApp Sucursal Centro'
-          })
-        });
-
+        const resp = await fetch('/api/v1/whatsapp-reset', { method: 'POST' });
+        const data = await resp.json();
+        if (data.base64) {
+          qrImg.src = data.base64;
+          loading.classList.add('hidden');
+          resetCountdown();
+        }
         btn.innerText = '¡Sesión limpia!';
         setTimeout(() => {
           btn.innerText = '🧹 Reiniciar Sesión Limpia';
           btn.disabled = false;
         }, 2000);
-
-        loadQR();
       } catch (err) {
         console.error('Error en cleanReset:', err);
         btn.innerText = 'Error';
