@@ -183,37 +183,52 @@ async def _send_flow(phone: str, body: str, flow_id: str, flow_cta: str, flow_to
 # ─────────────────────────────────────────────
 
 async def send_welcome_menu(phone: str, internal_key: str, name: str = "", phone_number_id: Optional[str] = None):
-    """Menú de bienvenida limpio, fluido y directo a la vitrina emergente en WhatsApp."""
-    import os
-    clean_phone = phone.replace("+", "").replace(" ", "").strip()
-    ngrok_url = os.getenv("CATALOG_BASE_URL", "https://usable-thorn-kabob.ngrok-free.dev")
-    catalog_url = f"{ngrok_url}/catalogo-autos?phone={clean_phone}&sucursal=Centro"
-    
+    """Menú de bienvenida interactivo con 3 opciones claras y fluidas."""
     greeting = f"¡Hola{' ' + name if name else ''}! 😊"
     body = (
         f"{greeting} Te damos la bienvenida a *AutoEcuador Motors* 🇪🇨, tu concesionario multimarca oficial.\n\n"
-        "Soy *Alex*, tu asesor comercial para vehículos 2026.\n\n"
-        "Toca el botón *🚘 Explorar Vitrina* para ver todos los modelos 2026 con fotos reales, simular tu crédito en vivo y reservar tu Test Drive sin salir de WhatsApp:\n\n"
-        "💬 _También puedes preguntarme por horarios, camionetas 4x4, híbridos o solicitar un asesor._"
+        "Soy *Alex*, tu asesor comercial inteligente para vehículos nuevos y seminuevos 2026.\n\n"
+        "¿En qué podemos ayudarte hoy? Toca una de las opciones abajo para comenzar:"
     )
-    await _send_cta_url(
+    buttons = [
+        {"id": "auto_menu_vehiculos", "title": "🚘 Ver Vehículos"},
+        {"id": "auto_horarios", "title": "🕒 Horarios y Sedes"},
+        {"id": "flow_asesor", "title": "👨‍💼 Hablar con Asesor"}
+    ]
+    await _send_buttons(
         phone=phone,
         body=body,
-        display_text="🚘 Explorar Vitrina",
-        url=catalog_url,
+        buttons=buttons,
         header="🚗 AutoEcuador Motors 2026",
-        footer="Quito • Guayaquil • Cuenca | Lun-Sáb 8:30-18:30",
+        footer="Quito • Guayaquil • Cuenca • Ambato",
+        internal_key=internal_key,
+        phone_number_id=phone_number_id
+    )
+
+async def send_vehicle_types_flow(phone: str, internal_key: str, phone_number_id: Optional[str] = None):
+    """Muestra las categorías principales de vehículos disponibles con botones interactivos."""
+    body = (
+        "🚘 *Modelos y Categorías Disponibles 2026:*\n\n"
+        "Todos nuestros vehículos cuentan con garantía oficial de fábrica, aprobación bancaria en 24h y entrega inmediata en Ecuador.\n\n"
+        "¿Qué tipo de vehículo estás buscando?"
+    )
+    buttons = [
+        {"id": "auto_cat_hibridos", "title": "⚡ Híbridos (0 Pico)"},
+        {"id": "auto_cat_pickups", "title": "🛻 Camionetas 4x4"},
+        {"id": "auto_cat_suvs", "title": "🚙 SUVs Familiares"}
+    ]
+    await _send_buttons(
+        phone=phone,
+        body=body,
+        buttons=buttons,
+        header="🚘 Categorías 2026",
+        footer="Selecciona una opción para ver modelos",
         internal_key=internal_key,
         phone_number_id=phone_number_id
     )
 
 async def send_horarios_info(phone: str, internal_key: str, phone_number_id: Optional[str] = None):
-    """Información clara y concisa de horarios y salas de exhibición con botón de vitrina."""
-    import os
-    clean_phone = phone.replace("+", "").replace(" ", "").strip()
-    ngrok_url = os.getenv("CATALOG_BASE_URL", "https://usable-thorn-kabob.ngrok-free.dev")
-    catalog_url = f"{ngrok_url}/catalogo-autos?phone={clean_phone}&sucursal=Centro"
-    
+    """Información clara y concisa de horarios y salas de exhibición con botones interactivos."""
     body = (
         "🕒 *Horarios de Atención y Showrooms AutoEcuador Motors:*\n\n"
         "📍 *Quito Centro (Matriz):*\n"
@@ -226,13 +241,17 @@ async def send_horarios_info(phone: str, internal_key: str, phone_number_id: Opt
         "📍 *Cuenca:*\n"
         "• Av. España y Huayna Cápac\n"
         "• Lunes a Viernes: 8:30 AM a 6:00 PM\n\n"
-        "Toca el botón abajo para explorar nuestros modelos en la vitrina virtual:"
+        "¿Cómo deseas continuar?"
     )
-    await _send_cta_url(
+    buttons = [
+        {"id": "auto_menu_vehiculos", "title": "🚘 Ver Vehículos"},
+        {"id": "auto_flow_testdrive", "title": "🏎️ Agendar Visita"},
+        {"id": "flow_asesor", "title": "👨‍💼 Hablar con Asesor"}
+    ]
+    await _send_buttons(
         phone=phone,
         body=body,
-        display_text="🚘 Abrir Vitrina",
-        url=catalog_url,
+        buttons=buttons,
         header="📍 Showrooms & Horarios",
         footer="Atención y citas de Test Drive",
         internal_key=internal_key,

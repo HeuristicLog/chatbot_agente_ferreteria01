@@ -158,37 +158,50 @@ export default function App() {
 
   // Función auxiliar para determinar botones interactivos según el mensaje
   const getButtonsForMessage = (msg: string): string[] => {
-    if (msg.includes('AutoEcuador Motors') && msg.includes('Ver Opciones')) {
-      return ['⚡ Híbridos / Eléctricos', '🛻 Camionetas 4x4', '🚙 SUVs Familiares', '💰 Simulación de Crédito', '🔄 Plan Retoma (Usados)', '🏎️ Agendar Test Drive', '🚘 Vitrina Virtual', '👨‍💼 Hablar con Asesor'];
+    // 1. Bienvenida (3 botones iniciales limpios y fluidos)
+    if (msg.includes('AutoEcuador Motors') && (msg.includes('Alex') || msg.includes('¿En qué podemos ayudarte'))) {
+      return ['🚘 Ver Vehículos', '🕒 Horarios y Sedes', '👨‍💼 Hablar con Asesor'];
     }
-    if (msg.includes('Pickups') || msg.includes('Camionetas 4x4')) {
-      return ['🚘 Ver en Vitrina', '💰 Simular Cuotas', '🏎️ Test Drive 4x4'];
+    // 2. Horarios y Showrooms
+    if (msg.includes('Horarios de Atención') || msg.includes('Showrooms AutoEcuador') || msg.includes('📍 *Quito Centro')) {
+      return ['🚘 Ver Vehículos', '🏎️ Agendar Visita', '👨‍💼 Hablar con Asesor'];
     }
-    if (msg.includes('SUVs Familiares')) {
-      return ['🚘 Ver en Vitrina', '💰 Simular Cuotas', '🏎️ Test Drive SUV'];
+    // 3. Menú de Categorías de Vehículos
+    if (msg.includes('Modelos y Categorías Disponibles') || msg.includes('Categorías 2026')) {
+      return ['⚡ Híbridos (0 Pico)', '🛻 Camionetas 4x4', '🚙 SUVs Familiares'];
     }
+    // 4. Categoría Pickups
+    if (msg.includes('Pickups') || msg.includes('Camionetas 4x4') || msg.includes('D-Max')) {
+      return ['🚘 Abrir en Vitrina', '💰 Simular Cuotas', '🏎️ Test Drive 4x4'];
+    }
+    // 5. Categoría SUVs Familiares
+    if (msg.includes('SUVs Familiares') || msg.includes('Sportage')) {
+      return ['🚘 Abrir en Vitrina', '💰 Simular Cuotas', '🏎️ Test Drive SUV'];
+    }
+    // 6. Categoría Híbridos
     if (msg.includes('Híbrida') || msg.includes('Híbridos') || msg.includes('Yaris Cross')) {
-      return ['🚘 Ver Yaris Cross', '💰 Cuotas Híbrido', '🏎️ Test Drive Híbrido'];
+      return ['🚘 Abrir en Vitrina', '💰 Cuotas Híbrido', '🏎️ Test Drive Híbrido'];
     }
+    // 7. Simulación de crédito
     if (msg.includes('Asesoría de Financiamiento Automotriz') || msg.includes('aproximadamente para tu entrada')) {
       return ['💰 $3.000 a $5.000', '💰 $5.000 a $8.000', '💰 Más de $8.000'];
     }
     if (msg.includes('Para una Entrada de') || msg.includes('Comparativo Financiero')) {
-      return ['🚘 Abrir Vitrina', '🏎️ Agendar Test Drive', '👨‍💼 Asesor de Crédito'];
+      return ['🚘 Abrir en Vitrina', '🏎️ Agendar Test Drive', '👨‍💼 Asesor de Crédito'];
     }
     if (msg.includes('Plan Retoma')) {
-      return ['🚘 Ver Modelos 2026', '💰 Simular Crédito', '👨‍💼 Hablar con Tasador'];
+      return ['🚘 Ver Vehículos', '💰 Simular Cuotas', '👨‍💼 Hablar con Asesor'];
     }
-    if (msg.includes('Agenda tu Test Drive en AutoEcuador')) {
+    if (msg.includes('Agenda tu Test Drive en AutoEcuador') || msg.includes('¿Cómo prefieres realizar tu Test Drive?')) {
       return ['🏠 A Domicilio', '📍 En Showroom', '👨‍💼 Hablar con Asesor'];
     }
-    if (msg.includes('¡Solicitud de Test Drive Registrada!')) {
-      return ['🚘 Ver en Vitrina', '💰 Simular Crédito', '👨‍💼 Hablar con Asesor'];
+    if (msg.includes('¡Solicitud de Test Drive Registrada!') || msg.includes('¡Test Drive Agendado')) {
+      return ['🚘 Abrir en Vitrina', '💰 Simular Cuotas', '👨‍💼 Hablar con Asesor'];
     }
     if (msg.includes('Cotización Oficial Generada')) {
       return ['🏎️ Agendar Test Drive', '📍 Ver Showrooms', '👨‍💼 Hablar con Asesor'];
     }
-    return ['🚘 Explorar Vitrina', '🛻 Camionetas 4x4', '⚡ Híbridos', '🚙 SUVs Familiares', '👨‍💼 Hablar con Asesor'];
+    return ['🚘 Ver Vehículos', '🕒 Horarios y Sedes', '👨‍💼 Hablar con Asesor'];
   };
 
   // Polling periódico para recibir respuestas del backend en orden estricto
@@ -237,7 +250,7 @@ export default function App() {
     }
 
     // Si explícitamente se solicita abrir la vitrina
-    if (text === '🚘 Explorar Vitrina' || text === '🚘 Vitrina Virtual' || text === '🚘 Ver en Vitrina' || text === '🚘 Ver Yaris Cross' || text === '🚘 Abrir Vitrina' || text.toLowerCase() === 'vitrina' || text === '✨ Abrir Vitrina Virtual') {
+    if (text === '🚘 Explorar Vitrina' || text === '🚘 Vitrina Virtual' || text === '🚘 Ver en Vitrina' || text === '🚘 Ver Yaris Cross' || text === '🚘 Abrir Vitrina' || text === '🚘 Abrir en Vitrina' || text.toLowerCase() === 'vitrina' || text === '✨ Abrir Vitrina Virtual') {
       setShowWebview(true);
       return;
     }
@@ -256,7 +269,11 @@ export default function App() {
 
     let interactiveId: string | undefined = undefined;
     const lower = text.toLowerCase();
-    if (lower.includes('híbrido') || lower.includes('hibrido') || lower.includes('eléctrico') || lower.includes('electrico')) {
+    if (lower.includes('ver vehículo') || lower.includes('ver vehiculo') || lower.includes('vehículos disponibles') || lower.includes('vehiculos disponibles') || lower.includes('tipo de veh') || text === '🚘 Ver Vehículos') {
+      interactiveId = 'auto_menu_vehiculos';
+    } else if (lower.includes('horario') || lower.includes('sede') || lower.includes('donde estan') || lower.includes('dónde están') || text === '🕒 Horarios y Sedes') {
+      interactiveId = 'auto_horarios';
+    } else if (lower.includes('híbrido') || lower.includes('hibrido') || lower.includes('eléctrico') || lower.includes('electrico')) {
       interactiveId = 'auto_cat_hibridos';
     } else if (lower.includes('4x4') || lower.includes('camioneta') || lower.includes('pickup') || lower.includes('d-max') || lower.includes('hilux') || lower.includes('poer')) {
       interactiveId = 'auto_cat_pickups';
@@ -276,7 +293,7 @@ export default function App() {
       interactiveId = 'auto_td_domicilio';
     } else if (lower.includes('showroom')) {
       interactiveId = 'auto_td_showroom';
-    } else if (lower.includes('test drive') || lower.includes('prueba de manejo')) {
+    } else if (lower.includes('test drive') || lower.includes('prueba de manejo') || lower.includes('agendar visita')) {
       interactiveId = 'auto_flow_testdrive';
     } else if (lower.includes('asesor') || lower.includes('humano')) {
       interactiveId = 'flow_asesor';
@@ -433,6 +450,18 @@ export default function App() {
               Consulta autos para trabajo, familia o ecología en Ecuador:
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+              <button 
+                onClick={() => { setShowWebview(false); handleSendMessage('🚘 Ver Vehículos', 2); }}
+                style={{ width: '100%', padding: '0.45rem', background: '#202c33', color: '#00a884', border: '1px solid #374151', borderRadius: '0.4rem', fontSize: '0.73rem', fontWeight: 700, cursor: 'pointer', textAlign: 'left', paddingLeft: '0.65rem' }}
+              >
+                🚘 "Ver Vehículos Disponibles" (Categorías)
+              </button>
+              <button 
+                onClick={() => { setShowWebview(false); handleSendMessage('🕒 Horarios y Sedes', 2); }}
+                style={{ width: '100%', padding: '0.45rem', background: '#202c33', color: '#a78bfa', border: '1px solid #374151', borderRadius: '0.4rem', fontSize: '0.73rem', fontWeight: 700, cursor: 'pointer', textAlign: 'left', paddingLeft: '0.65rem' }}
+              >
+                🕒 "Horarios y Sedes" (Quito, GYE, Cuenca)
+              </button>
               <button 
                 onClick={() => { setShowWebview(false); handleSendMessage('Qué camionetas 4x4 tienen?', 2); }}
                 style={{ width: '100%', padding: '0.45rem', background: '#202c33', color: '#f59e0b', border: '1px solid #374151', borderRadius: '0.4rem', fontSize: '0.73rem', fontWeight: 700, cursor: 'pointer', textAlign: 'left', paddingLeft: '0.65rem' }}

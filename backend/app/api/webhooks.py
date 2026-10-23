@@ -285,6 +285,20 @@ async def receive_incoming_message(
             await save_message(db, conv.id, "outbound", "assistant", "Menú principal automotriz enviado")
             return {"status": "processed"}
 
+        # ── Flujo Automotriz: Menú de Vehículos / Categorías
+        if interactive_id == "auto_menu_vehiculos":
+            await clear_flow_state(redis_client, payload.phone)
+            await flows.send_vehicle_types_flow(payload.phone, internal_api_key, phone_number_id=dest_phone_number_id)
+            await save_message(db, conv.id, "outbound", "assistant", "Categorías de vehículos enviadas")
+            return {"status": "processed"}
+
+        # ── Flujo Automotriz: Horarios y Sedes
+        if interactive_id == "auto_horarios":
+            await clear_flow_state(redis_client, payload.phone)
+            await flows.send_horarios_info(payload.phone, internal_api_key, phone_number_id=dest_phone_number_id)
+            await save_message(db, conv.id, "outbound", "assistant", "Horarios y sedes enviados")
+            return {"status": "processed"}
+
         # ── Flujo Automotriz: Categoría Camionetas 4x4
         if interactive_id == "auto_cat_pickups":
             await clear_flow_state(redis_client, payload.phone)

@@ -124,6 +124,18 @@ class ChatwootService:
                 msg_url = f"{self.base_url}/api/v1/accounts/{self.account_id}/conversations/{conversation_id}/messages"
                 resp = await client.post(msg_url, json=payload, headers=headers, timeout=10.0)
                 if resp.status_code in [200, 201]:
+                    # Registrar ID en Redis para evitar bucle de reenvío por webhook
+                    created_id = resp.json().get("id")
+                    if created_id:
+                        try:
+                            import redis.asyncio as aioredis
+                            import os
+                            r_url = os.getenv("REDIS_URL", "redis://redis:6379/0")
+                            rc = aioredis.from_url(r_url)
+                            await rc.set(f"cw_msg_id:{created_id}", "1", ex=300)
+                            await rc.aclose()
+                        except Exception:
+                            pass
                     return True
                 else:
                     logger.error(f"Error al enviar mensaje a Chatwoot: {resp.status_code} - {resp.text}")
