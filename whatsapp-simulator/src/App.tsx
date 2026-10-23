@@ -19,12 +19,12 @@ export default function App() {
   const [toast, setToast] = useState<string | null>(null)
   const [activeStep, setActiveStep] = useState<number>(1)
   
-  const chatEndRef = useRef<HTMLDivElement>(null)
+  const messagesContainerRef = useRef<HTMLDivElement>(null)
   const knownOutboundRef = useRef<Set<string>>(new Set())
 
   const catalogUrl = `${GATEWAY_URL}/catalogo-autos?phone=${phone}&sucursal=Centro`;
 
-  // Inicializar o cargar historial
+  // Inicializar historial desde localStorage
   useEffect(() => {
     const stored = localStorage.getItem(`chat_history:${phone}`)
     if (stored) {
@@ -44,9 +44,11 @@ export default function App() {
     }
   }, [phone])
 
-  // Scroll automático hacia el mensaje más reciente
+  // Scroll automático y contenido al último mensaje
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+    }
   }, [messages, isTyping])
 
   const showToast = (msg: string) => {
@@ -79,7 +81,7 @@ export default function App() {
             timestamp: new Date().toISOString()
           });
           setActiveStep(5);
-          showToast(`¡Cotización ${qCode} procesada! Volviendo a WhatsApp...`);
+          showToast(`¡Cotización ${qCode} registrada! Regresando al chat...`);
         }
 
         // 2. Solicitud de Test Drive desde la vitrina
@@ -97,7 +99,7 @@ export default function App() {
             timestamp: new Date().toISOString()
           });
           setActiveStep(5);
-          showToast('¡Prueba de manejo agendada! Volviendo a WhatsApp...');
+          showToast('¡Prueba de manejo agendada! Regresando al chat...');
         }
 
         // 3. Garaje Completo Enviado
@@ -111,7 +113,7 @@ export default function App() {
             message: batchMsg,
             timestamp: new Date().toISOString()
           });
-          showToast('Garaje enviado. Volviendo a WhatsApp...');
+          showToast('Garaje enviado. Regresando a WhatsApp...');
         }
 
         // 4. Conectar con Asesor Humano desde la vitrina
@@ -132,16 +134,7 @@ export default function App() {
         // 5. Cerrar Webview y volver a WhatsApp
         if (data.type === 'CLOSE_WEBVIEW') {
           setShowWebview(false);
-          const closeMsg = `✕ *Vitrina virtual cerrada.*\n\n*Alex:* Continuamos por aquí por WhatsApp. ¿Deseas consultar detalles de camionetas 4x4, SUVs familiares, autos híbridos o simular tu crédito?`;
-
-          appendMessage({
-            id: `close-conf-${Date.now()}`,
-            direction: 'outbound',
-            message: closeMsg,
-            buttons: ['🚘 Explorar Vitrina', '🛻 Camionetas 4x4', '⚡ Híbridos', '👨‍💼 Hablar con Asesor'],
-            timestamp: new Date().toISOString()
-          });
-          showToast('Regresando a WhatsApp...');
+          showToast('Regresando al chat de WhatsApp...');
         }
       } catch (e) {
         console.error(e);
@@ -170,7 +163,6 @@ export default function App() {
         const response = await fetch(`${GATEWAY_URL}/outbound?phone=${phone}`);
         const result = await response.json();
         if (result.success && Array.isArray(result.data)) {
-          // Filtrar los que no conocemos todavía (ordenados de más viejo a más nuevo)
           const newOutbounds = [...result.data].reverse().filter((item: any) => {
             const trimmed = (item.message || '').trim();
             return trimmed && !knownOutboundRef.current.has(trimmed);
@@ -202,7 +194,7 @@ export default function App() {
           }
         }
       } catch {
-        // En caso de corte momentáneo
+        // Silencio en corte
       }
     }, 1200);
 
@@ -218,9 +210,10 @@ export default function App() {
       setActiveStep(stepNumber);
     }
 
-    // Si el usuario presiona explícitamente abrir vitrina
-    if (text.includes('Explorar Vitrina') || text.includes('Abrir Vitrina') || text.toLowerCase() === 'vitrina') {
+    // Si explícitamente se solicita abrir la vitrina
+    if (text === '🚘 Explorar Vitrina' || text.toLowerCase() === 'vitrina' || text === '✨ Abrir Vitrina Virtual') {
       setShowWebview(true);
+      return;
     }
 
     const msgId = `sim-user-${Date.now()}`;
@@ -257,7 +250,7 @@ export default function App() {
       });
       await response.json();
 
-      // Consultar de inmediato las respuestas generadas
+      // Consultar de inmediato la respuesta generada
       setTimeout(async () => {
         try {
           const outRes = await fetch(`${GATEWAY_URL}/outbound?phone=${phone}`);
@@ -292,7 +285,7 @@ export default function App() {
             }
           }
         } catch {
-          // Fallback a polling
+          // Polling de respaldo
         }
       }, 700);
 
@@ -306,7 +299,7 @@ export default function App() {
     try {
       await fetch(`${GATEWAY_URL}/outbound`, { method: 'DELETE' });
     } catch {
-      // Ignorar si falla endpoint
+      // Ignorar
     }
     localStorage.removeItem(`chat_history:${phone}`);
     localStorage.clear();
@@ -315,11 +308,11 @@ export default function App() {
     setShowWebview(false);
     setIsTyping(false);
     setActiveStep(1);
-    showToast('Pantalla limpia. Listo para comenzar.');
+    showToast('Pantalla limpia. Listo para simular.');
   };
 
   return (
-    <div style={{ display: 'flex', width: '100%', height: '100vh', background: '#070b0e', color: '#e9edef', fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', overflow: 'hidden' }}>
+    <div style={{ display: 'flex', width: '100vw', height: '100vh', background: '#070b0e', color: '#e9edef', fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', overflow: 'hidden' }}>
       
       {/* Toast Notification */}
       {toast && (
@@ -329,78 +322,89 @@ export default function App() {
       )}
 
       {/* 🧭 PANEL LATERAL: GUÍA COMPLETA DEL FLUJO AUTOMOTRIZ */}
-      <div style={{ width: '450px', minWidth: '380px', maxWidth: '480px', background: '#0f171c', borderRight: '1px solid #1f2c34', display: 'flex', flexDirection: 'column', height: '100vh' }}>
+      <div style={{ width: '420px', minWidth: '360px', maxWidth: '440px', background: '#0f171c', borderRight: '1px solid #1f2c34', display: 'flex', flexDirection: 'column', height: '100vh', zIndex: 50 }}>
         
         {/* Cabecera del Panel */}
-        <div style={{ padding: '1.25rem', borderBottom: '1px solid #1f2c34', background: '#111b21' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <div style={{ width: '42px', height: '42px', borderRadius: '10px', background: 'linear-gradient(135deg, #f59e0b, #d97706)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.4rem', boxShadow: '0 4px 12px rgba(245,158,11,0.3)' }}>
-              🚗
+        <div style={{ padding: '1.15rem 1.25rem', borderBottom: '1px solid #1f2c34', background: '#111b21', flexShrink: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: 'linear-gradient(135deg, #f59e0b, #d97706)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.3rem', boxShadow: '0 4px 12px rgba(245,158,11,0.3)' }}>
+                🚗
+              </div>
+              <div>
+                <h2 style={{ margin: 0, fontSize: '1rem', fontWeight: 800, color: '#f8fafc' }}>
+                  AutoEcuador Motors 🇪🇨
+                </h2>
+                <p style={{ margin: 0, fontSize: '0.72rem', color: '#00a884', fontWeight: 600 }}>
+                  Simulador de Conversación Oficial
+                </p>
+              </div>
             </div>
-            <div>
-              <h2 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800, color: '#f8fafc', letterSpacing: '-0.01em' }}>
-                AutoEcuador Motors 🇪🇨
-              </h2>
-              <p style={{ margin: 0, fontSize: '0.74rem', color: '#00a884', fontWeight: 600 }}>
-                Guía Interactiva de Simulación de Flujos
-              </p>
-            </div>
+
+            {showWebview && (
+              <button 
+                onClick={() => setShowWebview(false)}
+                style={{ padding: '0.35rem 0.65rem', background: '#e11d48', color: 'white', border: 'none', borderRadius: '6px', fontSize: '0.72rem', fontWeight: 800, cursor: 'pointer' }}
+              >
+                ✕ Ver Chat
+              </button>
+            )}
           </div>
         </div>
 
         {/* Lista de Pasos del Flujo */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+        <div style={{ flex: '1 1 0%', minHeight: 0, overflowY: 'auto', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
           
-          <div style={{ padding: '0.65rem 0.85rem', background: '#182229', borderRadius: '0.5rem', border: '1px solid #222e35', fontSize: '0.75rem', color: '#8696a0', lineHeight: 1.4 }}>
-            💡 <strong style={{ color: '#e9edef' }}>¿Cómo funciona?</strong> Puedes hacer click en cada paso de esta guía para probarlo al instante, o escribir libremente en el chat del teléfono.
+          <div style={{ padding: '0.65rem 0.85rem', background: '#182229', borderRadius: '0.5rem', border: '1px solid #222e35', fontSize: '0.74rem', color: '#8696a0', lineHeight: 1.4 }}>
+            💡 <strong style={{ color: '#e9edef' }}>Simula paso a paso:</strong> Haz click en cualquiera de los pasos abajo o escribe directamente en el celular para interactuar con Alex.
           </div>
 
           {/* PASO 1 */}
-          <div style={{ background: activeStep === 1 ? '#1a2730' : '#111b21', border: `1px solid ${activeStep === 1 ? '#00a884' : '#1f2c34'}`, borderRadius: '0.75rem', padding: '0.85rem', transition: 'all 0.2s' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.35rem' }}>
-              <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#00a884', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                Paso 1 • Bienvenida & Menú
+          <div style={{ background: activeStep === 1 ? '#1a2730' : '#111b21', border: `1px solid ${activeStep === 1 ? '#00a884' : '#1f2c34'}`, borderRadius: '0.65rem', padding: '0.8rem', transition: 'all 0.2s' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.3rem' }}>
+              <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#00a884', textTransform: 'uppercase' }}>
+                Paso 1 • Saludo & Menú
               </span>
-              <span style={{ fontSize: '0.7rem', background: '#1f2c34', padding: '0.15rem 0.4rem', borderRadius: '4px', color: '#94a3b8' }}>Inicio</span>
+              <span style={{ fontSize: '0.68rem', background: '#1f2c34', padding: '0.1rem 0.35rem', borderRadius: '4px', color: '#94a3b8' }}>Inicio</span>
             </div>
-            <p style={{ fontSize: '0.75rem', color: '#cbd5e1', margin: '0 0 0.6rem 0', lineHeight: 1.35 }}>
-              Saluda al bot. Alex se presenta como asesor inteligente multimarca y despliega las opciones comerciales.
+            <p style={{ fontSize: '0.74rem', color: '#cbd5e1', margin: '0 0 0.5rem 0', lineHeight: 1.35 }}>
+              Saluda al bot. Alex se presenta como asesor multimarca de AutoEcuador Motors y despliega opciones.
             </p>
             <button 
-              onClick={() => handleSendMessage('Hola buenas tardes', 1)}
-              style={{ width: '100%', padding: '0.55rem', background: '#00a884', color: 'white', border: 'none', borderRadius: '0.45rem', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem' }}
+              onClick={() => { setShowWebview(false); handleSendMessage('Hola buenas tardes', 1); }}
+              style={{ width: '100%', padding: '0.5rem', background: '#00a884', color: 'white', border: 'none', borderRadius: '0.4rem', fontSize: '0.74rem', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem' }}
             >
               <span>👋</span> Probar: "Hola buenas tardes"
             </button>
           </div>
 
           {/* PASO 2 */}
-          <div style={{ background: activeStep === 2 ? '#1a2730' : '#111b21', border: `1px solid ${activeStep === 2 ? '#00a884' : '#1f2c34'}`, borderRadius: '0.75rem', padding: '0.85rem', transition: 'all 0.2s' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.35rem' }}>
-              <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#f59e0b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                Paso 2 • Búsqueda por Categoría
+          <div style={{ background: activeStep === 2 ? '#1a2730' : '#111b21', border: `1px solid ${activeStep === 2 ? '#00a884' : '#1f2c34'}`, borderRadius: '0.65rem', padding: '0.8rem', transition: 'all 0.2s' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.3rem' }}>
+              <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#f59e0b', textTransform: 'uppercase' }}>
+                Paso 2 • Consulta por Modelos
               </span>
-              <span style={{ fontSize: '0.7rem', background: '#1f2c34', padding: '0.15rem 0.4rem', borderRadius: '4px', color: '#94a3b8' }}>Catálogo</span>
+              <span style={{ fontSize: '0.68rem', background: '#1f2c34', padding: '0.1rem 0.35rem', borderRadius: '4px', color: '#94a3b8' }}>Autos</span>
             </div>
-            <p style={{ fontSize: '0.75rem', color: '#cbd5e1', margin: '0 0 0.6rem 0', lineHeight: 1.35 }}>
-              Consulta modelos específicos según el uso en Ecuador: trabajo 4x4, SUVs familiares o híbridos sin pico y placa.
+            <p style={{ fontSize: '0.74rem', color: '#cbd5e1', margin: '0 0 0.5rem 0', lineHeight: 1.35 }}>
+              Consulta autos para trabajo, familia o ecología en Ecuador:
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
               <button 
-                onClick={() => handleSendMessage('Qué camionetas 4x4 tienen?', 2)}
-                style={{ width: '100%', padding: '0.5rem', background: '#202c33', color: '#f59e0b', border: '1px solid #374151', borderRadius: '0.45rem', fontSize: '0.74rem', fontWeight: 700, cursor: 'pointer', textAlign: 'left', paddingLeft: '0.75rem' }}
+                onClick={() => { setShowWebview(false); handleSendMessage('Qué camionetas 4x4 tienen?', 2); }}
+                style={{ width: '100%', padding: '0.45rem', background: '#202c33', color: '#f59e0b', border: '1px solid #374151', borderRadius: '0.4rem', fontSize: '0.73rem', fontWeight: 700, cursor: 'pointer', textAlign: 'left', paddingLeft: '0.65rem' }}
               >
                 🛻 "Qué camionetas 4x4 tienen?" (D-Max, Hilux, Poer)
               </button>
               <button 
-                onClick={() => handleSendMessage('Busco un SUV familiar espacioso', 2)}
-                style={{ width: '100%', padding: '0.5rem', background: '#202c33', color: '#38bdf8', border: '1px solid #374151', borderRadius: '0.45rem', fontSize: '0.74rem', fontWeight: 700, cursor: 'pointer', textAlign: 'left', paddingLeft: '0.75rem' }}
+                onClick={() => { setShowWebview(false); handleSendMessage('Busco un SUV familiar espacioso', 2); }}
+                style={{ width: '100%', padding: '0.45rem', background: '#202c33', color: '#38bdf8', border: '1px solid #374151', borderRadius: '0.4rem', fontSize: '0.73rem', fontWeight: 700, cursor: 'pointer', textAlign: 'left', paddingLeft: '0.65rem' }}
               >
-                🚙 "Busco un SUV familiar espacioso" (Sportage, Tucson, Tracker)
+                🚙 "Busco un SUV familiar espacioso" (Sportage, Tucson)
               </button>
               <button 
-                onClick={() => handleSendMessage('Quiero un auto híbrido sin pico y placa', 2)}
-                style={{ width: '100%', padding: '0.5rem', background: '#202c33', color: '#10b981', border: '1px solid #374151', borderRadius: '0.45rem', fontSize: '0.74rem', fontWeight: 700, cursor: 'pointer', textAlign: 'left', paddingLeft: '0.75rem' }}
+                onClick={() => { setShowWebview(false); handleSendMessage('Quiero un auto híbrido sin pico y placa', 2); }}
+                style={{ width: '100%', padding: '0.45rem', background: '#202c33', color: '#10b981', border: '1px solid #374151', borderRadius: '0.4rem', fontSize: '0.73rem', fontWeight: 700, cursor: 'pointer', textAlign: 'left', paddingLeft: '0.65rem' }}
               >
                 ⚡ "Quiero un híbrido sin pico y placa" (Yaris Cross)
               </button>
@@ -408,76 +412,76 @@ export default function App() {
           </div>
 
           {/* PASO 3 */}
-          <div style={{ background: activeStep === 3 ? '#1a2730' : '#111b21', border: `1px solid ${activeStep === 3 ? '#00a884' : '#1f2c34'}`, borderRadius: '0.75rem', padding: '0.85rem', transition: 'all 0.2s' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.35rem' }}>
-              <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#38bdf8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                Paso 3 • Presupuesto & Crédito
+          <div style={{ background: activeStep === 3 ? '#1a2730' : '#111b21', border: `1px solid ${activeStep === 3 ? '#00a884' : '#1f2c34'}`, borderRadius: '0.65rem', padding: '0.8rem', transition: 'all 0.2s' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.3rem' }}>
+              <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#38bdf8', textTransform: 'uppercase' }}>
+                Paso 3 • Presupuesto & Entrada
               </span>
-              <span style={{ fontSize: '0.7rem', background: '#1f2c34', padding: '0.15rem 0.4rem', borderRadius: '4px', color: '#94a3b8' }}>Financiamiento</span>
+              <span style={{ fontSize: '0.68rem', background: '#1f2c34', padding: '0.1rem 0.35rem', borderRadius: '4px', color: '#94a3b8' }}>Crédito</span>
             </div>
-            <p style={{ fontSize: '0.75rem', color: '#cbd5e1', margin: '0 0 0.6rem 0', lineHeight: 1.35 }}>
-              El cliente indica su dinero disponible de entrada ($5.000). Alex calcula qué autos alcanzan con el 20% y estima cuotas mensuales con bancos.
+            <p style={{ fontSize: '0.74rem', color: '#cbd5e1', margin: '0 0 0.5rem 0', lineHeight: 1.35 }}>
+              Indica cuánto dinero tienes de entrada. Alex calcula vehículos que entran al 20% y estima las cuotas bancarias.
             </p>
             <button 
-              onClick={() => handleSendMessage('Tengo 5000 de entrada qué me alcanza?', 3)}
-              style={{ width: '100%', padding: '0.55rem', background: '#0284c7', color: 'white', border: 'none', borderRadius: '0.45rem', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem' }}
+              onClick={() => { setShowWebview(false); handleSendMessage('Tengo 5000 de entrada qué me alcanza?', 3); }}
+              style={{ width: '100%', padding: '0.5rem', background: '#0284c7', color: 'white', border: 'none', borderRadius: '0.4rem', fontSize: '0.74rem', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem' }}
             >
               <span>💰</span> Probar: "Tengo $5.000 de entrada"
             </button>
           </div>
 
           {/* PASO 4 */}
-          <div style={{ background: activeStep === 4 ? '#1a2730' : '#111b21', border: `1px solid ${activeStep === 4 ? '#00a884' : '#1f2c34'}`, borderRadius: '0.75rem', padding: '0.85rem', transition: 'all 0.2s' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.35rem' }}>
-              <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#ec4899', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                Paso 4 • Pantalla Emergente Webview
+          <div style={{ background: activeStep === 4 ? '#1a2730' : '#111b21', border: `1px solid ${activeStep === 4 ? '#00a884' : '#1f2c34'}`, borderRadius: '0.65rem', padding: '0.8rem', transition: 'all 0.2s' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.3rem' }}>
+              <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#ec4899', textTransform: 'uppercase' }}>
+                Paso 4 • Pantalla Emergente (Vitrina)
               </span>
-              <span style={{ fontSize: '0.7rem', background: '#1f2c34', padding: '0.15rem 0.4rem', borderRadius: '4px', color: '#94a3b8' }}>In-App Browser</span>
+              <span style={{ fontSize: '0.68rem', background: '#1f2c34', padding: '0.1rem 0.35rem', borderRadius: '4px', color: '#94a3b8' }}>Webview</span>
             </div>
-            <p style={{ fontSize: '0.75rem', color: '#cbd5e1', margin: '0 0 0.6rem 0', lineHeight: 1.35 }}>
-              Abre la vitrina virtual interactiva dentro de WhatsApp. Permite mover sliders de meses/entrada, ver fotos reales y cotizar en tiempo real.
+            <p style={{ fontSize: '0.74rem', color: '#cbd5e1', margin: '0 0 0.5rem 0', lineHeight: 1.35 }}>
+              Abre la vitrina virtual dentro de WhatsApp para ver fotos reales, ajustar sliders de cuotas o cotizar en vivo.
             </p>
             <button 
-              onClick={() => { setShowWebview(true); setActiveStep(4); }}
-              style={{ width: '100%', padding: '0.55rem', background: 'linear-gradient(135deg, #d97706, #b45309)', color: 'white', border: 'none', borderRadius: '0.45rem', fontSize: '0.75rem', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem', boxShadow: '0 4px 10px rgba(217,119,6,0.25)' }}
+              onClick={() => { setShowWebview(prev => !prev); setActiveStep(4); }}
+              style={{ width: '100%', padding: '0.5rem', background: showWebview ? '#475569' : 'linear-gradient(135deg, #d97706, #b45309)', color: 'white', border: 'none', borderRadius: '0.4rem', fontSize: '0.74rem', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem' }}
             >
-              <span>✨</span> Abrir Vitrina Virtual Emergente
+              {showWebview ? '✕ Cerrar Vitrina y Ver Chat' : '✨ Abrir Vitrina Emergente'}
             </button>
           </div>
 
           {/* PASO 5 */}
-          <div style={{ background: activeStep === 5 ? '#1a2730' : '#111b21', border: `1px solid ${activeStep === 5 ? '#00a884' : '#1f2c34'}`, borderRadius: '0.75rem', padding: '0.85rem', transition: 'all 0.2s' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.35rem' }}>
-              <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#a855f7', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                Paso 5 • Test Drive & Retorno
+          <div style={{ background: activeStep === 5 ? '#1a2730' : '#111b21', border: `1px solid ${activeStep === 5 ? '#00a884' : '#1f2c34'}`, borderRadius: '0.65rem', padding: '0.8rem', transition: 'all 0.2s' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.3rem' }}>
+              <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#a855f7', textTransform: 'uppercase' }}>
+                Paso 5 • Test Drive & Cierre
               </span>
-              <span style={{ fontSize: '0.7rem', background: '#1f2c34', padding: '0.15rem 0.4rem', borderRadius: '4px', color: '#94a3b8' }}>Cierre y Lead</span>
+              <span style={{ fontSize: '0.68rem', background: '#1f2c34', padding: '0.1rem 0.35rem', borderRadius: '4px', color: '#94a3b8' }}>Lead</span>
             </div>
-            <p style={{ fontSize: '0.75rem', color: '#cbd5e1', margin: '0 0 0.6rem 0', lineHeight: 1.35 }}>
-              Al cotizar o solicitar test drive en la vitrina (o en el chat), se genera un código oficial registrado en PostgreSQL y se cierra la pantalla emergente.
+            <p style={{ fontSize: '0.74rem', color: '#cbd5e1', margin: '0 0 0.5rem 0', lineHeight: 1.35 }}>
+              Simula la solicitud de prueba de manejo a domicilio. Se genera código oficial y se registra en PostgreSQL.
             </p>
             <button 
-              onClick={() => handleSendMessage('Cómo agendo un test drive a domicilio?', 5)}
-              style={{ width: '100%', padding: '0.55rem', background: '#7c3aed', color: 'white', border: 'none', borderRadius: '0.45rem', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem' }}
+              onClick={() => { setShowWebview(false); handleSendMessage('Cómo agendo un test drive a domicilio?', 5); }}
+              style={{ width: '100%', padding: '0.5rem', background: '#7c3aed', color: 'white', border: 'none', borderRadius: '0.4rem', fontSize: '0.74rem', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem' }}
             >
               <span>🏎️</span> Probar: "Cómo agendo un test drive?"
             </button>
           </div>
 
           {/* PASO 6 */}
-          <div style={{ background: activeStep === 6 ? '#1a2730' : '#111b21', border: `1px solid ${activeStep === 6 ? '#00a884' : '#1f2c34'}`, borderRadius: '0.75rem', padding: '0.85rem', transition: 'all 0.2s' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.35rem' }}>
-              <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#10b981', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                Paso 6 • Traspaso a Asesor Humano
+          <div style={{ background: activeStep === 6 ? '#1a2730' : '#111b21', border: `1px solid ${activeStep === 6 ? '#00a884' : '#1f2c34'}`, borderRadius: '0.65rem', padding: '0.8rem', transition: 'all 0.2s' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.3rem' }}>
+              <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#10b981', textTransform: 'uppercase' }}>
+                Paso 6 • Asesor Humano
               </span>
-              <span style={{ fontSize: '0.7rem', background: '#1f2c34', padding: '0.15rem 0.4rem', borderRadius: '4px', color: '#94a3b8' }}>Handoff</span>
+              <span style={{ fontSize: '0.68rem', background: '#1f2c34', padding: '0.1rem 0.35rem', borderRadius: '4px', color: '#94a3b8' }}>Handoff</span>
             </div>
-            <p style={{ fontSize: '0.75rem', color: '#cbd5e1', margin: '0 0 0.6rem 0', lineHeight: 1.35 }}>
-              El bot Alex transfiere la conversación en vivo a un ejecutivo de ventas de Quito Centro en Chatwoot.
+            <p style={{ fontSize: '0.74rem', color: '#cbd5e1', margin: '0 0 0.5rem 0', lineHeight: 1.35 }}>
+              Transfiere la conversación a un ejecutivo de ventas humano de Quito Centro.
             </p>
             <button 
-              onClick={() => handleSendMessage('Quiero hablar con un asesor comercial humano', 6)}
-              style={{ width: '100%', padding: '0.55rem', background: '#059669', color: 'white', border: 'none', borderRadius: '0.45rem', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem' }}
+              onClick={() => { setShowWebview(false); handleSendMessage('Quiero hablar con un asesor comercial humano', 6); }}
+              style={{ width: '100%', padding: '0.5rem', background: '#059669', color: 'white', border: 'none', borderRadius: '0.4rem', fontSize: '0.74rem', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem' }}
             >
               <span>👨‍💼</span> Probar: "Hablar con Asesor"
             </button>
@@ -486,9 +490,9 @@ export default function App() {
         </div>
 
         {/* Footer del Panel */}
-        <div style={{ padding: '0.85rem 1rem', borderTop: '1px solid #1f2c34', background: '#111b21', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+        <div style={{ padding: '0.8rem 1rem', borderTop: '1px solid #1f2c34', background: '#111b21', display: 'flex', flexDirection: 'column', gap: '0.5rem', flexShrink: 0 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <label style={{ fontSize: '0.72rem', color: '#8696a0', fontWeight: 600 }}>Número WhatsApp:</label>
+            <label style={{ fontSize: '0.72rem', color: '#8696a0', fontWeight: 600 }}>Línea de Prueba:</label>
             <select
               value={phone}
               onChange={e => setPhone(e.target.value)}
@@ -509,14 +513,13 @@ export default function App() {
       </div>
 
       {/* 📱 SIMULADOR DEL TELÉFONO MÓVIL (WHATSAPP REALISTA) */}
-      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', background: '#070b0e' }}>
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', background: '#070b0e', height: '100vh', overflow: 'hidden' }}>
         
         <div style={{ 
-          width: '395px', 
-          height: '790px', 
-          maxHeight: '94vh', 
+          width: '385px', 
+          height: 'min(730px, 92vh)', 
           background: '#0b141a', 
-          borderRadius: '44px', 
+          borderRadius: '40px', 
           border: '10px solid #202c33', 
           boxShadow: '0 25px 60px -15px rgba(0,0,0,0.9), 0 0 0 2px #374151', 
           display: 'flex', 
@@ -526,11 +529,11 @@ export default function App() {
         }}>
           
           {/* Barra Superior del Sistema Operativo */}
-          <div style={{ height: '36px', background: '#202c33', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 1.25rem', fontSize: '0.72rem', color: '#e9edef', fontWeight: 600, zIndex: 110 }}>
+          <div style={{ height: '34px', background: '#202c33', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 1.25rem', fontSize: '0.72rem', color: '#e9edef', fontWeight: 600, flexShrink: 0, zIndex: 10 }}>
             <span>9:41</span>
-            <div style={{ width: '90px', height: '18px', background: '#0b141a', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#1e293b', marginRight: '4px' }}></div>
-              <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#f59e0b' }}></div>
+            <div style={{ width: '80px', height: '16px', background: '#0b141a', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#1e293b', marginRight: '4px' }}></div>
+              <div style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#f59e0b' }}></div>
             </div>
             <div style={{ display: 'flex', gap: '0.3rem', alignItems: 'center' }}>
               <span>5G</span>
@@ -539,14 +542,14 @@ export default function App() {
           </div>
 
           {/* Cabecera Oficial de WhatsApp Business */}
-          <div style={{ padding: '0.65rem 1rem', background: '#202c33', display: 'flex', gap: '0.75rem', alignItems: 'center', borderBottom: '1px solid #2a3942', zIndex: 10 }}>
-            <div style={{ width: '38px', height: '38px', borderRadius: '50%', background: 'linear-gradient(135deg, #d97706, #b45309)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.25rem', fontWeight: 700, color: 'white', boxShadow: '0 2px 6px rgba(0,0,0,0.2)' }}>
+          <div style={{ padding: '0.6rem 0.9rem', background: '#202c33', display: 'flex', gap: '0.75rem', alignItems: 'center', borderBottom: '1px solid #2a3942', flexShrink: 0, zIndex: 10 }}>
+            <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: 'linear-gradient(135deg, #d97706, #b45309)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', fontWeight: 700, color: 'white', flexShrink: 0 }}>
               🚗
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: '0.88rem', fontWeight: 800, color: '#e9edef', display: 'flex', alignItems: 'center', gap: '0.35rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              <div style={{ fontSize: '0.86rem', fontWeight: 800, color: '#e9edef', display: 'flex', alignItems: 'center', gap: '0.3rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 AutoEcuador Motors
-                <span style={{ fontSize: '0.75rem', color: '#00a884' }}>✓</span>
+                <span style={{ fontSize: '0.72rem', color: '#00a884' }}>✓</span>
               </div>
               <div style={{ fontSize: '0.68rem', color: '#00a884', fontWeight: 600 }}>
                 {isTyping ? 'Alex está escribiendo... ✍️' : 'Asesor Alex • En línea'}
@@ -555,7 +558,20 @@ export default function App() {
           </div>
 
           {/* Hilo de Mensajes de WhatsApp */}
-          <div style={{ flexGrow: 1, padding: '1rem', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.65rem', backgroundImage: 'radial-gradient(circle, #151d22 10%, transparent 11%)', backgroundSize: '14px 14px' }}>
+          <div 
+            ref={messagesContainerRef}
+            style={{ 
+              flex: '1 1 0%', 
+              minHeight: 0, 
+              padding: '1rem', 
+              overflowY: 'auto', 
+              display: 'flex', 
+              flexDirection: 'column', 
+              gap: '0.65rem', 
+              backgroundImage: 'radial-gradient(circle, #151d22 10%, transparent 11%)', 
+              backgroundSize: '14px 14px' 
+            }}
+          >
             {messages.length === 0 && (
               <div style={{ margin: 'auto', textAlign: 'center', padding: '1.5rem', maxWidth: '85%' }}>
                 <div style={{ display: 'inline-block', background: '#182229', padding: '0.45rem 0.9rem', borderRadius: '8px', border: '1px solid #222e35', fontSize: '0.74rem', color: '#f59e0b', marginBottom: '0.85rem', boxShadow: '0 2px 6px rgba(0,0,0,0.2)' }}>
@@ -566,6 +582,7 @@ export default function App() {
                 </div>
               </div>
             )}
+
             {messages.map((m, idx) => {
               const isUser = m.direction === 'inbound';
               return (
@@ -617,7 +634,13 @@ export default function App() {
                       {m.buttons.map((btnText: string, bIdx: number) => (
                         <button
                           key={bIdx}
-                          onClick={() => handleSendMessage(btnText)}
+                          onClick={() => {
+                            if (btnText.includes('Vitrina')) {
+                              setShowWebview(true);
+                            } else {
+                              handleSendMessage(btnText);
+                            }
+                          }}
                           style={{
                             width: '100%',
                             padding: '0.55rem',
@@ -647,19 +670,17 @@ export default function App() {
 
             {/* Typing Indicator */}
             {isTyping && (
-              <div style={{ alignSelf: 'flex-start', background: '#202c33', padding: '0.5rem 0.85rem', borderRadius: '0 12px 12px 12px', fontSize: '0.75rem', color: '#00a884', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+              <div style={{ alignSelf: 'flex-start', background: '#202c33', padding: '0.5rem 0.85rem', borderRadius: '0 12px 12px 12px', fontSize: '0.74rem', color: '#00a884', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                 <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', background: '#00a884' }}></span>
-                Alex está preparando la mejor oferta...
+                Alex está preparando la respuesta...
               </div>
             )}
-
-            <div ref={chatEndRef} />
           </div>
 
           {/* Barra Inferior para Escribir Mensajes */}
           <form 
             onSubmit={(e) => { e.preventDefault(); handleSendMessage(); }} 
-            style={{ padding: '0.6rem 0.75rem', background: '#202c33', display: 'flex', gap: '0.5rem', alignItems: 'center', borderTop: '1px solid #2a3942', zIndex: 10 }}
+            style={{ padding: '0.55rem 0.75rem', background: '#202c33', display: 'flex', gap: '0.5rem', alignItems: 'center', borderTop: '1px solid #2a3942', flexShrink: 0, zIndex: 10 }}
           >
             <input 
               type="text" 
@@ -677,60 +698,63 @@ export default function App() {
           </form>
 
           {/* 🪟 PANTALLA EMERGENTE IN-APP BROWSER (Navegación Interna sin salir de WhatsApp) */}
-          <div style={{
-            position: 'absolute',
-            inset: 0,
-            background: '#090d16',
-            zIndex: 100,
-            transform: showWebview ? 'translateY(0)' : 'translateY(100%)',
-            transition: 'transform 0.35s cubic-bezier(0.16, 1, 0.3, 1)',
-            display: 'flex',
-            flexDirection: 'column',
-            boxShadow: '0 -10px 40px rgba(0,0,0,0.8)'
-          }}>
-            {/* Barra Superior del In-App Browser de WhatsApp */}
-            <div style={{ 
-              height: '46px', 
-              background: '#0f172a', 
-              color: '#e9edef', 
-              display: 'flex', 
-              alignItems: 'center', 
-              justifyContent: 'space-between', 
-              padding: '0 1rem', 
-              borderBottom: '1px solid #1e293b',
-              fontSize: '0.8rem'
+          {showWebview && (
+            <div style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              background: '#090d16',
+              zIndex: 999,
+              display: 'flex',
+              flexDirection: 'column',
+              boxShadow: '0 0 50px rgba(0,0,0,0.95)'
             }}>
-              <button 
-                onClick={() => setShowWebview(false)} 
-                style={{ background: 'transparent', border: 'none', color: '#f43f5e', fontSize: '1.2rem', cursor: 'pointer', padding: '0.25rem', fontWeight: 900 }}
-                title="Cerrar Vitrina"
-              >
-                ✕
-              </button>
-              
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                <span style={{ fontWeight: 800, fontSize: '0.78rem', color: '#f8fafc' }}>WhatsApp In-App Browser</span>
-                <span style={{ fontSize: '0.65rem', color: '#10b981', display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
-                  🔒 autoecuador.com/catalogo
-                </span>
+              {/* Barra Superior del In-App Browser de WhatsApp */}
+              <div style={{ 
+                height: '46px', 
+                background: '#0f172a', 
+                color: '#e9edef', 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'space-between', 
+                padding: '0 0.85rem', 
+                borderBottom: '1px solid #1e293b',
+                fontSize: '0.78rem',
+                flexShrink: 0
+              }}>
+                <button 
+                  onClick={() => setShowWebview(false)} 
+                  style={{ background: '#e11d48', border: 'none', color: 'white', fontSize: '0.72rem', cursor: 'pointer', padding: '0.35rem 0.65rem', fontWeight: 800, borderRadius: '6px' }}
+                >
+                  ✕ Cerrar
+                </button>
+                
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                  <span style={{ fontWeight: 800, fontSize: '0.76rem', color: '#f8fafc' }}>WhatsApp In-App Browser</span>
+                  <span style={{ fontSize: '0.62rem', color: '#10b981' }}>
+                    🔒 autoecuador.com/catalogo
+                  </span>
+                </div>
+
+                <button 
+                  onClick={() => setShowWebview(false)} 
+                  style={{ background: '#1e293b', border: '1px solid #334155', color: '#38bdf8', fontSize: '0.7rem', borderRadius: '6px', padding: '0.35rem 0.65rem', cursor: 'pointer', fontWeight: 700 }}
+                >
+                  Volver al Chat
+                </button>
               </div>
 
-              <button 
-                onClick={() => setShowWebview(false)} 
-                style={{ background: '#1e293b', border: '1px solid #334155', color: '#38bdf8', fontSize: '0.7rem', borderRadius: '6px', padding: '0.25rem 0.6rem', cursor: 'pointer', fontWeight: 700 }}
-              >
-                Volver
-              </button>
+              {/* Iframe de la Vitrina Oficial */}
+              <iframe 
+                src={catalogUrl}
+                style={{ width: '100%', flex: '1 1 0%', minHeight: 0, border: 'none', background: '#020617' }}
+                title="Vitrina Virtual AutoEcuador Motors"
+                allow="camera; microphone; geolocation"
+              />
             </div>
-
-            {/* Iframe de la Vitrina Oficial */}
-            <iframe 
-              src={catalogUrl}
-              style={{ width: '100%', flexGrow: 1, border: 'none', background: '#020617' }}
-              title="Vitrina Virtual AutoEcuador Motors"
-              allow="camera; microphone; geolocation"
-            />
-          </div>
+          )}
 
         </div>
 
