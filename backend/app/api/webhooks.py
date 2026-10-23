@@ -251,7 +251,12 @@ async def receive_incoming_message(
             logger.error(f"Error sincronizando mensaje entrante con Chatwoot: {cw_err}")
 
     # ── 1. Active Handoff Lock ─────────────────────────────────
-    if conv.status in ["waiting_agent", "assigned", "human_active", "handed_over"]:
+    clean_check = sanitized.lower().strip()
+    reset_keywords = ["hola", "buenas", "buenos dias", "buenas tardes", "buenas noches", "menu", "menú", "inicio", "start", "bot", "reiniciar"]
+    if any(clean_check.startswith(kw) or clean_check == kw for kw in reset_keywords):
+        conv.status = "bot_active"
+        await db.commit()
+    elif conv.status in ["waiting_agent", "assigned", "human_active", "handed_over"]:
         await save_message(db, conv.id, "inbound", "user", sanitized, payload.message_id)
         event = {"type": "new_message", "data": {"conversation_id": str(conv.id), "direction": "inbound", "role": "user", "content": sanitized}}
         await redis_client.publish("seller_updates", json.dumps(event))
