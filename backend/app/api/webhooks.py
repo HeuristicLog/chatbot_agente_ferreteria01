@@ -549,6 +549,14 @@ async def receive_incoming_message(
         await save_message(db, conv.id, "outbound", "assistant", "Menú de bienvenida enviado")
         return {"status": "processed"}
 
+    # Horarios, Ubicación, Showrooms, Sedes
+    horarios_keywords = ["horario", "horarios", "a que hora", "a qué hora", "hora", "abren", "cierran", "atencion", "atención", "donde estan", "dónde están", "ubicacion", "ubicación", "showroom", "showrooms", "sede", "sedes", "direccion", "dirección", "donde queda", "dónde queda"]
+    if any(k in clean_msg for k in horarios_keywords):
+        await clear_flow_state(redis_client, payload.phone)
+        await flows.send_horarios_info(payload.phone, internal_api_key, phone_number_id=dest_phone_number_id)
+        await save_message(db, conv.id, "outbound", "assistant", "Información de horarios y sedes enviada")
+        return {"status": "processed"}
+
     # Catálogo / Productos / Tienda Meta WhatsApp Flow (Pantalla emergente nativa)
     catalog_keywords = ["catalogo", "catálogo", "productos", "inventario", "precios", "tienda", "comprar", "lista de productos"]
     if any(k in clean_msg for k in catalog_keywords):

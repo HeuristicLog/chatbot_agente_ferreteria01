@@ -183,40 +183,58 @@ async def _send_flow(phone: str, body: str, flow_id: str, flow_cta: str, flow_to
 # ─────────────────────────────────────────────
 
 async def send_welcome_menu(phone: str, internal_key: str, name: str = "", phone_number_id: Optional[str] = None):
-    """Menú interactivo oficial con lista de categorías y opciones comerciales guiadas."""
+    """Menú de bienvenida limpio, fluido y directo a la vitrina emergente en WhatsApp."""
+    import os
+    clean_phone = phone.replace("+", "").replace(" ", "").strip()
+    ngrok_url = os.getenv("CATALOG_BASE_URL", "https://usable-thorn-kabob.ngrok-free.dev")
+    catalog_url = f"{ngrok_url}/catalogo-autos?phone={clean_phone}&sucursal=Centro"
+    
     greeting = f"¡Hola{' ' + name if name else ''}! 😊"
     body = (
         f"{greeting} Te damos la bienvenida a *AutoEcuador Motors* 🇪🇨, tu concesionario multimarca oficial.\n\n"
-        "Soy *Alex*, tu asesor comercial inteligente para vehículos nuevos y seminuevos 2026.\n\n"
-        "Toca el botón *📋 Ver Opciones y Flujos* para desplegar nuestro menú interactivo y avanzar en tu consulta:"
+        "Soy *Alex*, tu asesor comercial para vehículos 2026.\n\n"
+        "Toca el botón *🚘 Explorar Vitrina* para ver todos los modelos 2026 con fotos reales, simular tu crédito en vivo y reservar tu Test Drive sin salir de WhatsApp:\n\n"
+        "💬 _También puedes preguntarme por horarios, camionetas 4x4, híbridos o solicitar un asesor._"
     )
-    sections = [
-        {
-            "title": "🚘 Tipo de Vehículo",
-            "rows": [
-                {"id": "auto_cat_hibridos", "title": "⚡ Híbridos / Eléctricos", "description": "Toyota Yaris Cross (0 Pico y Placa)"},
-                {"id": "auto_cat_pickups",  "title": "🛻 Camionetas 4x4",         "description": "Chevrolet D-Max, Hilux, Poer para trabajo"},
-                {"id": "auto_cat_suvs",     "title": "🚙 SUVs Familiares",        "description": "Sportage, Tucson, Tracker 2026"}
-            ]
-        },
-        {
-            "title": "💼 Crédito & Servicios",
-            "rows": [
-                {"id": "auto_flow_credito",   "title": "💰 Simulación de Crédito",  "description": "Entradas desde el 20% y plazos a 60m"},
-                {"id": "auto_flow_retoma",    "title": "🔄 Plan Retoma (Usados)",   "description": "Tu auto usado como parte de pago"},
-                {"id": "auto_flow_testdrive", "title": "🏎️ Agendar Test Drive",     "description": "Prueba de manejo sin costo a domicilio"},
-                {"id": "flow_catalogo",       "title": "🚘 Vitrina & Cotizador",    "description": "Pantalla emergente con fotos reales"},
-                {"id": "flow_asesor",         "title": "👨‍💼 Hablar con Asesor",     "description": "Atención humana en Quito Centro"}
-            ]
-        }
-    ]
-    await _send_list(
+    await _send_cta_url(
         phone=phone,
         body=body,
-        button_text="📋 Ver Opciones y Flujos",
-        sections=sections,
+        display_text="🚘 Explorar Vitrina",
+        url=catalog_url,
         header="🚗 AutoEcuador Motors 2026",
-        footer="Concesionario Oficial Multimarca • Ecuador",
+        footer="Quito • Guayaquil • Cuenca | Lun-Sáb 8:30-18:30",
+        internal_key=internal_key,
+        phone_number_id=phone_number_id
+    )
+
+async def send_horarios_info(phone: str, internal_key: str, phone_number_id: Optional[str] = None):
+    """Información clara y concisa de horarios y salas de exhibición con botón de vitrina."""
+    import os
+    clean_phone = phone.replace("+", "").replace(" ", "").strip()
+    ngrok_url = os.getenv("CATALOG_BASE_URL", "https://usable-thorn-kabob.ngrok-free.dev")
+    catalog_url = f"{ngrok_url}/catalogo-autos?phone={clean_phone}&sucursal=Centro"
+    
+    body = (
+        "🕒 *Horarios de Atención y Showrooms AutoEcuador Motors:*\n\n"
+        "📍 *Quito Centro (Matriz):*\n"
+        "• Av. 10 de Agosto y Orellana\n"
+        "• Lunes a Sábado: 8:30 AM a 6:30 PM\n"
+        "• Domingos y Feriados: 10:00 AM a 2:00 PM\n\n"
+        "📍 *Guayaquil Norte:*\n"
+        "• Av. Juan Tanca Marengo km 4.5\n"
+        "• Lunes a Sábado: 9:00 AM a 7:00 PM\n\n"
+        "📍 *Cuenca:*\n"
+        "• Av. España y Huayna Cápac\n"
+        "• Lunes a Viernes: 8:30 AM a 6:00 PM\n\n"
+        "Toca el botón abajo para explorar nuestros modelos en la vitrina virtual:"
+    )
+    await _send_cta_url(
+        phone=phone,
+        body=body,
+        display_text="🚘 Abrir Vitrina",
+        url=catalog_url,
+        header="📍 Showrooms & Horarios",
+        footer="Atención y citas de Test Drive",
         internal_key=internal_key,
         phone_number_id=phone_number_id
     )
