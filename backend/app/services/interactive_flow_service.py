@@ -179,30 +179,268 @@ async def _send_flow(phone: str, body: str, flow_id: str, flow_cta: str, flow_to
         return False
 
 # ─────────────────────────────────────────────
-# FLUJOS PRINCIPALES
+# FLUJOS PRINCIPALES AUTOMOTRICES (AutoEcuador Motors)
 # ─────────────────────────────────────────────
 
 async def send_welcome_menu(phone: str, internal_key: str, name: str = "", phone_number_id: Optional[str] = None):
-    """Menú de bienvenida con acceso directo al Catálogo y Carrito interactivo (In-App Browser)."""
-    import os
-    clean_phone = phone.replace("+", "").replace(" ", "").strip()
-    ngrok_url = os.getenv("CATALOG_BASE_URL", "https://usable-thorn-kabob.ngrok-free.dev")
-    catalog_url = f"{ngrok_url}/catalogo-autos?phone={clean_phone}&sucursal=Centro"
-    
+    """Menú interactivo oficial con lista de categorías y opciones comerciales guiadas."""
     greeting = f"¡Hola{' ' + name if name else ''}! 😊"
     body = (
         f"{greeting} Te damos la bienvenida a *AutoEcuador Motors* 🇪🇨, tu concesionario multimarca oficial.\n\n"
-        "Soy *Alex*, tu asesor comercial inteligente para vehículos nuevos y seminuevos.\n\n"
-
-        "Toca el botón *🚘 Explorar Vitrina & Cotizador* para ver los modelos 2026 con fotos reales, simular tu crédito en vivo y reservar tu Test Drive sin salir de WhatsApp:"
+        "Soy *Alex*, tu asesor comercial inteligente para vehículos nuevos y seminuevos 2026.\n\n"
+        "Toca el botón *📋 Ver Opciones y Flujos* para desplegar nuestro menú interactivo y avanzar en tu consulta:"
     )
-    await _send_cta_url(
+    sections = [
+        {
+            "title": "🚘 Tipo de Vehículo",
+            "rows": [
+                {"id": "auto_cat_hibridos", "title": "⚡ Híbridos / Eléctricos", "description": "Toyota Yaris Cross (0 Pico y Placa)"},
+                {"id": "auto_cat_pickups",  "title": "🛻 Camionetas 4x4",         "description": "Chevrolet D-Max, Hilux, Poer para trabajo"},
+                {"id": "auto_cat_suvs",     "title": "🚙 SUVs Familiares",        "description": "Sportage, Tucson, Tracker 2026"}
+            ]
+        },
+        {
+            "title": "💼 Crédito & Servicios",
+            "rows": [
+                {"id": "auto_flow_credito",   "title": "💰 Simulación de Crédito",  "description": "Entradas desde el 20% y plazos a 60m"},
+                {"id": "auto_flow_retoma",    "title": "🔄 Plan Retoma (Usados)",   "description": "Tu auto usado como parte de pago"},
+                {"id": "auto_flow_testdrive", "title": "🏎️ Agendar Test Drive",     "description": "Prueba de manejo sin costo a domicilio"},
+                {"id": "flow_catalogo",       "title": "🚘 Vitrina & Cotizador",    "description": "Pantalla emergente con fotos reales"},
+                {"id": "flow_asesor",         "title": "👨‍💼 Hablar con Asesor",     "description": "Atención humana en Quito Centro"}
+            ]
+        }
+    ]
+    await _send_list(
         phone=phone,
         body=body,
-        display_text="🚘 Explorar Vitrina",
-        url=catalog_url,
-        header="🚗 AutoEcuador Motors",
-        footer="Concesionario Oficial • Financiamiento 24/7",
+        button_text="📋 Ver Opciones y Flujos",
+        sections=sections,
+        header="🚗 AutoEcuador Motors 2026",
+        footer="Concesionario Oficial Multimarca • Ecuador",
+        internal_key=internal_key,
+        phone_number_id=phone_number_id
+    )
+
+async def send_pickups_flow(phone: str, internal_key: str, phone_number_id: Optional[str] = None):
+    """Flujo interactivo para Camionetas 4x4 y trabajo."""
+    body = (
+        "🛻 *Camionetas 4x4 en AutoEcuador Motors 2026:*\n\n"
+        "1. *Chevrolet D-Max High Country 3.0L Diésel 4x4*\n"
+        "• 💰 Precio: $34,990 | Entrada (20%): $6,998 | Cuota: $585/mes\n\n"
+        "2. *Toyota Hilux Doble Cabina 2.4L Diésel 4x4*\n"
+        "• 💰 Precio: $38,490 | Entrada (20%): $7,698 | Cuota: $645/mes\n\n"
+        "3. *Great Wall Poer Luxury 2.0L Turbo Diésel 4x4*\n"
+        "• 💰 Precio: $28,990 | Entrada (20%): $5,798 | Cuota: $485/mes\n\n"
+        "¿Qué deseas hacer ahora? Selecciona una acción:"
+    )
+    buttons = [
+        {"id": "flow_catalogo", "title": "🚘 Ver en Vitrina"},
+        {"id": "auto_flow_credito", "title": "💰 Simular Cuotas"},
+        {"id": "auto_td_pickups", "title": "🏎️ Test Drive 4x4"}
+    ]
+    await _send_buttons(
+        phone=phone,
+        body=body,
+        buttons=buttons,
+        header="🛻 Pickups 4x4 Ecuador",
+        footer="Garantía de fábrica y entrega inmediata",
+        internal_key=internal_key,
+        phone_number_id=phone_number_id
+    )
+
+async def send_suvs_flow(phone: str, internal_key: str, phone_number_id: Optional[str] = None):
+    """Flujo interactivo para SUVs familiares."""
+    body = (
+        "🚙 *SUVs Familiares en AutoEcuador Motors 2026:*\n\n"
+        "• *Chery Tiggo 4 Pro Luxury 1.5L Turbo:* $18,490 (Cuota: $310/mes)\n"
+        "• *Kia Sonet LX 1.5L:* $19,990 (Cuota: $335/mes)\n"
+        "• *Chevrolet Tracker RS 1.2L Turbo:* $22,990 (Cuota: $385/mes)\n"
+        "• *Kia Sportage LX 2.0L Automático:* $26,490 (Cuota: $445/mes)\n"
+        "• *Hyundai Tucson NX4 Advance:* $29,990 (Cuota: $505/mes)\n\n"
+        "Todos con 6 airbags y amplio maletero para viajes familiares en Ecuador. ¿Cómo deseas continuar?"
+    )
+    buttons = [
+        {"id": "flow_catalogo", "title": "🚘 Ver en Vitrina"},
+        {"id": "auto_flow_credito", "title": "💰 Simular Cuotas"},
+        {"id": "auto_td_suvs", "title": "🏎️ Test Drive SUV"}
+    ]
+    await _send_buttons(
+        phone=phone,
+        body=body,
+        buttons=buttons,
+        header="🚙 SUVs Familiares 2026",
+        footer="Plazos de 12 a 60 meses con banca nacional",
+        internal_key=internal_key,
+        phone_number_id=phone_number_id
+    )
+
+async def send_hibridos_flow(phone: str, internal_key: str, phone_number_id: Optional[str] = None):
+    """Flujo interactivo para vehículos Híbridos y Eléctricos (0 Pico y Placa)."""
+    body = (
+        "⚡ *Movilidad Híbrida & Ecológica en AutoEcuador Motors:*\n\n"
+        "🌿 *Toyota Yaris Cross Híbrido 1.5L (Modelo 2026)*\n"
+        "• 💰 *Precio con IVA (15%):* $27,990 USD\n"
+        "• 💵 *Entrada (20%):* $5,598 | 📊 *Cuota:* $465/mes\n"
+        "• 🚀 *Ventaja Ecuador:* **CERO PICO Y PLACA en Quito todos los días**\n"
+        "• ⛽ *Consumo:* Hasta 85 km por galón (auto-recargable, sin cables)\n"
+        "• 🛡️ *Seguridad:* Toyota Safety Sense con frenado autónomo\n\n"
+        "Elige tu siguiente paso:"
+    )
+    buttons = [
+        {"id": "flow_catalogo", "title": "🚘 Ver Yaris Cross"},
+        {"id": "auto_flow_credito", "title": "💰 Cuotas Híbrido"},
+        {"id": "auto_td_hibridos", "title": "🏎️ Test Drive Híbrido"}
+    ]
+    await _send_buttons(
+        phone=phone,
+        body=body,
+        buttons=buttons,
+        header="⚡ Cero Pico y Placa Quito",
+        footer="Garantía de batería 8 años o 160.000 km",
+        internal_key=internal_key,
+        phone_number_id=phone_number_id
+    )
+
+async def send_credito_flow(phone: str, internal_key: str, phone_number_id: Optional[str] = None):
+    """Flujo guiado para simulación de crédito por rango de entrada."""
+    body = (
+        "💰 *Asesoría de Financiamiento Automotriz 2026:*\n\n"
+        "Trabajamos con Banco Pichincha, Banco Guayaquil, Produbanco y cooperativas aliadas con aprobación en 24 horas.\n\n"
+        "¿De cuánto dispones aproximadamente para tu entrada inicial?"
+    )
+    buttons = [
+        {"id": "auto_down_3to5", "title": "💰 $3.000 a $5.000"},
+        {"id": "auto_down_5to8", "title": "💰 $5.000 a $8.000"},
+        {"id": "auto_down_more8", "title": "💰 Más de $8.000"}
+    ]
+    await _send_buttons(
+        phone=phone,
+        body=body,
+        buttons=buttons,
+        header="📊 Simulador de Crédito",
+        footer="Tasa de interés automotriz preferencial",
+        internal_key=internal_key,
+        phone_number_id=phone_number_id
+    )
+
+async def send_credito_range_result(phone: str, range_key: str, internal_key: str, phone_number_id: Optional[str] = None):
+    """Muestra modelos y cuotas calculadas según el rango de entrada elegido."""
+    if range_key == "auto_down_3to5":
+        body = (
+            "💰 *Para una Entrada de $3.000 a $5.000 USD:*\n\n"
+            "Modelos recomendados con el 20% de entrada:\n"
+            "• *Chery Tiggo 4 Pro Luxury:* Entrada $3,698 ➔ Cuota $310/mes\n"
+            "• *Kia Sonet LX 1.5L:* Entrada $3,998 ➔ Cuota $335/mes\n"
+            "• *Chevrolet Tracker RS Turbo:* Entrada $4,598 ➔ Cuota $385/mes\n\n"
+            "¿Deseas verlos en la vitrina con fotos reales o agendar una prueba de manejo?"
+        )
+    elif range_key == "auto_down_5to8":
+        body = (
+            "💰 *Para una Entrada de $5.000 a $8.000 USD:*\n\n"
+            "Modelos recomendados con el 20% de entrada:\n"
+            "• *Toyota Yaris Cross Híbrido:* Entrada $5,598 ➔ Cuota $465/mes (0 Pico y Placa)\n"
+            "• *Great Wall Poer 4x4:* Entrada $5,798 ➔ Cuota $485/mes\n"
+            "• *Kia Sportage LX 2.0L:* Entrada $5,298 ➔ Cuota $445/mes\n"
+            "• *Hyundai Tucson NX4:* Entrada $5,998 ➔ Cuota $505/mes\n"
+            "• *Chevrolet D-Max 4x4 Diésel:* Entrada $6,998 ➔ Cuota $585/mes\n\n"
+            "¿Cómo prefieres continuar?"
+        )
+    else:
+        body = (
+            "💰 *Para una Entrada Mayor a $8.000 USD:*\n\n"
+            "Modelos recomendados de alta gama y tracción total 4x4:\n"
+            "• *Chevrolet D-Max High Country 3.0L Diésel 4x4:* Entrada $6,998 ➔ Cuota $585/mes (con $10k baja a $490/mes)\n"
+            "• *Toyota Hilux Doble Cabina 4x4:* Entrada $7,698 ➔ Cuota $645/mes (con $12k baja a $515/mes)\n\n"
+            "¡A mayor entrada, tu cuota mensual se reduce drásticamente! ¿Qué paso deseas dar?"
+        )
+    
+    buttons = [
+        {"id": "flow_catalogo", "title": "🚘 Abrir Vitrina"},
+        {"id": "auto_flow_testdrive", "title": "🏎️ Agendar Test Drive"},
+        {"id": "flow_asesor", "title": "👨‍💼 Asesor de Crédito"}
+    ]
+    await _send_buttons(
+        phone=phone,
+        body=body,
+        buttons=buttons,
+        header="📈 Comparativo Financiero",
+        footer="Aprobación bancaria en 24h",
+        internal_key=internal_key,
+        phone_number_id=phone_number_id
+    )
+
+async def send_retoma_flow(phone: str, internal_key: str, phone_number_id: Optional[str] = None):
+    """Flujo del Plan Retoma para entregar auto usado como parte de pago."""
+    body = (
+        "🔄 *Plan Retoma AutoEcuador Motors:*\n\n"
+        "¡Recibimos tu auto usado de cualquier marca o año como parte de pago de tu nuevo 0 km!\n\n"
+        "📌 *¿Cómo funciona?*\n"
+        "1. Nuestro perito revisa el avalúo de tu auto.\n"
+        "2. El valor acordado se descuenta directamente de la entrada del auto nuevo.\n"
+        "3. Nos encargamos de todos los trámites legales y traspaso de dominio.\n\n"
+        "¿Cómo deseas avanzar?"
+    )
+    buttons = [
+        {"id": "flow_catalogo", "title": "🚘 Ver Modelos 2026"},
+        {"id": "auto_flow_credito", "title": "💰 Simular Crédito"},
+        {"id": "flow_asesor", "title": "👨‍💼 Hablar con Tasador"}
+    ]
+    await _send_buttons(
+        phone=phone,
+        body=body,
+        buttons=buttons,
+        header="🔄 Plan Retoma de Usados",
+        footer="Tasación transparente al mejor precio de mercado",
+        internal_key=internal_key,
+        phone_number_id=phone_number_id
+    )
+
+async def send_testdrive_flow(phone: str, internal_key: str, phone_number_id: Optional[str] = None):
+    """Flujo para agendar Test Drive a domicilio o en showroom."""
+    body = (
+        "🏎️ *Agenda tu Test Drive en AutoEcuador Motors (100% Gratuito):*\n\n"
+        "Prueba la potencia, suavidad y comodidad del vehículo antes de tomar tu decisión.\n\n"
+        "¿Dónde prefieres realizar la prueba de manejo?"
+    )
+    buttons = [
+        {"id": "auto_td_domicilio", "title": "🏠 A Domicilio"},
+        {"id": "auto_td_showroom", "title": "📍 En Showroom Quito"},
+        {"id": "flow_asesor", "title": "👨‍💼 Hablar con Asesor"}
+    ]
+    await _send_buttons(
+        phone=phone,
+        body=body,
+        buttons=buttons,
+        header="🏎️ Prueba de Manejo Oficial",
+        footer="Sin costo ni compromiso de compra",
+        internal_key=internal_key,
+        phone_number_id=phone_number_id
+    )
+
+async def confirm_testdrive_preference(phone: str, preference: str, internal_key: str, phone_number_id: Optional[str] = None):
+    """Confirma la modalidad de Test Drive y conecta asesor."""
+    import uuid
+    lead_code = f"LEAD-AUTO-{uuid.uuid4().hex[:6].upper()}"
+    pref_label = "A Domicilio (Casa / Oficina)" if "domicilio" in preference else "En Showroom Quito Centro"
+    
+    body = (
+        f"🏎️ *¡Solicitud de Test Drive Registrada!*\n\n"
+        f"📋 *Código:* `{lead_code}`\n"
+        f"📍 *Modalidad:* {pref_label}\n\n"
+        "👨‍💼 *Un asesor comercial se comunicará contigo por este mismo chat de WhatsApp* para coordinar el día, la hora y el modelo exacto que deseas probar.\n\n"
+        "Mientras tanto, puedes seguir explorando las fichas técnicas en nuestra vitrina virtual:"
+    )
+    buttons = [
+        {"id": "flow_catalogo", "title": "🚘 Ver en Vitrina"},
+        {"id": "auto_flow_credito", "title": "💰 Simular Crédito"},
+        {"id": "flow_asesor", "title": "👨‍💼 Hablar con Asesor"}
+    ]
+    await _send_buttons(
+        phone=phone,
+        body=body,
+        buttons=buttons,
+        header="✅ Prueba Agendada con Éxito",
+        footer="AutoEcuador Motors • Quito Centro",
         internal_key=internal_key,
         phone_number_id=phone_number_id
     )

@@ -276,18 +276,68 @@ async def receive_incoming_message(
         # ── Menu principal
         if interactive_id in ["menu_inicio", "menu_main"]:
             await clear_flow_state(redis_client, payload.phone)
-            await flows.send_main_menu(payload.phone, internal_api_key, phone_number_id=dest_phone_number_id)
-            await save_message(db, conv.id, "outbound", "assistant", "Menú principal enviado")
+            await flows.send_welcome_menu(payload.phone, internal_api_key, phone_number_id=dest_phone_number_id)
+            await save_message(db, conv.id, "outbound", "assistant", "Menú principal automotriz enviado")
             return {"status": "processed"}
 
-        # ── Flujo: Catálogo Oficial Meta WhatsApp Flow (Pantalla emergente nativa con la 'X')
-        if interactive_id == "flow_catalogo":
+        # ── Flujo Automotriz: Categoría Camionetas 4x4
+        if interactive_id == "auto_cat_pickups":
             await clear_flow_state(redis_client, payload.phone)
-            sent = await flows.send_catalog_flow(payload.phone, internal_api_key, phone_number_id=dest_phone_number_id)
-            if not sent:
-                # Fallback a lista interactiva nativa si Flow no se pudo enviar
-                from app.services import in_chat_cart_service as in_chat_cart
-                await in_chat_cart.send_categories_menu(payload.phone, internal_api_key, phone_number_id=dest_phone_number_id)
+            await flows.send_pickups_flow(payload.phone, internal_api_key, phone_number_id=dest_phone_number_id)
+            await save_message(db, conv.id, "outbound", "assistant", "Flujo de camionetas 4x4 enviado")
+            return {"status": "processed"}
+
+        # ── Flujo Automotriz: Categoría SUVs
+        if interactive_id == "auto_cat_suvs":
+            await clear_flow_state(redis_client, payload.phone)
+            await flows.send_suvs_flow(payload.phone, internal_api_key, phone_number_id=dest_phone_number_id)
+            await save_message(db, conv.id, "outbound", "assistant", "Flujo de SUVs enviado")
+            return {"status": "processed"}
+
+        # ── Flujo Automotriz: Categoría Híbridos / Eléctricos
+        if interactive_id == "auto_cat_hibridos":
+            await clear_flow_state(redis_client, payload.phone)
+            await flows.send_hibridos_flow(payload.phone, internal_api_key, phone_number_id=dest_phone_number_id)
+            await save_message(db, conv.id, "outbound", "assistant", "Flujo de híbridos enviado")
+            return {"status": "processed"}
+
+        # ── Flujo Automotriz: Simulación de Crédito por rangos
+        if interactive_id == "auto_flow_credito":
+            await clear_flow_state(redis_client, payload.phone)
+            await flows.send_credito_flow(payload.phone, internal_api_key, phone_number_id=dest_phone_number_id)
+            await save_message(db, conv.id, "outbound", "assistant", "Flujo de crédito vehicular enviado")
+            return {"status": "processed"}
+
+        if interactive_id in ["auto_down_3to5", "auto_down_5to8", "auto_down_more8"]:
+            await clear_flow_state(redis_client, payload.phone)
+            await flows.send_credito_range_result(payload.phone, interactive_id, internal_api_key, phone_number_id=dest_phone_number_id)
+            await save_message(db, conv.id, "outbound", "assistant", f"Resultado de financiamiento para {interactive_id} enviado")
+            return {"status": "processed"}
+
+        # ── Flujo Automotriz: Plan Retoma (Auto Usado)
+        if interactive_id == "auto_flow_retoma" or interactive_id == "auto_tasar_usado":
+            await clear_flow_state(redis_client, payload.phone)
+            await flows.send_retoma_flow(payload.phone, internal_api_key, phone_number_id=dest_phone_number_id)
+            await save_message(db, conv.id, "outbound", "assistant", "Flujo de plan retoma enviado")
+            return {"status": "processed"}
+
+        # ── Flujo Automotriz: Agendar Test Drive
+        if interactive_id in ["auto_flow_testdrive", "auto_td_pickups", "auto_td_suvs", "auto_td_hibridos"]:
+            await clear_flow_state(redis_client, payload.phone)
+            await flows.send_testdrive_flow(payload.phone, internal_api_key, phone_number_id=dest_phone_number_id)
+            await save_message(db, conv.id, "outbound", "assistant", "Flujo de test drive enviado")
+            return {"status": "processed"}
+
+        if interactive_id in ["auto_td_domicilio", "auto_td_showroom"]:
+            await clear_flow_state(redis_client, payload.phone)
+            await flows.confirm_testdrive_preference(payload.phone, interactive_id, internal_api_key, phone_number_id=dest_phone_number_id)
+            await save_message(db, conv.id, "outbound", "assistant", f"Confirmación de test drive {interactive_id} enviada")
+            return {"status": "processed"}
+
+        # ── Flujo: Catálogo Oficial (Pantalla emergente Webview)
+        if interactive_id in ["flow_catalogo", "auto_view_vitrina"]:
+            await clear_flow_state(redis_client, payload.phone)
+            await flows.send_catalog_link(payload.phone, internal_api_key, phone_number_id=dest_phone_number_id)
             await save_message(db, conv.id, "outbound", "assistant", "Catálogo interactivo enviado")
             return {"status": "processed"}
 

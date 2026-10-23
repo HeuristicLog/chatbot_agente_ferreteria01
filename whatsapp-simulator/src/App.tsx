@@ -156,6 +156,41 @@ export default function App() {
     }
   };
 
+  // Función auxiliar para determinar botones interactivos según el mensaje
+  const getButtonsForMessage = (msg: string): string[] => {
+    if (msg.includes('AutoEcuador Motors') && msg.includes('Ver Opciones')) {
+      return ['⚡ Híbridos / Eléctricos', '🛻 Camionetas 4x4', '🚙 SUVs Familiares', '💰 Simulación de Crédito', '🔄 Plan Retoma (Usados)', '🏎️ Agendar Test Drive', '🚘 Vitrina Virtual', '👨‍💼 Hablar con Asesor'];
+    }
+    if (msg.includes('Pickups') || msg.includes('Camionetas 4x4')) {
+      return ['🚘 Ver en Vitrina', '💰 Simular Cuotas', '🏎️ Test Drive 4x4'];
+    }
+    if (msg.includes('SUVs Familiares')) {
+      return ['🚘 Ver en Vitrina', '💰 Simular Cuotas', '🏎️ Test Drive SUV'];
+    }
+    if (msg.includes('Híbrida') || msg.includes('Híbridos') || msg.includes('Yaris Cross')) {
+      return ['🚘 Ver Yaris Cross', '💰 Cuotas Híbrido', '🏎️ Test Drive Híbrido'];
+    }
+    if (msg.includes('Asesoría de Financiamiento Automotriz') || msg.includes('aproximadamente para tu entrada')) {
+      return ['💰 $3.000 a $5.000', '💰 $5.000 a $8.000', '💰 Más de $8.000'];
+    }
+    if (msg.includes('Para una Entrada de') || msg.includes('Comparativo Financiero')) {
+      return ['🚘 Abrir Vitrina', '🏎️ Agendar Test Drive', '👨‍💼 Asesor de Crédito'];
+    }
+    if (msg.includes('Plan Retoma')) {
+      return ['🚘 Ver Modelos 2026', '💰 Simular Crédito', '👨‍💼 Hablar con Tasador'];
+    }
+    if (msg.includes('Agenda tu Test Drive en AutoEcuador')) {
+      return ['🏠 A Domicilio', '📍 En Showroom', '👨‍💼 Hablar con Asesor'];
+    }
+    if (msg.includes('¡Solicitud de Test Drive Registrada!')) {
+      return ['🚘 Ver en Vitrina', '💰 Simular Crédito', '👨‍💼 Hablar con Asesor'];
+    }
+    if (msg.includes('Cotización Oficial Generada')) {
+      return ['🏎️ Agendar Test Drive', '📍 Ver Showrooms', '👨‍💼 Hablar con Asesor'];
+    }
+    return ['🚘 Explorar Vitrina', '🛻 Camionetas 4x4', '⚡ Híbridos', '🚙 SUVs Familiares', '👨‍💼 Hablar con Asesor'];
+  };
+
   // Polling periódico para recibir respuestas del backend en orden estricto
   useEffect(() => {
     const interval = setInterval(async () => {
@@ -171,17 +206,8 @@ export default function App() {
           if (newOutbounds.length > 0) {
             setIsTyping(false);
             newOutbounds.forEach((item: any, idx: number) => {
-              let btns: string[] = [];
               const msg = item.message || '';
-              if (msg.includes('Vitrina') || msg.includes('AutoEcuador') || msg.includes('Hola')) {
-                btns = ['🚘 Explorar Vitrina', '🛻 Camionetas 4x4', '⚡ Híbridos', '🚙 SUVs Familiares', '👨‍💼 Hablar con Asesor'];
-              } else if (msg.includes('Camionetas 4x4') || msg.includes('D-Max')) {
-                btns = ['🚘 Explorar Vitrina', '🏎️ Agendar Test Drive', '💰 Simular Crédito'];
-              } else if (msg.includes('Híbrido') || msg.includes('Yaris')) {
-                btns = ['🚘 Explorar Vitrina', '🏎️ Test Drive Híbrido'];
-              } else if (msg.includes('entrada') || msg.includes('crédito') || msg.includes('cuota')) {
-                btns = ['🚘 Explorar Vitrina', '🏎️ Agendar Test Drive', '👨‍💼 Hablar con Asesor'];
-              }
+              const btns = getButtonsForMessage(msg);
 
               appendMessage({
                 id: `out-poll-${Date.now()}-${idx}`,
@@ -211,7 +237,7 @@ export default function App() {
     }
 
     // Si explícitamente se solicita abrir la vitrina
-    if (text === '🚘 Explorar Vitrina' || text.toLowerCase() === 'vitrina' || text === '✨ Abrir Vitrina Virtual') {
+    if (text === '🚘 Explorar Vitrina' || text === '🚘 Vitrina Virtual' || text === '🚘 Ver en Vitrina' || text === '🚘 Ver Yaris Cross' || text === '🚘 Abrir Vitrina' || text.toLowerCase() === 'vitrina' || text === '✨ Abrir Vitrina Virtual') {
       setShowWebview(true);
       return;
     }
@@ -229,8 +255,34 @@ export default function App() {
     setIsTyping(true);
 
     let interactiveId: string | undefined = undefined;
-    if (text.includes('Vitrina') || text.includes('Catálogo')) interactiveId = 'flow_catalogo';
-    else if (text.includes('Asesor')) interactiveId = 'flow_asesor';
+    const lower = text.toLowerCase();
+    if (lower.includes('híbrido') || lower.includes('hibrido') || lower.includes('eléctrico') || lower.includes('electrico')) {
+      interactiveId = 'auto_cat_hibridos';
+    } else if (lower.includes('4x4') || lower.includes('camioneta') || lower.includes('pickup') || lower.includes('d-max') || lower.includes('hilux') || lower.includes('poer')) {
+      interactiveId = 'auto_cat_pickups';
+    } else if (lower.includes('suv') || lower.includes('familiar') || lower.includes('sportage') || lower.includes('tucson') || lower.includes('tracker')) {
+      interactiveId = 'auto_cat_suvs';
+    } else if (text.includes('3.000') || text.includes('3k')) {
+      interactiveId = 'auto_down_3to5';
+    } else if (text.includes('5.000 a 8.000') || text.includes('5k')) {
+      interactiveId = 'auto_down_5to8';
+    } else if (text.includes('Más de 8.000') || text.includes('más de 8000') || text.includes('más de $8.000')) {
+      interactiveId = 'auto_down_more8';
+    } else if (lower.includes('crédito') || lower.includes('credito') || lower.includes('cuota') || lower.includes('financiamiento')) {
+      interactiveId = 'auto_flow_credito';
+    } else if (lower.includes('retoma') || lower.includes('usado') || lower.includes('tasar')) {
+      interactiveId = 'auto_flow_retoma';
+    } else if (lower.includes('domicilio')) {
+      interactiveId = 'auto_td_domicilio';
+    } else if (lower.includes('showroom')) {
+      interactiveId = 'auto_td_showroom';
+    } else if (lower.includes('test drive') || lower.includes('prueba de manejo')) {
+      interactiveId = 'auto_flow_testdrive';
+    } else if (lower.includes('asesor') || lower.includes('humano')) {
+      interactiveId = 'flow_asesor';
+    } else if (lower.includes('vitrina') || lower.includes('catálogo') || lower.includes('catalogo')) {
+      interactiveId = 'flow_catalogo';
+    }
 
     const payload = {
       phone,
@@ -263,17 +315,8 @@ export default function App() {
             if (newOutbounds.length > 0) {
               setIsTyping(false);
               newOutbounds.forEach((item: any, idx: number) => {
-                let btns: string[] = [];
                 const msg = item.message || '';
-                if (msg.includes('Vitrina') || msg.includes('AutoEcuador') || msg.includes('Hola')) {
-                  btns = ['🚘 Explorar Vitrina', '🛻 Camionetas 4x4', '⚡ Híbridos', '🚙 SUVs Familiares', '👨‍💼 Hablar con Asesor'];
-                } else if (msg.includes('Camionetas 4x4') || msg.includes('D-Max')) {
-                  btns = ['🚘 Explorar Vitrina', '🏎️ Agendar Test Drive', '💰 Simular Crédito'];
-                } else if (msg.includes('Híbrido') || msg.includes('Yaris')) {
-                  btns = ['🚘 Explorar Vitrina', '🏎️ Test Drive Híbrido'];
-                } else if (msg.includes('entrada') || msg.includes('crédito') || msg.includes('cuota')) {
-                  btns = ['🚘 Explorar Vitrina', '🏎️ Agendar Test Drive', '👨‍💼 Hablar con Asesor'];
-                }
+                const btns = getButtonsForMessage(msg);
                 appendMessage({
                   id: `out-immediate-${Date.now()}-${idx}`,
                   direction: 'outbound',
