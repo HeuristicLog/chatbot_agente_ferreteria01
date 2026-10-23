@@ -15,6 +15,7 @@ export default function App() {
   const [message, setMessage] = useState('')
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [showWebview, setShowWebview] = useState(false)
+  const [showListModal, setShowListModal] = useState(false)
   const [isTyping, setIsTyping] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
   const [activeStep, setActiveStep] = useState<number>(1)
@@ -23,6 +24,28 @@ export default function App() {
   const knownOutboundRef = useRef<Set<string>>(new Set())
 
   const catalogUrl = `${GATEWAY_URL}/catalogo-autos?phone=${phone}&sucursal=Centro`;
+
+  // Estructura oficial del WhatsApp List Message Bottom-Sheet
+  const listSections = [
+    {
+      title: '🏎️ Tipo de Vehículo',
+      rows: [
+        { id: 'auto_cat_hibridos', title: '⚡ Híbridos / Eléctricos', desc: 'Toyota Yaris Cross (0 Pico y Placa)' },
+        { id: 'auto_cat_pickups', title: '🛻 Camionetas 4x4', desc: 'Chevrolet D-Max, Hilux, Poer para trabajo' },
+        { id: 'auto_cat_suvs', title: '🚙 SUVs Familiares', desc: 'Sportage, Tucson, Tracker 2026' }
+      ]
+    },
+    {
+      title: '💼 Crédito & Servicios',
+      rows: [
+        { id: 'auto_flow_credito', title: '💰 Simulación de Crédito', desc: 'Entradas desde el 20% y plazos a 60m' },
+        { id: 'auto_flow_retoma', title: '🔄 Plan Retoma (Usados)', desc: 'Tu auto usado como parte de pago' },
+        { id: 'auto_flow_testdrive', title: '🏎️ Agendar Test Drive', desc: 'Prueba de manejo sin costo a domicilio' },
+        { id: 'flow_catalogo', title: '🚘 Vitrina & Cotizador', desc: 'Pantalla emergente con fotos reales' },
+        { id: 'flow_asesor', title: '👨‍💼 Hablar con Asesor', desc: 'Atención humana en Quito Centro' }
+      ]
+    }
+  ];
 
   // Inicializar historial desde localStorage
   useEffect(() => {
@@ -166,9 +189,9 @@ export default function App() {
     if (msg.includes('Horarios de Atención') || msg.includes('Showrooms AutoEcuador') || msg.includes('📍 *Quito Centro')) {
       return ['🚘 Ver Vehículos', '🏎️ Agendar Visita', '👨‍💼 Hablar con Asesor'];
     }
-    // 3. Menú de Categorías de Vehículos
-    if (msg.includes('Modelos y Categorías Disponibles') || msg.includes('Categorías 2026')) {
-      return ['⚡ Híbridos (0 Pico)', '🛻 Camionetas 4x4', '🚙 SUVs Familiares'];
+    // 3. Menú de Categorías de Vehículos / Pantalla emergente
+    if (msg.includes('Modelos y Opciones Disponibles') || msg.includes('Ver Opciones') || msg.includes('Modelos y Categorías') || msg.includes('Opciones y Flujos')) {
+      return ['📑 Ver Opciones y Flujos', '🕒 Horarios y Sedes', '👨‍💼 Hablar con Asesor'];
     }
     // 4. Categoría Pickups
     if (msg.includes('Pickups') || msg.includes('Camionetas 4x4') || msg.includes('D-Max')) {
@@ -451,10 +474,10 @@ export default function App() {
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
               <button 
-                onClick={() => { setShowWebview(false); handleSendMessage('🚘 Ver Vehículos', 2); }}
-                style={{ width: '100%', padding: '0.45rem', background: '#202c33', color: '#00a884', border: '1px solid #374151', borderRadius: '0.4rem', fontSize: '0.73rem', fontWeight: 700, cursor: 'pointer', textAlign: 'left', paddingLeft: '0.65rem' }}
+                onClick={() => { setShowWebview(false); setShowListModal(true); setActiveStep(2); }}
+                style={{ width: '100%', padding: '0.5rem', background: '#00a884', color: 'white', border: 'none', borderRadius: '0.4rem', fontSize: '0.74rem', fontWeight: 800, cursor: 'pointer', textAlign: 'left', paddingLeft: '0.65rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}
               >
-                🚘 "Ver Vehículos Disponibles" (Categorías)
+                <span>📑</span> Abrir "Ver Opciones y Flujos" (Pantalla Emergente)
               </button>
               <button 
                 onClick={() => { setShowWebview(false); handleSendMessage('🕒 Horarios y Sedes', 2); }}
@@ -707,8 +730,10 @@ export default function App() {
                         <button
                           key={bIdx}
                           onClick={() => {
-                            if (btnText.includes('Vitrina')) {
+                            if (btnText.includes('Vitrina') || btnText.includes('Catálogo')) {
                               setShowWebview(true);
+                            } else if (btnText.includes('Ver Opciones') || btnText.includes('Ver Vehículos')) {
+                              setShowListModal(true);
                             } else {
                               handleSendMessage(btnText);
                             }
@@ -768,6 +793,107 @@ export default function App() {
               ➤
             </button>
           </form>
+
+          {/* 📑 BOTTOM SHEET MODAL (PANTALLITA EMERGENTE NATIVA DE WHATSAPP) */}
+          {showListModal && (
+            <div style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              background: 'rgba(0, 0, 0, 0.72)',
+              zIndex: 900,
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'flex-end',
+              animation: 'fadeIn 0.2s ease-out'
+            }}>
+              <div style={{
+                background: '#111b21',
+                borderTopLeftRadius: '16px',
+                borderTopRightRadius: '16px',
+                borderTop: '1px solid #222e35',
+                maxHeight: '80%',
+                display: 'flex',
+                flexDirection: 'column',
+                boxShadow: '0 -8px 30px rgba(0,0,0,0.8)'
+              }}>
+                {/* Cabecera del Bottom Sheet */}
+                <div style={{
+                  padding: '0.85rem 1rem',
+                  borderBottom: '1px solid #202c33',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.75rem',
+                  flexShrink: 0
+                }}>
+                  <button 
+                    onClick={() => setShowListModal(false)}
+                    style={{ background: 'transparent', border: 'none', color: '#8696a0', fontSize: '1.1rem', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                  >
+                    ✕
+                  </button>
+                  <span style={{ fontSize: '0.86rem', fontWeight: 700, color: '#e9edef', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                    📑 Ver Opciones y Flujos
+                  </span>
+                </div>
+
+                {/* Contenido scrolleable de secciones y filas */}
+                <div style={{ overflowY: 'auto', padding: '0.5rem 0 1rem 0' }}>
+                  {listSections.map((sec, sIdx) => (
+                    <div key={sIdx} style={{ marginBottom: '0.75rem' }}>
+                      <div style={{ padding: '0.4rem 1rem', fontSize: '0.72rem', fontWeight: 800, color: '#8696a0', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        {sec.title}
+                      </div>
+                      {sec.rows.map(row => (
+                        <div 
+                          key={row.id}
+                          onClick={() => {
+                            setShowListModal(false);
+                            if (row.id === 'flow_catalogo') {
+                              setShowWebview(true);
+                            } else {
+                              handleSendMessage(row.title);
+                            }
+                          }}
+                          style={{
+                            padding: '0.65rem 1rem',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            cursor: 'pointer',
+                            borderBottom: '1px solid rgba(255,255,255,0.03)',
+                            transition: 'background 0.15s'
+                          }}
+                          onMouseEnter={(e) => e.currentTarget.style.background = '#1a2730'}
+                          onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                        >
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem' }}>
+                            <div style={{ fontSize: '0.82rem', fontWeight: 600, color: '#e9edef' }}>
+                              {row.title}
+                            </div>
+                            <div style={{ fontSize: '0.71rem', color: '#8696a0' }}>
+                              {row.desc}
+                            </div>
+                          </div>
+                          {/* Radio button circle */}
+                          <div style={{
+                            width: '18px',
+                            height: '18px',
+                            borderRadius: '50%',
+                            border: '2px solid #64748b',
+                            flexShrink: 0,
+                            marginLeft: '0.75rem'
+                          }} />
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* 🪟 PANTALLA EMERGENTE IN-APP BROWSER (Navegación Interna sin salir de WhatsApp) */}
           {showWebview && (

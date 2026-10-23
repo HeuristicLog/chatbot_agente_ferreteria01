@@ -206,23 +206,70 @@ async def send_welcome_menu(phone: str, internal_key: str, name: str = "", phone
     )
 
 async def send_vehicle_types_flow(phone: str, internal_key: str, phone_number_id: Optional[str] = None):
-    """Muestra las categorías principales de vehículos disponibles con botones interactivos."""
+    """Muestra la lista interactiva emergente (WhatsApp List Message Bottom Sheet) tal como en la imagen del usuario."""
     body = (
-        "🚘 *Modelos y Categorías Disponibles 2026:*\n\n"
-        "Todos nuestros vehículos cuentan con garantía oficial de fábrica, aprobación bancaria en 24h y entrega inmediata en Ecuador.\n\n"
-        "¿Qué tipo de vehículo estás buscando?"
+        "🚘 *Modelos y Opciones Disponibles 2026:*\n\n"
+        "Toca el botón *📑 Ver Opciones y Flujos* para desplegar la pantalla interactiva, seleccionar tu modelo favorito y continuar con tu cotización:"
     )
-    buttons = [
-        {"id": "auto_cat_hibridos", "title": "⚡ Híbridos (0 Pico)"},
-        {"id": "auto_cat_pickups", "title": "🛻 Camionetas 4x4"},
-        {"id": "auto_cat_suvs", "title": "🚙 SUVs Familiares"}
+    sections = [
+        {
+            "title": "🏎️ Tipo de Vehículo",
+            "rows": [
+                {
+                    "id": "auto_cat_hibridos",
+                    "title": "⚡ Híbridos / Eléctricos",
+                    "description": "Toyota Yaris Cross (0 Pico y Placa)"
+                },
+                {
+                    "id": "auto_cat_pickups",
+                    "title": "🛻 Camionetas 4x4",
+                    "description": "Chevrolet D-Max, Hilux, Poer para trabajo"
+                },
+                {
+                    "id": "auto_cat_suvs",
+                    "title": "🚙 SUVs Familiares",
+                    "description": "Sportage, Tucson, Tracker 2026"
+                }
+            ]
+        },
+        {
+            "title": "💼 Crédito & Servicios",
+            "rows": [
+                {
+                    "id": "auto_flow_credito",
+                    "title": "💰 Simular Crédito",
+                    "description": "Entradas desde el 20% y plazos a 60m"
+                },
+                {
+                    "id": "auto_flow_retoma",
+                    "title": "🔄 Plan Retoma (Usados)",
+                    "description": "Tu auto usado como parte de pago"
+                },
+                {
+                    "id": "auto_flow_testdrive",
+                    "title": "🏎️ Agendar Test Drive",
+                    "description": "Prueba de manejo sin costo a domicilio"
+                },
+                {
+                    "id": "flow_catalogo",
+                    "title": "🚘 Vitrina & Cotizador",
+                    "description": "Pantalla emergente con fotos reales"
+                },
+                {
+                    "id": "flow_asesor",
+                    "title": "👨‍💼 Hablar con Asesor",
+                    "description": "Atención humana en Quito Centro"
+                }
+            ]
+        }
     ]
-    await _send_buttons(
+    await _send_list(
         phone=phone,
         body=body,
-        buttons=buttons,
-        header="🚘 Categorías 2026",
-        footer="Selecciona una opción para ver modelos",
+        button_text="📑 Ver Opciones",
+        sections=sections,
+        header="🚗 AutoEcuador Motors 2026",
+        footer="Selecciona una opción para avanzar",
         internal_key=internal_key,
         phone_number_id=phone_number_id
     )
