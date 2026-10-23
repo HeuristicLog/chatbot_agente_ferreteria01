@@ -30,7 +30,7 @@ async def process_auto_sales_message(
     clean = message.lower().strip()
     clean_phone = phone.replace("+", "").replace(" ", "").strip()
     ngrok_url = os.getenv("CATALOG_BASE_URL", "https://usable-thorn-kabob.ngrok-free.dev")
-    catalog_url = f"{ngrok_url}/catalogo-autos?phone={clean_phone}"
+    catalog_url = f"{ngrok_url}/catalogo-autos?phone={clean_phone}&biz=15556724304&ngrok-skip-browser-warning=1"
 
     # 1. Intención: Camionetas / Pickups / 4x4
     pickup_keywords = ["camioneta", "camionetas", "pickup", "pick up", "pick-up", "4x4", "dmax", "d-max", "hilux", "poer", "doble cabina", "balde", "carga", "trabajo pesado"]

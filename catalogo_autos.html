@@ -218,6 +218,7 @@
     // Parámetros de URL
     const urlParams = new URLSearchParams(window.location.search);
     const customerPhone = urlParams.get('phone') || '593988921136';
+    const bizPhone = urlParams.get('biz') || '15556724304';
 
     document.getElementById('user-header-phone').innerHTML = `
       <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
@@ -561,7 +562,7 @@
         window.close();
       } catch (e) {}
       setTimeout(() => {
-        window.location.href = `https://wa.me/593988921136?text=Hola%20Alex,%20estaba%20explorando%20la%20vitrina%20de%20autos.`;
+        window.location.href = `https://wa.me/${bizPhone}?text=Hola%20Alex,%20estaba%20explorando%20la%20vitrina%20de%20autos.`;
       }, 350);
     }
 
@@ -589,7 +590,7 @@
       showToast("Conectando con tu asesor comercial en WhatsApp...");
       setTimeout(() => {
         try { window.close(); } catch(e){}
-        window.location.href = `https://wa.me/593988921136?text=Hola%20Alex,%20deseo%20hablar%20directamente%20con%20un%20asesor%20comercial.`;
+        window.location.href = `https://wa.me/${bizPhone}?text=Hola%20Alex,%20deseo%20hablar%20directamente%20con%20un%20asesor%20comercial.`;
       }, 1000);
     }
 
@@ -608,7 +609,7 @@
       } catch (e) {}
 
       setTimeout(() => {
-        window.location.href = `https://wa.me/593988921136?text=Hola%20Alex,%20acabo%20de%20generar%20mi%20cotizaci%C3%B3n%20${currentSuccessQuoteCode}%20en%20la%20vitrina.%20Deseo%20continuar%20por%20aqu%C3%AD.`;
+        window.location.href = `https://wa.me/${bizPhone}?text=Hola%20Alex,%20acabo%20de%20generar%20mi%20cotizaci%C3%B3n%20${currentSuccessQuoteCode}%20en%20la%20vitrina.%20Deseo%20continuar%20por%20aqu%C3%AD.`;
       }, 400);
     }
 

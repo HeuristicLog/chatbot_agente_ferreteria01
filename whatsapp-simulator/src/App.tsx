@@ -23,7 +23,7 @@ export default function App() {
   const messagesContainerRef = useRef<HTMLDivElement>(null)
   const knownOutboundRef = useRef<Set<string>>(new Set())
 
-  const catalogUrl = `${GATEWAY_URL}/catalogo-autos?phone=${phone}&sucursal=Centro`;
+  const catalogUrl = `${GATEWAY_URL}/catalogo-autos?phone=${phone}&sucursal=Centro&biz=15556724304`;
 
   // Estructura oficial del WhatsApp List Message Bottom-Sheet
   const listSections = [

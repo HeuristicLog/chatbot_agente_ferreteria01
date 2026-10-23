@@ -534,7 +534,7 @@ async def send_main_menu(phone: str, internal_key: str, phone_number_id: Optiona
     import os
     clean_phone = phone.replace("+", "").replace(" ", "").strip()
     ngrok_url = os.getenv("CATALOG_BASE_URL", "https://usable-thorn-kabob.ngrok-free.dev")
-    catalog_url = f"{ngrok_url}/catalogo-autos?phone={clean_phone}&sucursal=Centro"
+    catalog_url = f"{ngrok_url}/catalogo-autos?phone={clean_phone}&sucursal=Centro&biz=15556724304&ngrok-skip-browser-warning=1"
     
     body = (
         "¿En qué más te puedo asesorar? 🚗✨\n\n"
@@ -560,7 +560,7 @@ async def send_catalog_link(phone: str, internal_key: str, phone_number_id: Opti
     import os
     clean_phone = phone.replace("+", "").replace(" ", "").strip()
     ngrok_url = os.getenv("CATALOG_BASE_URL", "https://usable-thorn-kabob.ngrok-free.dev")
-    catalog_url = f"{ngrok_url}/catalogo-autos?phone={clean_phone}&sucursal={sucursal or 'Centro'}"
+    catalog_url = f"{ngrok_url}/catalogo-autos?phone={clean_phone}&sucursal={sucursal or 'Centro'}&biz=15556724304&ngrok-skip-browser-warning=1"
     
     body = (
         "¡Bienvenido a la vitrina virtual de *AutoEcuador Motors* 🇪🇨! 🚘✨\n\n"
