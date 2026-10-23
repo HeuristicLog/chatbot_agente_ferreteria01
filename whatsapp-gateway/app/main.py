@@ -195,10 +195,13 @@ async def proxy_vincular_qr():
             raise HTTPException(status_code=502, detail="Error cargando página de vinculación.")
 
 @app.get("/catalogo", response_class=Response)
+@app.get("/catalogo-autos", response_class=Response)
+@app.get("/autos", response_class=Response)
 async def proxy_catalogo(request: Request):
     """Proxy the catalog HTML webview from backend with query parameters."""
     query_str = str(request.url.query)
-    url = f"{chatbot_api_url}/catalogo"
+    endpoint = "/catalogo-autos" if ("catalogo-autos" in request.url.path or "autos" in request.url.path) else "/catalogo"
+    url = f"{chatbot_api_url}{endpoint}"
     if query_str:
         url += f"?{query_str}"
     async with httpx.AsyncClient() as client:
@@ -208,6 +211,31 @@ async def proxy_catalogo(request: Request):
         except Exception as e:
             logger.error(f"Error proxying catalog webview: {e}")
             raise HTTPException(status_code=502, detail="Error cargando catálogo.")
+
+@app.api_route("/api/v1/vehicles/{path:path}", methods=["GET", "POST", "PUT", "DELETE"])
+async def proxy_vehicles_api(path: str, request: Request):
+    """Proxy vehicles REST API requests to backend."""
+    url = f"{chatbot_api_url}/api/v1/vehicles/{path}"
+    query_str = str(request.url.query)
+    if query_str:
+        url += f"?{query_str}"
+    body = await request.body()
+    headers = dict(request.headers)
+    headers.pop("host", None)
+    headers.pop("content-length", None)
+    async with httpx.AsyncClient() as client:
+        try:
+            resp = await client.request(
+                method=request.method,
+                url=url,
+                content=body,
+                headers=headers,
+                timeout=15.0
+            )
+            return Response(content=resp.content, status_code=resp.status_code, media_type=resp.headers.get("content-type", "application/json"))
+        except Exception as e:
+            logger.error(f"Error proxying vehicles API: {e}")
+            raise HTTPException(status_code=502, detail="Error en API de vehículos.")
 
 @app.api_route("/api/catalog/{path:path}", methods=["GET", "POST", "PUT", "DELETE"])
 async def proxy_catalog_api(path: str, request: Request):
