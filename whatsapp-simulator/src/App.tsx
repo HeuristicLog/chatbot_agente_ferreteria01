@@ -10,14 +10,6 @@ interface ChatMessage {
   timestamp: string;
 }
 
-const INITIAL_WELCOME: ChatMessage = {
-  id: 'welcome-001',
-  direction: 'outbound',
-  message: '¡Hola! 👋 Te damos la bienvenida a *AutoEcuador Motors* 🇪🇨, concesionario multimarca oficial.\n\nSoy *Alex*, tu asesor comercial inteligente para vehículos nuevos y seminuevos 2026.\n\n¿En qué podemos ayudarte hoy? Toca una de las opciones abajo o escríbeme directamente tu consulta:',
-  buttons: ['🚘 Explorar Vitrina', '🛻 Camionetas 4x4', '⚡ Híbridos (0 Pico y Placa)', '🚙 SUVs Familiares', '💰 Asesoría Crédito', '👨‍💼 Hablar con Asesor'],
-  timestamp: new Date().toISOString()
-};
-
 export default function App() {
   const [phone, setPhone] = useState('593988921136')
   const [message, setMessage] = useState('')
@@ -45,12 +37,10 @@ export default function App() {
           }
         })
       } catch {
-        setMessages([INITIAL_WELCOME])
-        knownOutboundRef.current.add(INITIAL_WELCOME.message.trim())
+        setMessages([])
       }
     } else {
-      setMessages([INITIAL_WELCOME])
-      knownOutboundRef.current.add(INITIAL_WELCOME.message.trim())
+      setMessages([])
     }
   }, [phone])
 
@@ -319,13 +309,13 @@ export default function App() {
       // Ignorar si falla endpoint
     }
     localStorage.removeItem(`chat_history:${phone}`);
+    localStorage.clear();
     knownOutboundRef.current.clear();
-    knownOutboundRef.current.add(INITIAL_WELCOME.message.trim());
-    setMessages([INITIAL_WELCOME]);
+    setMessages([]);
     setShowWebview(false);
     setIsTyping(false);
     setActiveStep(1);
-    showToast('Historial reiniciado.');
+    showToast('Pantalla limpia. Listo para comenzar.');
   };
 
   return (
@@ -566,6 +556,16 @@ export default function App() {
 
           {/* Hilo de Mensajes de WhatsApp */}
           <div style={{ flexGrow: 1, padding: '1rem', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.65rem', backgroundImage: 'radial-gradient(circle, #151d22 10%, transparent 11%)', backgroundSize: '14px 14px' }}>
+            {messages.length === 0 && (
+              <div style={{ margin: 'auto', textAlign: 'center', padding: '1.5rem', maxWidth: '85%' }}>
+                <div style={{ display: 'inline-block', background: '#182229', padding: '0.45rem 0.9rem', borderRadius: '8px', border: '1px solid #222e35', fontSize: '0.74rem', color: '#f59e0b', marginBottom: '0.85rem', boxShadow: '0 2px 6px rgba(0,0,0,0.2)' }}>
+                  🔒 Cifrado de extremo a extremo
+                </div>
+                <div style={{ fontSize: '0.82rem', color: '#94a3b8', lineHeight: 1.5, fontWeight: 500 }}>
+                  Pantalla limpia. Inicia tu consulta escribiendo un mensaje abajo o seleccionando un paso en la guía lateral.
+                </div>
+              </div>
+            )}
             {messages.map((m, idx) => {
               const isUser = m.direction === 'inbound';
               return (
