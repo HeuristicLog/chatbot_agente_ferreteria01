@@ -1,0 +1,897 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>AutoEcuador Motors 2026 | Vitrina Virtual & Cotizador Inteligente</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+    body { font-family: 'Plus Jakarta Sans', sans-serif; }
+    .glass-card { background: rgba(15, 23, 42, 0.9); backdrop-filter: blur(14px); border: 1px solid rgba(255, 255, 255, 0.08); }
+    .badge-hybrid { background: linear-gradient(135deg, #10b981 0%, #047857 100%); }
+    .badge-pickup { background: linear-gradient(135deg, #f59e0b 0%, #b45309 100%); }
+    .badge-suv { background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); }
+    .accent-gradient { background: linear-gradient(135deg, #f59e0b 0%, #ea580c 100%); }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen pb-28 selection:bg-amber-500 selection:text-slate-950">
+
+  <!-- Header -->
+  <header class="sticky top-0 z-40 bg-slate-900/95 backdrop-blur-md border-b border-slate-800 px-4 py-3 shadow-xl">
+    <div class="max-w-6xl mx-auto flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-2xl accent-gradient flex items-center justify-center text-slate-950 font-black text-xl shadow-lg">
+          <i class="fa-solid fa-car-side"></i>
+        </div>
+        <div>
+          <h1 class="text-sm sm:text-base font-extrabold tracking-tight text-white flex items-center gap-1.5">
+            AutoEcuador <span class="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 font-bold border border-amber-500/30">MOTORS 2026</span>
+          </h1>
+          <p id="user-header-phone" class="text-[11px] text-slate-400 flex items-center gap-1">
+            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            Asesor Virtual Activo • WhatsApp sincronizado
+          </p>
+        </div>
+      </div>
+      
+      <!-- Actions Header -->
+      <div class="flex items-center gap-2">
+        <button onclick="requestAdvisorNow()" class="bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-slate-700 px-3 py-2 rounded-2xl flex items-center gap-1.5 text-xs font-bold transition shadow-md" title="Hablar con Asesor Comercial en WhatsApp">
+          <i class="fa-solid fa-headset text-sm"></i>
+          <span class="hidden sm:inline">Asesor</span>
+        </button>
+
+        <!-- Garage Trigger Button -->
+        <button onclick="toggleGarageDrawer()" class="relative bg-slate-800 hover:bg-slate-700 text-amber-400 border border-slate-700 px-3 py-2 rounded-2xl flex items-center gap-1.5 text-xs font-bold transition shadow-md">
+          <i class="fa-solid fa-warehouse text-sm"></i>
+          <span class="hidden sm:inline">Mi Garaje</span>
+          <span id="garage-badge" class="bg-amber-500 text-slate-950 font-black text-[10px] w-5 h-5 rounded-full flex items-center justify-center">0</span>
+        </button>
+
+        <!-- Close & Return to WhatsApp Button -->
+        <button onclick="closeWebviewAndReturn()" class="bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30 px-3 py-2 rounded-2xl flex items-center gap-1.5 text-xs font-bold transition shadow-md" title="Cerrar vitrina y volver a WhatsApp">
+          <i class="fa-solid fa-xmark text-sm"></i>
+          <span>Volver a WhatsApp</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Banner Promocional Ecuador -->
+  <div class="max-w-6xl mx-auto px-4 mt-4">
+    <div class="bg-gradient-to-r from-slate-900 via-slate-850 to-slate-900 border border-slate-800 rounded-3xl p-5 shadow-2xl relative overflow-hidden">
+      <div class="relative z-10 max-w-xl">
+        <div class="flex items-center gap-2">
+          <span class="text-[10px] font-black uppercase tracking-wider text-amber-400 bg-amber-400/10 px-2.5 py-1 rounded-full border border-amber-400/20">
+            🇪🇨 Red Nacional Oficial Ecuador 2026
+          </span>
+          <span class="text-[10px] text-slate-400 hidden sm:inline">Quito • Guayaquil • Cuenca • Ambato</span>
+        </div>
+        <h2 class="text-lg sm:text-2xl font-black text-white mt-2 leading-tight">
+          Estrena tu 0 km con entrega inmediata desde el <span class="text-amber-400">20% de entrada</span>
+        </h2>
+        <p class="text-xs text-slate-300 mt-1.5 leading-relaxed">
+          Precios finales con IVA (15%). Aprobación de crédito con Banca Nacional en 24h. Recibimos tu auto usado como parte de pago.
+        </p>
+      </div>
+      <div class="absolute -right-8 -bottom-8 opacity-10 text-9xl text-white pointer-events-none hidden md:block">
+        <i class="fa-solid fa-car-rear"></i>
+      </div>
+    </div>
+  </div>
+
+  <!-- Filters & Search -->
+  <div class="max-w-6xl mx-auto px-4 mt-5 space-y-3">
+    <!-- Search Bar -->
+    <div class="relative">
+      <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3.5 text-slate-400 text-sm"></i>
+      <input type="text" id="search-input" oninput="filterVehicles()" placeholder="Buscar por marca, modelo o tipo (ej. D-Max, Sportage, Hilux, Híbrido)..." 
+        class="w-full bg-slate-900/90 border border-slate-800 text-white pl-10 pr-4 py-2.5 rounded-2xl text-xs sm:text-sm focus:outline-none focus:border-amber-500 transition shadow-inner">
+    </div>
+
+    <!-- Category Pills -->
+    <div class="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none text-xs">
+      <button onclick="setCategory('all')" class="cat-pill active px-4 py-2 rounded-xl font-bold whitespace-nowrap bg-amber-500 text-slate-950 shadow-md" data-cat="all">
+        Todos (<span id="count-all">0</span>)
+      </button>
+      <button onclick="setCategory('Camioneta (Pickup)')" class="cat-pill px-4 py-2 rounded-xl font-semibold whitespace-nowrap bg-slate-900 text-slate-300 border border-slate-800 hover:text-white" data-cat="Camioneta (Pickup)">
+        🛻 Camionetas 4x4
+      </button>
+      <button onclick="setCategory('SUV')" class="cat-pill px-4 py-2 rounded-xl font-semibold whitespace-nowrap bg-slate-900 text-slate-300 border border-slate-800 hover:text-white" data-cat="SUV">
+        🚙 SUVs Familiares
+      </button>
+      <button onclick="setCategory('Híbrido')" class="cat-pill px-4 py-2 rounded-xl font-semibold whitespace-nowrap bg-slate-900 text-slate-300 border border-slate-800 hover:text-white" data-cat="Híbrido">
+        ⚡ Híbridos (Cero Pico y Placa)
+      </button>
+      <button onclick="setCategory('Chevrolet')" class="cat-pill px-4 py-2 rounded-xl font-semibold whitespace-nowrap bg-slate-900 text-slate-300 border border-slate-800 hover:text-white" data-cat="Chevrolet">
+        Chevrolet
+      </button>
+      <button onclick="setCategory('Kia')" class="cat-pill px-4 py-2 rounded-xl font-semibold whitespace-nowrap bg-slate-900 text-slate-300 border border-slate-800 hover:text-white" data-cat="Kia">
+        Kia
+      </button>
+      <button onclick="setCategory('Toyota')" class="cat-pill px-4 py-2 rounded-xl font-semibold whitespace-nowrap bg-slate-900 text-slate-300 border border-slate-800 hover:text-white" data-cat="Toyota">
+        Toyota
+      </button>
+    </div>
+  </div>
+
+  <!-- Vehicle Grid -->
+  <main class="max-w-6xl mx-auto px-4 mt-6">
+    <div id="vehicle-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+      <!-- Loading skeleton -->
+      <div class="col-span-full py-16 text-center text-slate-500 text-sm">
+        <div class="w-8 h-8 border-4 border-amber-500 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+        Cargando vehículos reales del mercado ecuatoriano...
+      </div>
+    </div>
+  </main>
+
+  <!-- Modal Ficha Técnica & Simulador de Crédito -->
+  <div id="vehicle-modal" class="hidden fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div class="bg-slate-900 border border-slate-800 w-full max-w-2xl max-h-[92vh] overflow-y-auto rounded-t-3xl sm:rounded-3xl shadow-2xl p-6 relative">
+      
+      <!-- Close button -->
+      <button onclick="closeModal()" class="absolute right-4 top-4 z-10 w-9 h-9 rounded-full bg-slate-800/90 text-slate-300 hover:text-white flex items-center justify-center transition border border-slate-700">
+        <i class="fa-solid fa-xmark text-base"></i>
+      </button>
+
+      <!-- Content Container -->
+      <div id="modal-content"></div>
+
+    </div>
+  </div>
+
+  <!-- Drawer: Mi Garaje Virtual (Carrito de Cotización) -->
+  <div id="garage-drawer" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex justify-end">
+    <div class="bg-slate-900 border-l border-slate-800 w-full max-w-md h-full flex flex-col justify-between p-6 shadow-2xl overflow-y-auto">
+      <div>
+        <div class="flex items-center justify-between pb-4 border-b border-slate-800">
+          <div class="flex items-center gap-2">
+            <div class="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center">
+              <i class="fa-solid fa-warehouse"></i>
+            </div>
+            <h3 class="text-base font-bold text-white">Mi Garaje Virtual</h3>
+          </div>
+          <button onclick="toggleGarageDrawer()" class="w-8 h-8 rounded-full bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+
+        <p class="text-xs text-slate-400 mt-2 mb-4">
+          Vehículos que has apartado para comparar cuotas y solicitar aprobación en bloque.
+        </p>
+
+        <div id="garage-items" class="space-y-3">
+          <!-- Garage items loaded via API -->
+        </div>
+      </div>
+
+      <div class="pt-4 border-t border-slate-800 space-y-2 mt-4">
+        <div class="flex justify-between text-xs text-slate-400">
+          <span>Vehículos en garaje:</span>
+          <strong id="garage-total-count" class="text-white">0</strong>
+        </div>
+        <button onclick="submitGarageBatchQuote()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 px-4 rounded-xl text-xs sm:text-sm flex items-center justify-center gap-2 transition shadow-lg">
+          <i class="fa-brands fa-whatsapp text-lg"></i>
+          <span>Solicitar Aprobación de Todo Mi Garaje</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Éxito y Retorno a WhatsApp -->
+  <div id="quote-success-modal" class="hidden fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-emerald-500/30 rounded-3xl p-6 text-center max-w-sm w-full shadow-2xl">
+      <div class="w-16 h-16 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-3xl mx-auto mb-4 animate-bounce">
+        <i class="fa-solid fa-circle-check"></i>
+      </div>
+      <h3 id="success-title" class="text-lg font-black text-white">¡Cotización Oficial Generada!</h3>
+      <p class="text-xs text-slate-300 mt-2">
+        Tu solicitud ha sido guardada en la base de datos con código <code id="success-quote-code" class="text-emerald-400 font-mono font-bold"></code>.
+      </p>
+      <div id="success-details-box" class="bg-slate-950 border border-slate-800 rounded-2xl p-3 my-4 text-xs text-left space-y-1 text-slate-300">
+        <div class="flex justify-between"><span>Vehículo:</span> <strong id="success-vehicle-name" class="text-amber-400"></strong></div>
+        <div class="flex justify-between"><span>Entrada:</span> <strong id="success-down-amt" class="text-white"></strong></div>
+        <div class="flex justify-between"><span>Cuota mensual:</span> <strong id="success-monthly-fee" class="text-emerald-400 font-bold"></strong></div>
+        <div class="flex justify-between"><span>Plazo:</span> <strong id="success-term" class="text-white"></strong></div>
+      </div>
+      <div class="p-3 bg-emerald-950/40 border border-emerald-500/20 rounded-2xl mb-4 text-[11px] text-emerald-300 flex items-center gap-2 text-left">
+        <i class="fa-brands fa-whatsapp text-xl text-emerald-400"></i>
+        <span>Los detalles completos y tu asesor comercial asignado te esperan ahora en WhatsApp.</span>
+      </div>
+      <button onclick="finishAndReturnToWhatsApp()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3.5 rounded-xl text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg transition">
+        <i class="fa-brands fa-whatsapp text-lg"></i>
+        <span>Cerrar y Continuar en WhatsApp</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-emerald-600 text-white font-semibold text-xs px-5 py-3 rounded-2xl shadow-2xl flex items-center gap-2 transition-all duration-300 opacity-0 pointer-events-none translate-y-3">
+    <i class="fa-solid fa-circle-check text-base"></i>
+    <span id="toast-message">Notificación</span>
+  </div>
+
+  <script>
+    // Parámetros de URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const customerPhone = urlParams.get('phone') || '593988921136';
+    const bizPhone = urlParams.get('biz') || '15556724304';
+
+    document.getElementById('user-header-phone').innerHTML = `
+      <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+      WhatsApp: +${customerPhone} • Asesor Alex en línea
+    `;
+
+    let vehicles = [];
+    let currentCategory = 'all';
+
+    async function loadVehicles() {
+      try {
+        const resp = await fetch('/api/v1/vehicles');
+        const data = await resp.json();
+        vehicles = data.data || [];
+        document.getElementById('count-all').innerText = vehicles.length;
+        renderVehicles(vehicles);
+        loadGarage();
+      } catch (e) {
+        console.error('Error cargando vehículos:', e);
+        document.getElementById('vehicle-grid').innerHTML = `
+          <div class="col-span-full text-center py-10 text-rose-400 text-sm">
+            No se pudo cargar el catálogo. Por favor recarga la página.
+          </div>
+        `;
+      }
+    }
+
+    function setCategory(cat) {
+      currentCategory = cat;
+      document.querySelectorAll('.cat-pill').forEach(btn => {
+        if (btn.getAttribute('data-cat') === cat) {
+          btn.className = 'cat-pill active px-4 py-2 rounded-xl font-bold whitespace-nowrap bg-amber-500 text-slate-950 shadow-md';
+        } else {
+          btn.className = 'cat-pill px-4 py-2 rounded-xl font-semibold whitespace-nowrap bg-slate-900 text-slate-300 border border-slate-800 hover:text-white';
+        }
+      });
+      filterVehicles();
+    }
+
+    function filterVehicles() {
+      const q = document.getElementById('search-input').value.toLowerCase().trim();
+      const filtered = vehicles.filter(v => {
+        const matchSearch = v.brand.toLowerCase().includes(q) || 
+                            v.model.toLowerCase().includes(q) || 
+                            v.body_type.toLowerCase().includes(q);
+        
+        let matchCat = true;
+        if (currentCategory === 'Híbrido') {
+          matchCat = v.fuel_type === 'Híbrido';
+        } else if (currentCategory === 'Chevrolet' || currentCategory === 'Kia' || currentCategory === 'Toyota') {
+          matchCat = v.brand === currentCategory;
+        } else if (currentCategory !== 'all') {
+          matchCat = v.body_type === currentCategory;
+        }
+
+        return matchSearch && matchCat;
+      });
+
+      renderVehicles(filtered);
+    }
+
+    function renderVehicles(list) {
+      const grid = document.getElementById('vehicle-grid');
+      if (list.length === 0) {
+        grid.innerHTML = `
+          <div class="col-span-full py-16 text-center text-slate-400">
+            <i class="fa-solid fa-car-tunnel text-4xl mb-3 text-slate-600"></i>
+            <p class="text-sm">No encontramos vehículos con esos filtros.</p>
+          </div>
+        `;
+        return;
+      }
+
+      grid.innerHTML = list.map(v => {
+        let badgeClass = 'badge-suv';
+        if (v.body_type.includes('Pickup')) badgeClass = 'badge-pickup';
+        if (v.fuel_type === 'Híbrido') badgeClass = 'badge-hybrid';
+
+        const priceFmt = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(v.price_usd);
+        const monthlyFmt = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(v.estimated_monthly_fee);
+
+        return `
+          <div class="glass-card rounded-3xl overflow-hidden hover:border-amber-500/50 transition duration-300 flex flex-col justify-between group shadow-xl">
+            <!-- Image & Badges -->
+            <div class="relative h-56 bg-slate-900 overflow-hidden">
+              <img src="${v.image_url}" alt="${v.model}" class="w-full h-full object-cover group-hover:scale-105 transition duration-500">
+              <div class="absolute top-3 left-3 flex flex-wrap gap-1.5">
+                <span class="${badgeClass} text-white font-extrabold text-[10px] uppercase px-2.5 py-1 rounded-full shadow-md">
+                  ${v.fuel_type === 'Híbrido' ? '⚡ Híbrido (Sin Pico y Placa)' : v.body_type}
+                </span>
+                <span class="bg-black/60 backdrop-blur-md text-white text-[10px] font-semibold px-2 py-1 rounded-full border border-white/10">
+                  Año ${v.year}
+                </span>
+              </div>
+              <div class="absolute bottom-2 right-2 bg-emerald-500 text-slate-950 text-[10px] font-black px-2 py-0.5 rounded-full shadow">
+                ${v.stock_units} en stock
+              </div>
+            </div>
+
+            <!-- Content -->
+            <div class="p-5 flex-1 flex flex-col justify-between">
+              <div>
+                <div class="flex items-center justify-between">
+                  <span class="text-xs font-black uppercase tracking-wider text-amber-400">${v.brand}</span>
+                  <span class="text-[10px] text-slate-400">Garantía oficial</span>
+                </div>
+                <h3 class="text-base sm:text-lg font-extrabold text-white mt-0.5 leading-snug">${v.model}</h3>
+                
+                <!-- Quick Specs Pills -->
+                <div class="grid grid-cols-2 gap-2 mt-3 text-[11px] text-slate-300">
+                  <div class="flex items-center gap-1.5 bg-slate-900/80 p-2 rounded-xl border border-slate-800">
+                    <i class="fa-solid fa-gears text-amber-400"></i>
+                    <span class="truncate">${v.transmission}</span>
+                  </div>
+                  <div class="flex items-center gap-1.5 bg-slate-900/80 p-2 rounded-xl border border-slate-800">
+                    <i class="fa-solid fa-gas-pump text-amber-400"></i>
+                    <span class="truncate">${v.fuel_type}</span>
+                  </div>
+                  <div class="flex items-center gap-1.5 bg-slate-900/80 p-2 rounded-xl border border-slate-800">
+                    <i class="fa-solid fa-users text-amber-400"></i>
+                    <span>${v.passenger_capacity} Pasajeros</span>
+                  </div>
+                  <div class="flex items-center gap-1.5 bg-slate-900/80 p-2 rounded-xl border border-slate-800">
+                    <i class="fa-solid fa-shield-halved text-amber-400"></i>
+                    <span>6+ Airbags</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Price & CTA -->
+              <div class="mt-4 pt-4 border-t border-slate-800">
+                <div class="flex items-baseline justify-between">
+                  <div>
+                    <span class="text-[10px] text-slate-400 uppercase font-bold">Precio con IVA (15%)</span>
+                    <div class="text-xl font-black text-white">${priceFmt}</div>
+                  </div>
+                  <div class="text-right">
+                    <span class="text-[10px] text-emerald-400 font-bold">Cuotas desde</span>
+                    <div class="text-sm font-extrabold text-emerald-400">${monthlyFmt} <span class="text-[10px] font-normal text-slate-400">/mes</span></div>
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2 mt-3.5">
+                  <button onclick="openModal('${v.code}')" class="bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold py-2.5 px-3 rounded-xl border border-slate-700 transition flex items-center justify-center gap-1.5">
+                    <i class="fa-solid fa-sliders text-amber-400"></i>
+                    <span>Ficha & Cotizar</span>
+                  </button>
+                  <button onclick="addToGarageDirect('${v.code}')" class="bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-black py-2.5 px-3 rounded-xl transition flex items-center justify-center gap-1.5 shadow-md">
+                    <i class="fa-solid fa-plus"></i>
+                    <span>Añadir Garaje</span>
+                  </button>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function openModal(code) {
+      const v = vehicles.find(item => item.code === code);
+      if (!v) return;
+
+      const price = Number(v.price_usd);
+      const initialDown = Number(v.min_down_payment);
+
+      const content = document.getElementById('modal-content');
+      content.innerHTML = `
+        <div class="space-y-4">
+          <!-- Image Header -->
+          <div class="rounded-2xl overflow-hidden relative h-60 bg-slate-950">
+            <img src="${v.image_url}" alt="${v.model}" class="w-full h-full object-cover">
+            <div class="absolute bottom-3 left-3 bg-slate-900/90 backdrop-blur-md px-3.5 py-1.5 rounded-xl text-xs font-extrabold text-white border border-white/10 flex items-center gap-2">
+              <span class="w-2 h-2 rounded-full bg-amber-400"></span>
+              ${v.brand} ${v.model} (${v.year})
+            </div>
+          </div>
+
+          <!-- Description -->
+          <p class="text-xs text-slate-300 leading-relaxed">${v.description}</p>
+
+          <!-- Ficha Técnica -->
+          <div class="bg-slate-950/70 p-4 rounded-2xl border border-slate-800 space-y-2.5">
+            <h4 class="text-xs font-black uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
+              <i class="fa-solid fa-list-check"></i> Ficha Técnica Oficial Ecuador
+            </h4>
+            <div class="grid grid-cols-2 gap-2 text-xs">
+              <div class="text-slate-400">Motor: <strong class="text-white">${v.engine}</strong></div>
+              <div class="text-slate-400">Combustible: <strong class="text-white">${v.fuel_type}</strong></div>
+              <div class="text-slate-400">Transmisión: <strong class="text-white">${v.transmission}</strong></div>
+              <div class="text-slate-400">Tracción: <strong class="text-white">${v.traction}</strong></div>
+              <div class="text-slate-400">Capacidad: <strong class="text-white">${v.passenger_capacity} pasajeros</strong></div>
+              <div class="text-slate-400">Maletero / Balde: <strong class="text-white">${v.trunk_capacity_liters} Litros</strong></div>
+            </div>
+          </div>
+
+          <!-- Seguridad y Equipamiento -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+            <div class="bg-slate-950/70 p-3.5 rounded-2xl border border-slate-800">
+              <div class="font-bold text-emerald-400 mb-1.5 flex items-center gap-1">
+                <i class="fa-solid fa-shield-halved"></i> Seguridad
+              </div>
+              <ul class="space-y-1 text-slate-300 list-disc pl-4 text-[11px]">
+                ${(v.safety_features || []).map(s => `<li>${s}</li>`).join('')}
+              </ul>
+            </div>
+            <div class="bg-slate-950/70 p-3.5 rounded-2xl border border-slate-800">
+              <div class="font-bold text-amber-400 mb-1.5 flex items-center gap-1">
+                <i class="fa-solid fa-sliders"></i> Equipamiento & Confort
+              </div>
+              <ul class="space-y-1 text-slate-300 list-disc pl-4 text-[11px]">
+                ${(v.equipment || []).map(e => `<li>${e}</li>`).join('')}
+              </ul>
+            </div>
+          </div>
+
+          <!-- Simulador de Crédito en Vivo (Guardado en Base de Datos) -->
+          <div class="bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-4 rounded-2xl border border-amber-500/40 shadow-inner">
+            <div class="flex items-center justify-between mb-3">
+              <h4 class="text-xs font-black uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
+                <i class="fa-solid fa-calculator"></i> Simulador de Crédito Automotriz
+              </h4>
+              <span class="text-[10px] text-slate-400">Tasa bancaria Ecuador: 12.5%</span>
+            </div>
+
+            <!-- Entrada Slider -->
+            <div class="space-y-1 mb-3">
+              <div class="flex justify-between text-xs">
+                <span class="text-slate-300">Entrada inicial:</span>
+                <span id="slider-down-val" class="font-bold text-white">$${initialDown.toFixed(0)} (20%)</span>
+              </div>
+              <input type="range" id="input-down-percent" min="20" max="60" step="5" value="20" 
+                oninput="updateFinancing(${price})" class="w-full accent-amber-500 cursor-pointer">
+            </div>
+
+            <!-- Plazo Slider -->
+            <div class="space-y-1 mb-3">
+              <div class="flex justify-between text-xs">
+                <span class="text-slate-300">Plazo financiamiento:</span>
+                <span id="slider-term-val" class="font-bold text-white">48 meses</span>
+              </div>
+              <input type="range" id="input-term-months" min="12" max="60" step="12" value="48" 
+                oninput="updateFinancing(${price})" class="w-full accent-amber-500 cursor-pointer">
+            </div>
+
+            <!-- Opciones Adicionales de Venta -->
+            <div class="bg-slate-900/90 p-3 rounded-xl border border-slate-800 space-y-2 mb-3 text-xs">
+              <label class="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" id="quote-insurance" checked class="accent-emerald-500 w-4 h-4 rounded">
+                <span class="text-slate-300">Incluir Seguro Vehicular Todo Riesgo con Rastreo Satelital GPS</span>
+              </label>
+              
+              <label class="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" id="quote-trade-in" onchange="toggleTradeInInput()" class="accent-amber-500 w-4 h-4 rounded">
+                <span class="text-slate-300">Deseo entregar mi auto usado como parte de pago (Retoma)</span>
+              </label>
+
+              <div id="trade-in-box" class="hidden pt-2">
+                <input type="text" id="quote-used-car-details" placeholder="Ej. Chevrolet Sail 2018, 95.000 km, buen estado..." 
+                  class="w-full bg-slate-950 border border-slate-700 text-white px-3 py-1.5 rounded-lg text-xs focus:outline-none focus:border-amber-400">
+              </div>
+            </div>
+
+            <!-- Resultado de Cuota -->
+            <div class="bg-slate-900/90 p-3 rounded-xl border border-slate-800 flex items-center justify-between">
+              <div>
+                <span class="text-[10px] text-slate-400 uppercase font-bold">Cuota Mensual Estimada</span>
+                <div id="result-monthly" class="text-xl font-black text-emerald-400">$0.00 / mes</div>
+              </div>
+              <div class="text-right text-[11px] text-slate-400">
+                Saldo a financiar: <strong id="result-financed" class="text-white">$0.00</strong>
+              </div>
+            </div>
+          </div>
+
+          <!-- Datos de Contacto Rápido -->
+          <div class="grid grid-cols-2 gap-2 text-xs">
+            <div>
+              <label class="text-[10px] text-slate-400 font-bold">Nombre del Titular:</label>
+              <input type="text" id="quote-customer-name" value="Kevin Alvarez" placeholder="Tu nombre" 
+                class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-amber-500">
+            </div>
+            <div>
+              <label class="text-[10px] text-slate-400 font-bold">Ciudad de Entrega:</label>
+              <select id="quote-city" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-amber-500">
+                <option value="Quito" selected>Quito (Showroom Norte / Sur)</option>
+                <option value="Guayaquil">Guayaquil (Showroom Tanca Marengo)</option>
+                <option value="Cuenca">Cuenca (Showroom Av. España)</option>
+                <option value="Ambato">Ambato (Showroom Atahualpa)</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Botones de Acción (Guardado en Base de Datos & WhatsApp) -->
+          <div class="space-y-2 pt-2">
+            <button onclick="submitFormalQuote('${v.code}')" id="btn-submit-quote"
+              class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold py-3.5 px-4 rounded-xl text-xs sm:text-sm flex items-center justify-center gap-2 transition shadow-xl">
+              <i class="fa-brands fa-whatsapp text-lg"></i>
+              <span>Confirmar Cotización y Recibir Plan en Mi WhatsApp</span>
+            </button>
+            
+            <div class="grid grid-cols-2 gap-2">
+              <button onclick="saveToGarageFromModal('${v.code}', ${price})" 
+                class="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold py-2.5 px-3 rounded-xl text-xs flex items-center justify-center gap-1.5 transition">
+                <i class="fa-solid fa-plus"></i>
+                <span>Guardar en Mi Garaje</span>
+              </button>
+              
+              <button onclick="scheduleTestDriveLead('${v.code}', '${v.brand}', '${v.model}')" 
+                class="bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold py-2.5 px-3 rounded-xl text-xs flex items-center justify-center gap-1.5 transition border border-slate-700">
+                <i class="fa-solid fa-calendar-check text-amber-400"></i>
+                <span>Agendar Test Drive</span>
+              </button>
+            </div>
+          </div>
+
+        </div>
+      `;
+
+      updateFinancing(price);
+      document.getElementById('vehicle-modal').classList.remove('hidden');
+    }
+
+    function toggleTradeInInput() {
+      const chk = document.getElementById('quote-trade-in');
+      const box = document.getElementById('trade-in-box');
+      if (chk.checked) box.classList.remove('hidden');
+      else box.classList.add('hidden');
+    }
+
+    let currentSuccessQuoteCode = '';
+    let currentSuccessVehicleName = '';
+
+    // ── RETORNO A WHATSAPP Y COMUNICACIÓN BIDIRECCIONAL ──
+    function closeWebviewAndReturn() {
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage({ type: 'CLOSE_WEBVIEW' }, '*');
+      }
+      try {
+        window.close();
+      } catch (e) {}
+      setTimeout(() => {
+        window.location.href = `https://wa.me/${bizPhone}?text=Hola%20Alex,%20estaba%20explorando%20la%20vitrina%20de%20autos.`;
+      }, 350);
+    }
+
+    async function requestAdvisorNow() {
+      try {
+        await fetch('/api/v1/vehicles/lead', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            customer_phone: customerPhone,
+            customer_name: "Cliente WhatsApp",
+            city: "Quito",
+            quote_type: "asesor_humano",
+            notes: "Cliente solicitó hablar con un asesor comercial humano desde la vitrina virtual"
+          })
+        });
+      } catch (e) {
+        console.error(e);
+      }
+
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage({ type: 'CONNECT_ADVISOR' }, '*');
+      }
+
+      showToast("Conectando con tu asesor comercial en WhatsApp...");
+      setTimeout(() => {
+        try { window.close(); } catch(e){}
+        window.location.href = `https://wa.me/${bizPhone}?text=Hola%20Alex,%20deseo%20hablar%20directamente%20con%20un%20asesor%20comercial.`;
+      }, 1000);
+    }
+
+    function finishAndReturnToWhatsApp() {
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage({
+          type: 'QUOTE_CONFIRMED',
+          quote_code: currentSuccessQuoteCode,
+          vehicle_name: currentSuccessVehicleName,
+          customer_phone: customerPhone
+        }, '*');
+      }
+
+      try {
+        window.close();
+      } catch (e) {}
+
+      setTimeout(() => {
+        window.location.href = `https://wa.me/${bizPhone}?text=Hola%20Alex,%20acabo%20de%20generar%20mi%20cotizaci%C3%B3n%20${currentSuccessQuoteCode}%20en%20la%20vitrina.%20Deseo%20continuar%20por%20aqu%C3%AD.`;
+      }, 400);
+    }
+
+    function updateFinancing(totalPrice) {
+      selectedDownPercent = Number(document.getElementById('input-down-percent').value);
+      selectedTermMonths = Number(document.getElementById('input-term-months').value);
+
+      calculatedDown = totalPrice * (selectedDownPercent / 100);
+      const financedAmount = totalPrice - calculatedDown;
+
+      // Tasa vehicular referencial Ecuador: 12.5% anual
+      const monthlyRate = 0.125 / 12;
+      calculatedMonthly = (financedAmount * monthlyRate * Math.pow(1 + monthlyRate, selectedTermMonths)) / (Math.pow(1 + monthlyRate, selectedTermMonths) - 1);
+
+      document.getElementById('slider-down-val').innerText = `$${Math.round(calculatedDown).toLocaleString()} (${selectedDownPercent}%)`;
+      document.getElementById('slider-term-val').innerText = `${selectedTermMonths} meses (${selectedTermMonths / 12} años)`;
+      document.getElementById('result-financed').innerText = `$${Math.round(financedAmount).toLocaleString()} USD`;
+      document.getElementById('result-monthly').innerText = `$${Math.round(calculatedMonthly).toLocaleString()} / mes`;
+    }
+
+    // ── GUARDAR EN BASE DE DATOS: COTIZACIÓN FORMAL ──
+    async function submitFormalQuote(vehicleCode) {
+      const btn = document.getElementById('btn-submit-quote');
+      btn.disabled = true;
+      btn.innerHTML = `<div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div> Procesando cotización...`;
+
+      const payload = {
+        customer_phone: customerPhone,
+        customer_name: document.getElementById('quote-customer-name').value || "Cliente WhatsApp",
+        city: document.getElementById('quote-city').value || "Quito",
+        vehicle_code: vehicleCode,
+        down_payment_percent: selectedDownPercent,
+        down_payment_amount: calculatedDown,
+        term_months: selectedTermMonths,
+        monthly_fee: calculatedMonthly,
+        insurance_included: document.getElementById('quote-insurance').checked,
+        trade_in_used_car: document.getElementById('quote-trade-in').checked,
+        used_car_details: document.getElementById('quote-used-car-details').value
+      };
+
+      try {
+        const resp = await fetch('/api/v1/vehicles/quote', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const res = await resp.json();
+
+        if (res.status === 'success') {
+          currentSuccessQuoteCode = res.quote_code;
+          const v = vehicles.find(item => item.code === vehicleCode);
+          currentSuccessVehicleName = v ? `${v.brand} ${v.model}` : vehicleCode;
+
+          document.getElementById('success-title').innerText = '¡Cotización Oficial Generada!';
+          document.getElementById('success-quote-code').innerText = res.quote_code;
+          document.getElementById('success-vehicle-name').innerText = currentSuccessVehicleName;
+          document.getElementById('success-down-amt').innerText = `$${Math.round(calculatedDown).toLocaleString()} USD (${selectedDownPercent}%)`;
+          document.getElementById('success-monthly-fee').innerText = `$${Math.round(calculatedMonthly).toLocaleString()} / mes`;
+          document.getElementById('success-term').innerText = `${selectedTermMonths} meses`;
+          
+          closeModal();
+          loadGarage();
+          document.getElementById('quote-success-modal').classList.remove('hidden');
+
+          // Notificar al iframe padre (Simulador o In-App Webview)
+          if (window.parent && window.parent !== window) {
+            window.parent.postMessage({
+              type: 'QUOTE_CONFIRMED',
+              quote_code: res.quote_code,
+              vehicle_name: currentSuccessVehicleName,
+              customer_phone: customerPhone,
+              monthly_fee: Math.round(calculatedMonthly),
+              down_payment: Math.round(calculatedDown)
+            }, '*');
+          }
+        } else {
+          showToast('Error al registrar cotización.');
+        }
+      } catch (err) {
+        console.error('Error submitting quote:', err);
+        showToast('Error de conexión.');
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<i class="fa-brands fa-whatsapp text-lg"></i> <span>Confirmar Cotización y Recibir Plan en Mi WhatsApp</span>`;
+      }
+    }
+
+    // ── GUARDAR EN BASE DE DATOS: GARAJE VIRTUAL (CARRITO) ──
+    async function saveToGarageFromModal(code, price) {
+      await addToGarage(code, selectedDownPercent, calculatedDown, selectedTermMonths, calculatedMonthly);
+    }
+
+    async function addToGarageDirect(code) {
+      const v = vehicles.find(item => item.code === code);
+      if (!v) return;
+      const down = Number(v.min_down_payment);
+      const monthly = Number(v.estimated_monthly_fee);
+      await addToGarage(code, 20, down, 48, monthly);
+    }
+
+    async function addToGarage(code, downPct, downAmt, termM, monthlyAmt) {
+      try {
+        const resp = await fetch('/api/v1/vehicles/cart', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            customer_phone: customerPhone,
+            vehicle_code: code,
+            down_payment_percent: downPct,
+            down_payment_amount: downAmt,
+            term_months: termM,
+            estimated_monthly_fee: monthlyAmt
+          })
+        });
+        const data = await resp.json();
+        showToast(data.message || 'Vehículo guardado en tu garaje.');
+        loadGarage();
+      } catch (e) {
+        console.error('Error adding to garage:', e);
+        showToast('No se pudo guardar en el garaje.');
+      }
+    }
+
+    async function loadGarage() {
+      try {
+        const resp = await fetch(`/api/v1/vehicles/cart/${customerPhone}`);
+        const data = await resp.json();
+        const items = data.items || [];
+        document.getElementById('garage-badge').innerText = items.length;
+        document.getElementById('garage-total-count').innerText = `${items.length} auto(s)`;
+
+        const container = document.getElementById('garage-items');
+        if (items.length === 0) {
+          container.innerHTML = `
+            <div class="text-center py-8 text-slate-500 text-xs">
+              <i class="fa-solid fa-car text-3xl mb-2 text-slate-600"></i>
+              <p>Tu garaje está vacío.<br>Agrega vehículos para cotizar en lote.</p>
+            </div>
+          `;
+          return;
+        }
+
+        container.innerHTML = items.map(item => `
+          <div class="bg-slate-950 p-3.5 rounded-2xl border border-slate-800 flex items-center justify-between gap-3">
+            <img src="${item.image_url}" class="w-16 h-12 object-cover rounded-xl bg-slate-900">
+            <div class="flex-1 min-w-0">
+              <div class="text-xs font-bold text-white truncate">${item.brand} ${item.model}</div>
+              <div class="text-[10px] text-emerald-400 font-semibold">$${Math.round(item.estimated_monthly_fee)}/mes • Entrada: $${Math.round(item.down_payment_amount)}</div>
+            </div>
+            <button onclick="removeFromGarage('${item.item_id}')" class="text-slate-500 hover:text-rose-400 p-2 transition">
+              <i class="fa-solid fa-trash-can text-sm"></i>
+            </button>
+          </div>
+        `).join('');
+
+      } catch (e) {
+        console.error('Error loading garage:', e);
+      }
+    }
+
+    async function removeFromGarage(itemId) {
+      try {
+        await fetch(`/api/v1/vehicles/cart/${itemId}`, { method: 'DELETE' });
+        showToast('Vehículo removido del garaje.');
+        loadGarage();
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    function toggleGarageDrawer() {
+      const drawer = document.getElementById('garage-drawer');
+      drawer.classList.toggle('hidden');
+    }
+
+    async function submitGarageBatchQuote() {
+      try {
+        const resp = await fetch('/api/v1/vehicles/lead', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            customer_phone: customerPhone,
+            customer_name: "Cliente WhatsApp",
+            city: "Quito",
+            quote_type: "garaje_completo",
+            notes: "El cliente solicita cotización y aprobación crediticia para todos los vehículos guardados en su Garaje Virtual"
+          })
+        });
+        const res = await resp.json();
+        currentSuccessQuoteCode = res.lead_code || 'GARAGE-AUTO';
+        currentSuccessVehicleName = 'Mi Garaje Virtual Completo';
+
+        document.getElementById('success-title').innerText = '¡Garaje Enviado a Cotizar!';
+        document.getElementById('success-quote-code').innerText = currentSuccessQuoteCode;
+        document.getElementById('success-vehicle-name').innerText = 'Vehículos en Garaje';
+        document.getElementById('success-down-amt').innerText = 'Aprobación Multibanco';
+        document.getElementById('success-monthly-fee').innerText = 'Comparativa en WhatsApp';
+        document.getElementById('success-term').innerText = 'En revisión por Asesor';
+
+        toggleGarageDrawer();
+        document.getElementById('quote-success-modal').classList.remove('hidden');
+
+        if (window.parent && window.parent !== window) {
+          window.parent.postMessage({
+            type: 'GARAGE_BATCH_SUBMITTED',
+            lead_code: currentSuccessQuoteCode,
+            customer_phone: customerPhone
+          }, '*');
+        }
+      } catch(e) {
+        console.error(e);
+        showToast('Error al enviar el garaje.');
+      }
+    }
+
+    async function scheduleTestDriveLead(code, brand, model) {
+      try {
+        const payload = {
+          customer_phone: customerPhone,
+          customer_name: document.getElementById('quote-customer-name')?.value || "Cliente WhatsApp",
+          city: document.getElementById('quote-city')?.value || "Quito",
+          vehicle_code: code,
+          quote_type: "test_drive",
+          test_drive_requested: true,
+          notes: `Solicitud de Test Drive desde la vitrina virtual para ${brand} ${model}`
+        };
+
+        const resp = await fetch('/api/v1/vehicles/lead', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const res = await resp.json();
+
+        currentSuccessQuoteCode = res.lead_code || 'TEST-DRIVE';
+        currentSuccessVehicleName = `${brand} ${model}`;
+
+        document.getElementById('success-title').innerText = '¡Test Drive Agendado con Éxito!';
+        document.getElementById('success-quote-code').innerText = currentSuccessQuoteCode;
+        document.getElementById('success-vehicle-name').innerText = currentSuccessVehicleName;
+        document.getElementById('success-down-amt').innerText = '100% Gratuito';
+        document.getElementById('success-monthly-fee').innerText = 'A domicilio o Showroom';
+        document.getElementById('success-term').innerText = 'Coordinación inmediata';
+
+        closeModal();
+        document.getElementById('quote-success-modal').classList.remove('hidden');
+
+        if (window.parent && window.parent !== window) {
+          window.parent.postMessage({
+            type: 'TEST_DRIVE_REQUESTED',
+            lead_code: currentSuccessQuoteCode,
+            vehicle_name: currentSuccessVehicleName,
+            customer_phone: customerPhone
+          }, '*');
+        }
+      } catch (e) {
+        console.error(e);
+        showToast('Error al agendar prueba.');
+      }
+    }
+
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      document.getElementById('toast-message').innerText = msg;
+      t.classList.remove('opacity-0', 'pointer-events-none', 'translate-y-3');
+      setTimeout(() => {
+        t.classList.add('opacity-0', 'pointer-events-none', 'translate-y-3');
+      }, 3500);
+    }
+
+    function closeModal() {
+      document.getElementById('vehicle-modal').classList.add('hidden');
+    }
+
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        closeModal();
+        document.getElementById('garage-drawer').classList.add('hidden');
+      }
+    });
+
+    loadVehicles();
+  </script>
+</body>
+</html>

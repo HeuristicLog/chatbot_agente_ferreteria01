@@ -20,6 +20,21 @@ GATEWAY_URL = "http://whatsapp-gateway:8090"
 # HELPERS — Enviar mensajes al Gateway
 # ─────────────────────────────────────────────
 
+async def _send_via_evolution(phone: str, text: str) -> bool:
+    try:
+        clean_p = phone.replace("+", "").replace(" ", "").strip()
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(
+                "http://evolution-api:8080/message/sendText/sucursal_centro",
+                json={"number": clean_p, "text": text},
+                headers={"apikey": "ferreteria_evolution_key_2026"},
+                timeout=5.0
+            )
+            return resp.status_code in [200, 201]
+    except Exception as e:
+        logger.debug(f"Evolution send fallback in interactive_flow: {e}")
+        return False
+
 async def _send(phone: str, message: str, internal_key: str, phone_number_id: Optional[str] = None):
     """Envía un mensaje de texto simple."""
     # Sincronizar salida de texto del bot con Chatwoot
@@ -30,6 +45,10 @@ async def _send(phone: str, message: str, internal_key: str, phone_number_id: Op
             await chatwoot.post_bot_message(phone, message, phone_number_id)
     except Exception as cw_err:
         logger.error(f"Error sincronizando salida de texto del bot con Chatwoot en _send: {cw_err}")
+
+    # Prioridad Evolution API para WhatsApp QR
+    if await _send_via_evolution(phone, message):
+        return
 
     headers = {"X-Internal-API-Key": internal_key}
     payload = {"phone": phone, "message": message}
@@ -62,6 +81,18 @@ async def _send_buttons(phone: str, body: str, buttons: list, header: str = "", 
     except Exception as cw_err:
         logger.error(f"Error sincronizando botones del bot con Chatwoot en _send_buttons: {cw_err}")
 
+    # Prioridad Evolution API para WhatsApp QR
+    formatted_evo = body
+    if header:
+        formatted_evo = f"*{header}*\n\n{formatted_evo}"
+    if buttons:
+        formatted_evo += "\n\n" + "\n".join([f"👉 *{b.get('title')}*" for b in buttons])
+    if footer:
+        formatted_evo += f"\n\n_{footer}_"
+    if await _send_via_evolution(phone, formatted_evo):
+        return
+
+
     headers = {"X-Internal-API-Key": internal_key}
     payload = {"phone": phone, "body": body, "buttons": buttons, "header": header, "footer": footer}
     if phone_number_id:
@@ -93,6 +124,23 @@ async def _send_list(phone: str, body: str, button_text: str, sections: list, he
     except Exception as cw_err:
         logger.error(f"Error sincronizando lista del bot con Chatwoot en _send_list: {cw_err}")
 
+    # Prioridad Evolution API para WhatsApp QR
+    formatted_evo = body
+    if header:
+        formatted_evo = f"*{header}*\n\n{formatted_evo}"
+    if sections:
+        for sec in sections:
+            sec_title = sec.get("title", "")
+            if sec_title:
+                formatted_evo += f"\n\n📋 *{sec_title}*"
+            for r in sec.get("rows", []):
+                formatted_evo += f"\n👉 *{r.get('title')}*: {r.get('description', '')}"
+    if footer:
+        formatted_evo += f"\n\n_{footer}_"
+    if await _send_via_evolution(phone, formatted_evo):
+        return
+
+
     headers = {"X-Internal-API-Key": internal_key}
     payload = {"phone": phone, "body": body, "button_text": button_text, "sections": sections, "header": header, "footer": footer}
     if phone_number_id:
@@ -121,6 +169,7 @@ async def _send_cta_url(phone: str, body: str, display_text: str, url: str, head
     except Exception as cw_err:
         logger.error(f"Error sincronizando CTA URL con Chatwoot: {cw_err}")
 
+
     headers = {"X-Internal-API-Key": internal_key}
     payload = {
         "phone": phone,
@@ -147,6 +196,7 @@ async def _send_cta_url(phone: str, body: str, display_text: str, url: str, head
 
 async def _send_flow(phone: str, body: str, flow_id: str, flow_cta: str, flow_token: str = "token_01", screen: str = "CATALOG_SCREEN", header: str = "", footer: str = "", internal_key: str = "change_me", phone_number_id: Optional[str] = None) -> bool:
     """Envía mensaje interactivo con WhatsApp Flow oficial de Meta (pantalla emergente nativa)."""
+
     headers = {"X-Internal-API-Key": internal_key}
     payload = {
         "phone": phone,

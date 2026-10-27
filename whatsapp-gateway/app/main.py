@@ -194,6 +194,53 @@ async def proxy_vincular_qr():
             logger.error(f"Error proxying vincular-qr: {e}")
             raise HTTPException(status_code=502, detail="Error cargando página de vinculación.")
 
+@app.get("/api/v1/whatsapp-status")
+async def proxy_whatsapp_status():
+    url = f"{chatbot_api_url}/api/v1/whatsapp-status"
+    async with httpx.AsyncClient() as client:
+        try:
+            resp = await client.get(url, timeout=15.0)
+            return Response(content=resp.content, status_code=resp.status_code, media_type="application/json")
+        except Exception as e:
+            logger.error(f"Error proxying whatsapp-status: {e}")
+            raise HTTPException(status_code=502, detail="Error consultando estado de WhatsApp.")
+
+@app.post("/api/v1/whatsapp-reset")
+async def proxy_whatsapp_reset():
+    url = f"{chatbot_api_url}/api/v1/whatsapp-reset"
+    async with httpx.AsyncClient() as client:
+        try:
+            resp = await client.post(url, timeout=20.0)
+            return Response(content=resp.content, status_code=resp.status_code, media_type="application/json")
+        except Exception as e:
+            logger.error(f"Error proxying whatsapp-reset: {e}")
+            raise HTTPException(status_code=502, detail="Error reiniciando sesión de WhatsApp.")
+
+@app.get("/metricas", response_class=Response)
+@app.get("/dashboard-metricas", response_class=Response)
+async def proxy_metricas_dashboard(request: Request):
+    """Proxy metrics dashboard HTML view from backend."""
+    url = f"{chatbot_api_url}/metricas"
+    async with httpx.AsyncClient() as client:
+        try:
+            resp = await client.get(url, timeout=15.0)
+            return Response(content=resp.content, status_code=resp.status_code, media_type="text/html")
+        except Exception as e:
+            logger.error(f"Error proxying metrics dashboard: {e}")
+            raise HTTPException(status_code=502, detail="Error cargando panel de métricas.")
+
+@app.get("/api/v1/metrics")
+async def proxy_metrics_api(request: Request):
+    """Proxy metrics JSON API from backend."""
+    url = f"{chatbot_api_url}/api/v1/metrics"
+    async with httpx.AsyncClient() as client:
+        try:
+            resp = await client.get(url, timeout=15.0)
+            return Response(content=resp.content, status_code=resp.status_code, media_type="application/json")
+        except Exception as e:
+            logger.error(f"Error proxying metrics API: {e}")
+            raise HTTPException(status_code=502, detail="Error consultando métricas.")
+
 @app.get("/catalogo", response_class=Response)
 @app.get("/catalogo-autos", response_class=Response)
 @app.get("/autos", response_class=Response)

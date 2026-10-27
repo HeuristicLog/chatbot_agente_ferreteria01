@@ -8,7 +8,7 @@ from fastapi.responses import JSONResponse
 from app.config import settings
 from app.db.base import Base
 from app.db.session import engine
-from app.api import health, tools, webhooks, testing, admin, logistics_mock, admin_api, agent_api, chat_api, catalog_api, vehicles_api
+from app.api import health, tools, webhooks, testing, admin, logistics_mock, admin_api, agent_api, chat_api, catalog_api, vehicles_api, metrics_api
 
 # Initialize logging
 logging.basicConfig(
@@ -83,6 +83,7 @@ app.include_router(agent_api.router, tags=["Agent Console APIs"])
 app.include_router(chat_api.router, tags=["Chat Façade APIs"])
 app.include_router(catalog_api.router, tags=["Catalog & Orders"])
 app.include_router(vehicles_api.router, tags=["Vehículos Ecuador"])
+app.include_router(metrics_api.router, tags=["Metrics & Analytics"])
 
 @app.get("/", tags=["Root"])
 async def root():

@@ -143,6 +143,52 @@ class ChatwootService:
             logger.error(f"Excepción en post_message: {str(e)}")
         return False
 
+    async def post_message_with_attachment(
+        self,
+        conversation_id: int,
+        content: str,
+        file_bytes: bytes,
+        filename: str,
+        mimetype: str,
+        message_type: str = "incoming",
+        is_private: bool = False
+    ) -> bool:
+        """Sube un archivo adjunto (imagen, audio, video, documento) a la conversación de Chatwoot."""
+        if not self.is_configured:
+            return False
+
+        headers = self._get_headers()
+        data = {
+            "content": content or "",
+            "message_type": message_type,
+            "private": "true" if is_private else "false"
+        }
+        files = {
+            "attachments[]": (filename, file_bytes, mimetype)
+        }
+        try:
+            async with httpx.AsyncClient() as client:
+                msg_url = f"{self.base_url}/api/v1/accounts/{self.account_id}/conversations/{conversation_id}/messages"
+                resp = await client.post(msg_url, data=data, files=files, headers=headers, timeout=20.0)
+                if resp.status_code in [200, 201]:
+                    created_id = resp.json().get("id")
+                    if created_id:
+                        try:
+                            import redis.asyncio as aioredis
+                            import os
+                            r_url = os.getenv("REDIS_URL", "redis://redis:6379/0")
+                            rc = aioredis.from_url(r_url)
+                            await rc.set(f"cw_msg_id:{created_id}", "1", ex=300)
+                            await rc.aclose()
+                        except Exception:
+                            pass
+                    return True
+                else:
+                    logger.error(f"Error al enviar adjunto a Chatwoot: {resp.status_code} - {resp.text}")
+        except Exception as e:
+            logger.error(f"Excepción en post_message_with_attachment: {e}")
+        return False
+
     async def update_conversation_status(self, conversation_id: int, status: str) -> bool:
         """Actualiza el estado de una conversación en Chatwoot (open, resolved, snoozed, bot)."""
         if not self.is_configured:

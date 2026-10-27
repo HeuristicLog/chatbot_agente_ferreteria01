@@ -66,17 +66,18 @@ class VehicleQuoteCreate(BaseModel):
 @router.get("/autos", response_class=HTMLResponse, tags=["Vehículos Ecuador"])
 async def serve_autos_catalog():
     """Sirve la pantalla emergente e-commerce interactiva de autos nuevos para WhatsApp."""
-    container_path = "/app/catalogo_autos.html"
-    local_path = "C:/Users/User/Desktop/KEVIN/ChatbotFlowise/catalogo_autos.html"
-    
-    if os.path.exists(container_path):
-        with open(container_path, "r", encoding="utf-8") as f:
-            return f.read()
-    elif os.path.exists(local_path):
-        with open(local_path, "r", encoding="utf-8") as f:
-            return f.read()
-    else:
-        return "<h1>Catálogo de Vehículos no encontrado en el servidor.</h1>"
+    possible_paths = [
+        "/app/app/catalogo_autos.html",
+        "/app/catalogo_autos.html",
+        "backend/app/catalogo_autos.html",
+        "catalogo_autos.html",
+        "C:/Users/User/Desktop/KEVIN/ChatbotFlowise/catalogo_autos.html"
+    ]
+    for p in possible_paths:
+        if os.path.exists(p):
+            with open(p, "r", encoding="utf-8") as f:
+                return f.read()
+    return "<h1>Catálogo de Vehículos no encontrado en el servidor.</h1>"
 
 
 # ── Catalog APIs ───────────────────────────────────────────────────────

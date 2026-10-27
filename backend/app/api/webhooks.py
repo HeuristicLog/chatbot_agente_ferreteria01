@@ -115,6 +115,47 @@ async def _gateway_send_text(phone: str, message: str, phone_number_id: Optional
         logger.error(f"Gateway send_text error: {e}")
 
 async def _gateway_send_media(phone: str, media_type: str, media_url: str, caption: str = "", phone_number_id: Optional[str] = None, access_token: Optional[str] = None):
+    # Intentar enviar via Evolution API (para WhatsApp QR vinculado)
+    try:
+        clean_p = phone.replace("+", "").replace(" ", "").strip()
+        evo_mediatype = media_type.lower()
+        if "audio" in evo_mediatype or "voice" in evo_mediatype:
+            evo_mediatype = "audio"
+        elif "video" in evo_mediatype:
+            evo_mediatype = "video"
+        elif "image" in evo_mediatype or "photo" in evo_mediatype:
+            evo_mediatype = "image"
+        else:
+            evo_mediatype = "document"
+
+        async with httpx.AsyncClient() as client:
+            if evo_mediatype == "audio":
+                audio_resp = await client.post(
+                    "http://evolution-api:8080/message/sendWhatsAppAudio/sucursal_centro",
+                    json={"number": clean_p, "audio": media_url},
+                    headers={"apikey": "ferreteria_evolution_key_2026"},
+                    timeout=20.0
+                )
+                if audio_resp.status_code in [200, 201]:
+                    return
+
+            evo_payload = {
+                "number": clean_p,
+                "mediatype": evo_mediatype,
+                "media": media_url,
+                "caption": caption or ""
+            }
+            evo_resp = await client.post(
+                "http://evolution-api:8080/message/sendMedia/sucursal_centro",
+                json=evo_payload,
+                headers={"apikey": "ferreteria_evolution_key_2026"},
+                timeout=20.0
+            )
+            if evo_resp.status_code in [200, 201]:
+                return
+    except Exception as evo_e:
+        logger.error(f"Evolution send media error: {evo_e}")
+
     headers = {"X-Internal-API-Key": internal_api_key}
     payload = {
         "phone": phone,
@@ -164,11 +205,38 @@ async def receive_incoming_message(
         msg_obj = data.get("message", {}) or {}
         extracted_text = ""
         interactive_id = ""
+        media_type = None
+        media_mimetype = None
+        media_filename = None
         
         if "conversation" in msg_obj and msg_obj["conversation"]:
             extracted_text = str(msg_obj["conversation"])
         elif "extendedTextMessage" in msg_obj and isinstance(msg_obj["extendedTextMessage"], dict):
             extracted_text = str(msg_obj["extendedTextMessage"].get("text", ""))
+        elif "imageMessage" in msg_obj:
+            media_type = "image"
+            img_info = msg_obj["imageMessage"]
+            extracted_text = img_info.get("caption") or "📷 [Foto / Imagen recibida]"
+            media_mimetype = img_info.get("mimetype", "image/jpeg")
+            media_filename = "imagen.jpg"
+        elif "videoMessage" in msg_obj:
+            media_type = "video"
+            vid_info = msg_obj["videoMessage"]
+            extracted_text = vid_info.get("caption") or "🎥 [Video recibido]"
+            media_mimetype = vid_info.get("mimetype", "video/mp4")
+            media_filename = "video.mp4"
+        elif "audioMessage" in msg_obj:
+            media_type = "audio"
+            aud_info = msg_obj["audioMessage"]
+            extracted_text = "🎙️ [Mensaje de voz / Audio recibido]"
+            media_mimetype = aud_info.get("mimetype", "audio/ogg")
+            media_filename = "audio.ogg"
+        elif "documentMessage" in msg_obj:
+            media_type = "document"
+            doc_info = msg_obj["documentMessage"]
+            media_filename = doc_info.get("fileName", "documento.pdf")
+            extracted_text = doc_info.get("caption") or f"📄 [Documento recibido: {media_filename}]"
+            media_mimetype = doc_info.get("mimetype", "application/pdf")
         elif "buttonsResponseMessage" in msg_obj:
             interactive_id = msg_obj["buttonsResponseMessage"].get("selectedButtonId", "")
             extracted_text = msg_obj["buttonsResponseMessage"].get("selectedDisplayText", interactive_id)
@@ -188,6 +256,21 @@ async def receive_incoming_message(
             "push_name": data.get("pushName", ""),
             "instance": raw_payload.get("instance", "sucursal_centro")
         }
+        if media_type:
+            metadata["media_type"] = media_type
+            metadata["media_mimetype"] = media_mimetype
+            metadata["media_filename"] = media_filename
+            metadata["key"] = key
+            metadata["raw_data"] = data
+            media_b64 = data.get("base64") or msg_obj.get("base64")
+            if not media_b64:
+                for mkey in ["imageMessage", "audioMessage", "videoMessage", "documentMessage"]:
+                    if mkey in msg_obj and isinstance(msg_obj[mkey], dict):
+                        media_b64 = msg_obj[mkey].get("base64")
+                        if media_b64:
+                            break
+            if media_b64:
+                metadata["base64"] = media_b64
         if interactive_id:
             metadata["interactive_id"] = interactive_id
             
@@ -229,6 +312,25 @@ async def receive_incoming_message(
 
     sanitized = sanitize_user_input(payload.message)
 
+    # ── Registrar métricas de mensajes entrantes y tiempo de espera para FRT ──
+    try:
+        import time
+        await redis_client.incr("metrics:inbound_messages")
+        clean_p = payload.phone.replace("+", "").replace(" ", "").strip()
+        await redis_client.set(f"cust_wait_ts:{clean_p}", int(time.time()), nx=True, ex=86400)
+
+        in_mtype = payload.metadata.get("media_type")
+        if in_mtype == "image":
+            await redis_client.incr("metrics:images")
+        elif in_mtype == "audio":
+            await redis_client.incr("metrics:audios")
+        elif in_mtype == "video":
+            await redis_client.incr("metrics:videos")
+        elif in_mtype == "document":
+            await redis_client.incr("metrics:documents")
+    except Exception as met_err:
+        logger.debug(f"Error registrando métricas entrantes: {met_err}")
+
     # ── Sincronizar mensaje entrante con Chatwoot (desde el inicio) ──
     chatwoot = ChatwootService()
     cw_conv_id = None
@@ -243,12 +345,57 @@ async def receive_incoming_message(
             if cw_contact_id:
                 cw_conv_id = await chatwoot.get_or_create_conversation(cw_contact_id, inbox_id=inbox_id)
                 if cw_conv_id:
-                    await chatwoot.post_message(cw_conv_id, sanitized, message_type="incoming")
-                    # Mantener silenciada la conversación si el bot está activo
-                    if conv.status == "bot_active":
-                        await chatwoot.update_conversation_status(cw_conv_id, "snoozed")
+                    media_type = payload.metadata.get("media_type")
+                    msg_key = payload.metadata.get("key")
+                    has_uploaded_media = False
+                    if media_type:
+                        try:
+                            b64_raw = payload.metadata.get("base64")
+                            if not b64_raw and msg_key:
+                                # Descargar archivo multimedia desde Evolution API pasando exactamente key
+                                async with httpx.AsyncClient() as client:
+                                    inst = payload.metadata.get("instance", "sucursal_centro")
+                                    b64_resp = await client.post(
+                                        f"http://evolution-api:8080/chat/getBase64FromMediaMessage/{inst}",
+                                        json={"message": {"key": msg_key}, "convertToMp4": False},
+                                        headers={"apikey": "ferreteria_evolution_key_2026"},
+                                        timeout=15.0
+                                    )
+                                    if b64_resp.status_code == 200:
+                                        b64_raw = b64_resp.json().get("base64", "")
+                            
+                            if b64_raw:
+                                if "," in b64_raw:
+                                    b64_raw = b64_raw.split(",", 1)[1]
+                                import base64
+                                f_bytes = base64.b64decode(b64_raw)
+                                f_name = payload.metadata.get("media_filename") or f"adjunto_{payload.message_id}"
+                                f_mime = payload.metadata.get("media_mimetype") or "application/octet-stream"
+                                has_uploaded_media = await chatwoot.post_message_with_attachment(
+                                    conversation_id=cw_conv_id,
+                                    content=sanitized if sanitized not in ["📷 [Foto / Imagen recibida]", "🎥 [Video recibido]", "🎙️ [Mensaje de voz / Audio recibido]"] else "",
+                                    file_bytes=f_bytes,
+                                    filename=f_name,
+                                    mimetype=f_mime,
+                                    message_type="incoming"
+                                )
+                        except Exception as m_err:
+                            logger.error(f"Error procesando adjunto para Chatwoot: {m_err}")
+
+                    if not has_uploaded_media:
+                        await chatwoot.post_message(cw_conv_id, sanitized, message_type="incoming")
+
+                    # Mantener abierta y visible la conversación en Chatwoot
+                    await chatwoot.update_conversation_status(cw_conv_id, "open")
         except Exception as cw_err:
             logger.error(f"Error sincronizando mensaje entrante con Chatwoot: {cw_err}")
+
+    # ── Modo Chatbot AutoEcuador Motors Activo ──
+    BOT_ENABLED = True
+    if not BOT_ENABLED:
+        await save_message(db, conv.id, "inbound", "user", sanitized, payload.message_id)
+        logger.info(f"Modo Chatwoot activo (Bot pausado). Mensaje recibido de {payload.phone}: {sanitized}")
+        return {"status": "chatwoot_direct_mode"}
 
     # ── 1. Active Handoff Lock ─────────────────────────────────
     clean_check = sanitized.lower().strip()
@@ -555,20 +702,78 @@ async def receive_incoming_message(
     # ── 4. Intent & Keyword Routing ───────────────────────────
     clean_msg = sanitized.lower().strip()
 
-    # Saludos
-    greeting_words = ["hola", "hi", "hello", "buenas", "buenos", "hey", "buen dia", "buenos dias", "inicio", "start", "menu", "menú"]
+    # Mensajes multimedia entrantes (Fotos, Videos, Audios, Documentos)
+    if payload.metadata.get("media_type"):
+        mtype = payload.metadata.get("media_type")
+        m_msg = "¡Muchas gracias! 📁 Hemos recibido tu archivo adjunto. Un asesor comercial humano lo revisará en Chatwoot para atenderte."
+        if mtype == "audio":
+            m_msg = "¡Muchas gracias! 🎙️ Hemos recibido tu nota de voz. Nuestro equipo comercial la escuchará de inmediato en Chatwoot para atenderte."
+        elif mtype == "image":
+            m_msg = "¡Muchas gracias! 📷 Hemos recibido tu imagen. Nuestro equipo comercial la revisará de inmediato en Chatwoot para asesorarte."
+        elif mtype == "video":
+            m_msg = "¡Muchas gracias! 🎥 Hemos recibido tu video. Nuestro equipo comercial lo revisará de inmediato en Chatwoot para atenderte."
+
+        buttons = [
+            {"id": "auto_menu_vehiculos", "title": "🚘 Ver Vehículos"},
+            {"id": "auto_flow_credito", "title": "💳 Simular Crédito"},
+            {"id": "flow_asesor", "title": "👨‍💼 Hablar con Asesor"}
+        ]
+        await flows._send_buttons(payload.phone, m_msg, buttons, header="AutoEcuador Motors", internal_key=internal_api_key, phone_number_id=dest_phone_number_id)
+        await save_message(db, conv.id, "outbound", "assistant", m_msg)
+        return {"status": "processed"}
+
+    # Saludos y Menú Principal
+    greeting_words = ["hola", "hi", "hello", "buenas", "buenos", "hey", "buen dia", "buenos dias", "inicio", "start", "menu", "menú", "0", "volver al menu"]
     if any(clean_msg.startswith(g) or clean_msg == g for g in greeting_words):
         await clear_flow_state(redis_client, payload.phone)
         await flows.send_welcome_menu(payload.phone, internal_api_key, phone_number_id=dest_phone_number_id)
         await save_message(db, conv.id, "outbound", "assistant", "Menú de bienvenida enviado")
         return {"status": "processed"}
 
-    # Horarios, Ubicación, Showrooms, Sedes
-    horarios_keywords = ["horario", "horarios", "a que hora", "a qué hora", "hora", "abren", "cierran", "atencion", "atención", "donde estan", "dónde están", "ubicacion", "ubicación", "showroom", "showrooms", "sede", "sedes", "direccion", "dirección", "donde queda", "dónde queda"]
-    if any(k in clean_msg for k in horarios_keywords):
+    # 1. Ver Vehículos / Modelos / Categorías (Opción 1 del menú)
+    if clean_msg in ["1", "1.", "ver vehiculos", "ver vehículos", "vehiculos", "vehículos", "modelos", "catalogo", "catálogo", "autos", "carros"]:
+        await clear_flow_state(redis_client, payload.phone)
+        await flows.send_vehicle_types_flow(payload.phone, internal_api_key, phone_number_id=dest_phone_number_id)
+        await save_message(db, conv.id, "outbound", "assistant", "Categorías de vehículos enviadas")
+        return {"status": "processed"}
+
+    # 2. Horarios y Sedes / Showrooms (Opción 2 del menú)
+    horarios_keywords = ["2", "2.", "horario", "horarios", "a que hora", "a qué hora", "hora", "abren", "cierran", "atencion", "atención", "donde estan", "dónde están", "ubicacion", "ubicación", "showroom", "showrooms", "sede", "sedes", "direccion", "dirección", "donde queda", "dónde queda"]
+    if any(k in clean_msg for k in horarios_keywords) or clean_msg in ["2", "2.", "horarios"]:
         await clear_flow_state(redis_client, payload.phone)
         await flows.send_horarios_info(payload.phone, internal_api_key, phone_number_id=dest_phone_number_id)
         await save_message(db, conv.id, "outbound", "assistant", "Información de horarios y sedes enviada")
+        return {"status": "processed"}
+
+    # 3. Hablar con Asesor Humano / Transferencia (Opción 3 del menú)
+    advisor_keywords = ["3", "3.", "asesor", "asesora", "hablar con asesor", "hablar con un asesor", "comunicarme con un asesor", "humano", "agente", "atencion al cliente", "atención al cliente", "persona", "ejecutivo", "ejecutiva", "vendedor"]
+    if any(k in clean_msg for k in advisor_keywords) or clean_msg in ["3", "3.", "asesor"]:
+        await flows.send_advisor_confirmation(payload.phone, internal_api_key, phone_number_id=dest_phone_number_id)
+        await save_message(db, conv.id, "outbound", "assistant", "Opciones de asesor por sucursal enviadas")
+        return {"status": "processed"}
+
+    # Simular Crédito / Cuotas
+    credito_keywords = ["credito", "crédito", "simular credito", "simular crédito", "financiamiento", "cuotas", "cuota", "prestamo", "préstamo"]
+    if any(k in clean_msg for k in credito_keywords):
+        await clear_flow_state(redis_client, payload.phone)
+        await flows.send_credito_flow(payload.phone, internal_api_key, phone_number_id=dest_phone_number_id)
+        await save_message(db, conv.id, "outbound", "assistant", "Flujo de crédito vehicular enviado")
+        return {"status": "processed"}
+
+    # Plan Retoma / Auto Usado
+    retoma_keywords = ["retoma", "plan retoma", "usado", "auto usado", "carro usado", "tasar usado", "parte de pago", "avaluo", "avalúo"]
+    if any(k in clean_msg for k in retoma_keywords):
+        await clear_flow_state(redis_client, payload.phone)
+        await flows.send_retoma_flow(payload.phone, internal_api_key, phone_number_id=dest_phone_number_id)
+        await save_message(db, conv.id, "outbound", "assistant", "Flujo de plan retoma enviado")
+        return {"status": "processed"}
+
+    # Test Drive / Prueba de Manejo
+    testdrive_keywords = ["test drive", "testdrive", "prueba de manejo", "probar auto", "probar carro", "manejar"]
+    if any(k in clean_msg for k in testdrive_keywords):
+        await clear_flow_state(redis_client, payload.phone)
+        await flows.send_testdrive_flow(payload.phone, internal_api_key, phone_number_id=dest_phone_number_id)
+        await save_message(db, conv.id, "outbound", "assistant", "Flujo de test drive enviado")
         return {"status": "processed"}
 
     # Catálogo / Productos / Tienda Meta WhatsApp Flow (Pantalla emergente nativa)
@@ -625,6 +830,10 @@ async def _do_handoff(phone: str, conv, db, redis_client, flowise_service: Flowi
                 timeout=10.0
             )
         if resp.status_code == 200:
+            try:
+                await redis_client.incr("metrics:handoffs")
+            except Exception:
+                pass
             return  # HandoffService already sent the appropriate welcome/queue message to the client
             
         msg = "⚠️ No pudimos conectarte en este momento. Por favor intenta más tarde o llámanos directamente."
@@ -702,6 +911,20 @@ async def chatwoot_webhook(
 
         if phone:
             clean_phone = phone.replace("+", "").strip()
+
+            # ── Medir tiempo de respuesta (FRT) del asesor y métricas de salida ──
+            try:
+                wait_ts = await redis_client.get(f"cust_wait_ts:{clean_phone}")
+                if wait_ts:
+                    import time
+                    frt_delta = int(time.time()) - int(wait_ts)
+                    if 0 <= frt_delta < 86400:
+                        await redis_client.lpush("metrics:frt_samples", str(frt_delta))
+                        await redis_client.ltrim("metrics:frt_samples", 0, 100)
+                    await redis_client.delete(f"cust_wait_ts:{clean_phone}")
+                await redis_client.incr("metrics:outbound_messages")
+            except Exception as frt_err:
+                logger.debug(f"Error registrando FRT en chatwoot_webhook: {frt_err}")
 
             # Cuando un asesor humano responde en Chatwoot, pasamos el estado a human_active para que el bot pause sus respuestas automáticas
             try:

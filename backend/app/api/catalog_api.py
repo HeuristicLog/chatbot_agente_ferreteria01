@@ -1006,17 +1006,21 @@ CATALOG_HTML_TEMPLATE = """<!DOCTYPE html>
 
 @router.get("/vincular-qr", response_class=HTMLResponse)
 async def vincular_qr_page():
-    html_path = "/app/escanear_qr.html"
-    local_path = "C:/Users/User/Desktop/KEVIN/ChatbotFlowise/escanear_qr.html"
+    possible_paths = [
+        "/app/app/escanear_qr.html",
+        "/app/escanear_qr.html",
+        "backend/app/escanear_qr.html",
+        "escanear_qr.html",
+        "C:/Users/User/Desktop/KEVIN/ChatbotFlowise/escanear_qr.html"
+    ]
     import os
     content = ""
-    if os.path.exists(html_path):
-        with open(html_path, "r", encoding="utf-8") as f:
-            content = f.read()
-    elif os.path.exists(local_path):
-        with open(local_path, "r", encoding="utf-8") as f:
-            content = f.read()
-    else:
+    for p in possible_paths:
+        if os.path.exists(p):
+            with open(p, "r", encoding="utf-8") as f:
+                content = f.read()
+                break
+    if not content:
         return "<h1>Página de vinculación no encontrada</h1>"
     
     # Pre-render initial QR code server-side so it appears instantaneously
@@ -1079,15 +1083,7 @@ async def reset_whatsapp_session():
                 "instanceName": "sucursal_centro",
                 "token": "sucursal_centro_token",
                 "qrcode": True,
-                "integration": "WHATSAPP-BAILEYS",
-                "chatwootAccountId": "1",
-                "chatwootToken": "naCTc3dv6qfvbhfwVar9CmDA",
-                "chatwootUrl": "http://chatwoot-web:3000",
-                "chatwootSignMsg": False,
-                "chatwootReopenConversation": True,
-                "chatwootConversationPending": False,
-                "chatwootImportContacts": True,
-                "chatwootNameInbox": "WhatsApp Sucursal Centro"
+                "integration": "WHATSAPP-BAILEYS"
             }
             await client.post(
                 "http://evolution-api:8080/instance/create",

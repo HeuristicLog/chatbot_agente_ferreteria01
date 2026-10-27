@@ -203,8 +203,23 @@ class HandoffService:
         return handoff, (assigned_seller is not None)
 
     async def _send_gateway_message(self, phone: str, message: str):
-        from app.config import settings
         import httpx
+        # Prioridad Evolution API para WhatsApp QR vinculado
+        try:
+            clean_p = phone.replace("+", "").replace(" ", "").strip()
+            async with httpx.AsyncClient() as client:
+                evo_resp = await client.post(
+                    "http://evolution-api:8080/message/sendText/sucursal_centro",
+                    json={"number": clean_p, "text": message},
+                    headers={"apikey": "ferreteria_evolution_key_2026"},
+                    timeout=5.0
+                )
+                if evo_resp.status_code in [200, 201]:
+                    return
+        except Exception as evo_err:
+            logger.debug(f"Evolution send fallback in handoff: {evo_err}")
+
+        from app.config import settings
         headers = {"X-Internal-API-Key": settings.INTERNAL_API_KEY}
         import os
         gateway_url = os.getenv("WHATSAPP_GATEWAY_URL") or "http://whatsapp-gateway:8090"
