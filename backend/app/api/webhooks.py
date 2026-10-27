@@ -387,6 +387,48 @@ async def receive_incoming_message(
 
                     # Mantener abierta y visible la conversación en Chatwoot
                     await chatwoot.update_conversation_status(cw_conv_id, "open")
+
+                    # Actualizar atributos personalizados y etiquetas en tiempo real en Chatwoot
+                    try:
+                        cust_attrs = {}
+                        labels = []
+                        if media_type:
+                            cust_attrs["adjuntos_recibidos"] = f"Archivo {media_type.capitalize()}"
+                            labels.append(f"adjunto-{media_type}")
+
+                        clean_lower = sanitized.lower()
+                        if any(k in clean_lower for k in ["camioneta", "pickup", "4x4", "dmax", "d-max", "hilux", "poer"]):
+                            cust_attrs["flujo_actual"] = "Camionetas 4x4"
+                            labels.append("camionetas-4x4")
+                            if "d-max" in clean_lower or "dmax" in clean_lower:
+                                cust_attrs["modelo_interes"] = "Chevrolet D-Max 3.0L"
+                            elif "hilux" in clean_lower:
+                                cust_attrs["modelo_interes"] = "Toyota Hilux 2.4L"
+                            elif "poer" in clean_lower:
+                                cust_attrs["modelo_interes"] = "Great Wall Poer 2.0L"
+                        elif any(k in clean_lower for k in ["hibrido", "híbrido", "yaris", "pico y placa"]):
+                            cust_attrs["flujo_actual"] = "Híbridos Cero Pico y Placa"
+                            cust_attrs["modelo_interes"] = "Toyota Yaris Cross Híbrido"
+                            labels.append("hibrido-0-pico-y-placa")
+                        elif any(k in clean_lower for k in ["suv", "suvs", "sportage", "tracker", "tucson", "sonet", "tiggo"]):
+                            cust_attrs["flujo_actual"] = "SUVs Familiares"
+                            labels.append("suv-familiar")
+                        elif any(k in clean_lower for k in ["credito", "crédito", "cuota", "financiamiento", "entrada"]):
+                            cust_attrs["flujo_actual"] = "Simulación Crédito"
+                            labels.append("credito-vehicular")
+                        elif any(k in clean_lower for k in ["retoma", "usado", "mi auto"]):
+                            cust_attrs["flujo_actual"] = "Plan Retoma"
+                            labels.append("plan-retoma")
+                        elif any(k in clean_lower for k in ["test drive", "testdrive", "prueba"]):
+                            cust_attrs["flujo_actual"] = "Test Drive"
+                            labels.append("test-drive")
+
+                        if cust_attrs:
+                            await chatwoot.set_conversation_custom_attributes(cw_conv_id, cust_attrs)
+                        if labels:
+                            await chatwoot.add_conversation_labels(cw_conv_id, labels)
+                    except Exception as meta_cw_err:
+                        logger.debug(f"Error actualizando custom_attributes en Chatwoot: {meta_cw_err}")
         except Exception as cw_err:
             logger.error(f"Error sincronizando mensaje entrante con Chatwoot: {cw_err}")
 
@@ -915,6 +957,7 @@ async def chatwoot_webhook(
             # ── Medir tiempo de respuesta (FRT) del asesor y métricas de salida ──
             try:
                 wait_ts = await redis_client.get(f"cust_wait_ts:{clean_phone}")
+                frt_delta = None
                 if wait_ts:
                     import time
                     frt_delta = int(time.time()) - int(wait_ts)
@@ -923,6 +966,18 @@ async def chatwoot_webhook(
                         await redis_client.ltrim("metrics:frt_samples", 0, 100)
                     await redis_client.delete(f"cust_wait_ts:{clean_phone}")
                 await redis_client.incr("metrics:outbound_messages")
+
+                # Actualizar métrica de FRT y etiqueta en Chatwoot
+                cw_conv_id = conversation.get("id")
+                if cw_conv_id and frt_delta is not None:
+                    frt_display = f"{frt_delta}s" if frt_delta < 60 else f"{frt_delta // 60}m {frt_delta % 60}s"
+                    chatwoot_service = ChatwootService()
+                    await chatwoot_service.set_conversation_custom_attributes(cw_conv_id, {
+                        "tiempo_respuesta_frt": frt_display,
+                        "flujo_actual": "Atendido por Asesor Humano"
+                    })
+                    label = "frt-rapido" if frt_delta <= 60 else "frt-normal"
+                    await chatwoot_service.add_conversation_labels(cw_conv_id, [label, "atendido-asesor"])
             except Exception as frt_err:
                 logger.debug(f"Error registrando FRT en chatwoot_webhook: {frt_err}")
 

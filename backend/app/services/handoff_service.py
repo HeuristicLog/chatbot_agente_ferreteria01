@@ -130,6 +130,17 @@ class HandoffService:
                         metadata["chatwoot_conversation_id"] = cw_conv_id
                         # Cambiar el estado a "open" en Chatwoot para que aparezca al agente
                         await chatwoot.update_conversation_status(cw_conv_id, "open")
+                        
+                        # Actualizar métricas y atributos personalizados en Chatwoot
+                        await chatwoot.set_conversation_custom_attributes(cw_conv_id, {
+                            "flujo_actual": "Asesor Solicitado",
+                            "sucursal_preferida": sucursal or "Quito Centro",
+                            "resumen_consulta": summary or reason or "Atención personalizada con asesor comercial",
+                            "tiempo_respuesta_frt": "Esperando respuesta..."
+                        })
+                        suc_label = f"sede-{(sucursal or 'centro').lower().replace('á','a')}"
+                        await chatwoot.add_conversation_labels(cw_conv_id, ["esperando-asesor", suc_label])
+
                         # Enviar nota privada con el resumen para el agente
                         note_text = (
                             f"🚗 *AutoEcuador Motors — Cliente Esperando Asesor* 🚗\n\n"

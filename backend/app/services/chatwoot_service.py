@@ -222,3 +222,43 @@ class ChatwootService:
         except Exception as e:
             logger.error(f"Error enviando mensaje saliente del bot a Chatwoot: {e}")
         return False
+
+    async def set_conversation_custom_attributes(self, conversation_id: int, attributes: Dict[str, Any]) -> bool:
+        """Actualiza los atributos personalizados de una conversación en Chatwoot (visibles en el panel lateral derecho)."""
+        if not self.is_configured:
+            return False
+        headers = self._get_headers()
+        try:
+            async with httpx.AsyncClient(verify=False) as client:
+                url = f"{self.base_url}/api/v1/accounts/{self.account_id}/conversations/{conversation_id}/custom_attributes"
+                resp = await client.post(url, json={"custom_attributes": attributes}, headers=headers, timeout=10.0)
+                return resp.status_code in [200, 201]
+        except Exception as e:
+            logger.error(f"Error actualizando custom_attributes en Chatwoot: {e}")
+            return False
+
+    async def add_conversation_labels(self, conversation_id: int, labels: list) -> bool:
+        """Asigna etiquetas visuales a la conversación en Chatwoot."""
+        if not self.is_configured or not labels:
+            return False
+        headers = self._get_headers()
+        try:
+            async with httpx.AsyncClient(verify=False) as client:
+                url = f"{self.base_url}/api/v1/accounts/{self.account_id}/conversations/{conversation_id}/labels"
+                resp = await client.post(url, json={"labels": labels}, headers=headers, timeout=10.0)
+                return resp.status_code in [200, 201]
+        except Exception as e:
+            logger.error(f"Error asignando labels en Chatwoot: {e}")
+            return False
+
+    async def post_private_summary_note(self, conversation_id: int, title: str, details: Dict[str, Any]) -> bool:
+        """Publica una nota interna privada con el resumen estructurado de métricas y flujo."""
+        if not self.is_configured:
+            return False
+        
+        lines = [f"📊 *{title}* 📊\n"]
+        for k, v in details.items():
+            if v:
+                lines.append(f"• *{k}:* {v}")
+        note_content = "\n".join(lines)
+        return await self.post_message(conversation_id, note_content, is_private=True)
