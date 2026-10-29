@@ -12,7 +12,7 @@ from app.db.session import get_db_session
 from app.db.tables import FAQDocument
 from app.dependencies import get_redis, get_qdrant
 from app.services.faq_service import FAQService
-from app.services.flowise_service import FlowiseService
+from app.services.langchain_service import LangChainService
 
 logger = logging.getLogger("chatbot-api.api.admin")
 router = APIRouter()
@@ -171,15 +171,15 @@ async def test_chat(
     message: str = Body(..., embed=True),
     session_id: Optional[str] = Body(None, embed=True)
 ):
-    """Direct chat interface to query Flowise using an admin testing session ID."""
-    flowise_service = FlowiseService()
+    """Direct chat interface to query LangChain AI using an admin testing session ID."""
+    ai_service = LangChainService()
     try:
         sess = session_id or "admin_test_session"
-        reply = await flowise_service.get_prediction(message, session_id=sess)
+        reply = await ai_service.get_prediction(message, session_id=sess)
         return {"success": True, "reply": reply}
     except Exception as e:
         logger.error(f"Chat test error: {str(e)}")
-        return JSONResponse(status_code=500, content={"success": False, "message": f"Error de comunicación con Flowise: {str(e)}"})
+        return JSONResponse(status_code=500, content={"success": False, "message": f"Error de comunicación con LangChain AI: {str(e)}"})
 
 # -----------------
 # Admin Dashboard HTML Template

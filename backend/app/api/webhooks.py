@@ -1,7 +1,7 @@
 """
 WhatsApp Webhook Router — Interactive Flow Engine
 Handles both text messages and interactive button/list replies.
-Routes to guided flows or Flowise AI for free-text questions.
+Routes to guided flows or LangChain AI for free-text questions.
 """
 import logging
 import httpx
@@ -18,7 +18,7 @@ from app.domain.models import IncomingWhatsAppMessage
 from app.db.tables import Message as DBMessage
 from app.services.session_service import SessionService
 from app.services.audit_service import AuditService
-from app.services.flowise_service import FlowiseService
+from app.services.langchain_service import LangChainService
 from app.security.sanitization import sanitize_user_input
 from app.config import settings
 from app.services.chatwoot_service import ChatwootService
@@ -182,7 +182,7 @@ async def receive_incoming_message(
     redis_client: redis.Redis = Depends(get_redis)
 ):
     session_service = SessionService(db, redis_client)
-    flowise_service = FlowiseService()
+    ai_service = LangChainService()
 
     # Detectar formato: Evolution API v2 vs Gateway / Test Mock
     if "data" in raw_payload and isinstance(raw_payload["data"], dict) and "key" in raw_payload["data"]:
@@ -704,7 +704,7 @@ async def receive_incoming_message(
                 "cumbaya": "Cumbayá"
             }
             suc_name = suc_map.get(suc_key, suc_key.capitalize())
-            await _do_handoff(payload.phone, conv, db, redis_client, flowise_service, session_id, sucursal=suc_name, phone_number_id=dest_phone_number_id)
+            await _do_handoff(payload.phone, conv, db, redis_client, ai_service, session_id, sucursal=suc_name, phone_number_id=dest_phone_number_id)
             return {"status": "processed"}
 
     # ── 3. Text Flow State Machine ─────────────────────────────
@@ -851,8 +851,8 @@ async def receive_incoming_message(
         await save_message(db, conv.id, "outbound", "assistant", "Respuesta comercial automotriz enviada")
         return {"status": "processed", "session_id": session_id}
 
-    # ── 5. Free-text → Flowise AI ─────────────────────────────
-    ai_response = await flowise_service.get_prediction(sanitized, session_id, phone=payload.phone)
+    # ── 5. Free-text → LangChain Automotive AI ─────────────────────────────
+    ai_response = await ai_service.get_prediction(sanitized, session_id, phone=payload.phone)
     await save_message(db, conv.id, "outbound", "assistant", ai_response)
 
     # Enviar respuesta IA con botones de navegación
@@ -860,7 +860,7 @@ async def receive_incoming_message(
     return {"status": "processed", "session_id": session_id}
 
 
-async def _do_handoff(phone: str, conv, db, redis_client, flowise_service: FlowiseService, session_id: str, sucursal: Optional[str] = None, phone_number_id: Optional[str] = None):
+async def _do_handoff(phone: str, conv, db, redis_client, ai_service: Optional[LangChainService] = None, session_id: str = "", sucursal: Optional[str] = None, phone_number_id: Optional[str] = None):
     """Ejecuta la transferencia a asesor humano."""
     try:
         reason = f"Solicitud del usuario (Sucursal: {sucursal})" if sucursal else "Solicitud del usuario"

@@ -8,7 +8,7 @@ from app.db.session import get_db_session
 from app.dependencies import get_redis, verify_internal_auth
 from app.services.session_service import SessionService
 from app.services.audit_service import AuditService
-from app.services.flowise_service import FlowiseService
+from app.services.langchain_service import LangChainService
 from app.security.sanitization import sanitize_user_input
 from pydantic import BaseModel, Field
 
@@ -28,7 +28,7 @@ async def test_conversation_endpoint(
     """Local simulation webhook to test the chatbot's conversational replies from a terminal/script."""
     session_service = SessionService(db, redis_client)
     audit_service = AuditService(db)
-    flowise_service = FlowiseService()
+    ai_service = LangChainService()
     
     session_id = session_service.derive_session_id(req.phone)
     logger.info(f"[TEST RUN] Simulating inbound message for session {session_id}")
@@ -57,9 +57,9 @@ async def test_conversation_endpoint(
         message_type="text"
     )
     
-    # Call Flowise
+    # Call LangChain AI
     start_time = time.time()
-    ai_response = await flowise_service.get_prediction(sanitized_input, session_id)
+    ai_response = await ai_service.get_prediction(sanitized_input, session_id, phone=req.phone)
     duration = int((time.time() - start_time) * 1000)
     
     # Log Outbound
