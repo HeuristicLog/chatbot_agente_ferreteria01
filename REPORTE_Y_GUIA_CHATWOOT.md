@@ -1,6 +1,9 @@
 # REPORTE DE PRUEBAS Y GUÍA OPERATIVA DE CHATWOOT CLOUD
 ## Sistema de Atención WhatsApp con IA (LangChain) y Vitrina Webview
 ### Concesionario AutoEcuador Motors 2026
+> **Rama Oficial:** `KevinAG23/langchain-chatwoot-interactive-suite`  
+> **Resultados de Verificación:** 10/10 Flujos LangChain | 7/7 Webview WhatsApp | 10/10 Chatwoot API  
+> **Tasa de Aprobación:** 100%
 
 ---
 

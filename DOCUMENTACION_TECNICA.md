@@ -1,6 +1,9 @@
 # DOCUMENTACIÓN TÉCNICA DEL SISTEMA
 ## Chatbot IA Automotriz con LangChain, WhatsApp (Evolution API) y Chatwoot Cloud
 ### Concesionario AutoEcuador Motors 2026
+> **Rama Oficial:** `KevinAG23/langchain-chatwoot-interactive-suite`  
+> **Fecha de Publicación:** 29 de Octubre de 2026  
+> **Estado:** 100% Verificado y Aprobado en Suite Automatizada
 
 ---
 

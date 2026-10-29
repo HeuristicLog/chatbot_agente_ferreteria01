@@ -1,6 +1,9 @@
 # MANUAL DE USUARIO Y OPERACIÓN
 ## Sistema de Atención WhatsApp con IA (LangChain) y Chatwoot Cloud
 ### Concesionario AutoEcuador Motors 2026
+> **Rama Oficial:** `KevinAG23/langchain-chatwoot-interactive-suite`  
+> **Licencia:** 1 Asiento Humano ($19 USD/mes) | Hasta 25 Números WhatsApp a Costo $0  
+> **Estado:** 100% Verificado y Aprobado en Producción
 
 ---
 
