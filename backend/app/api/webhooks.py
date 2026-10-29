@@ -78,6 +78,25 @@ async def save_message(db: AsyncSession, conv_id, direction: str, role: str, con
 # ─── Send helpers (fire-and-forget) ──────────────────────────
 
 async def _gateway_send_text(phone: str, message: str, phone_number_id: Optional[str] = None, access_token: Optional[str] = None, sync_to_chatwoot: bool = True):
+    clean_p = phone.replace("+", "").replace(" ", "").strip()
+    
+    # Marcar firma en Redis para que el eco de Evolution no se duplique en Chatwoot
+    import hashlib
+    sig = hashlib.md5(f"{clean_p}:{message[:120]}".encode()).hexdigest()
+    target_instance = "sucursal_centro"
+    try:
+        import redis.asyncio as aioredis
+        import os
+        r_url = os.getenv("REDIS_URL", "redis://redis:6379/0")
+        rc = aioredis.from_url(r_url)
+        await rc.set(f"cw_out_sent:{sig}", "1", ex=120)
+        inst_bytes = await rc.get(f"user_instance:{clean_p}")
+        if inst_bytes:
+            target_instance = inst_bytes.decode('utf-8') if isinstance(inst_bytes, bytes) else str(inst_bytes)
+        await rc.aclose()
+    except Exception:
+        pass
+
     # Sincronizar salida del bot con Chatwoot
     if sync_to_chatwoot:
         try:
@@ -87,12 +106,11 @@ async def _gateway_send_text(phone: str, message: str, phone_number_id: Optional
         except Exception as cw_err:
             logger.error(f"Error sincronizando salida de texto del bot con Chatwoot: {cw_err}")
 
-    # Intentar enviar via Evolution API si está activa
+    # Intentar enviar via Evolution API usando la instancia correspondiente (multilínea 25 números)
     try:
-        clean_p = phone.replace("+", "").replace(" ", "").strip()
         async with httpx.AsyncClient() as client:
             evo_resp = await client.post(
-                "http://evolution-api:8080/message/sendText/sucursal_centro",
+                f"http://evolution-api:8080/message/sendText/{target_instance}",
                 json={"number": clean_p, "text": message},
                 headers={"apikey": "ferreteria_evolution_key_2026"},
                 timeout=5.0
@@ -115,9 +133,22 @@ async def _gateway_send_text(phone: str, message: str, phone_number_id: Optional
         logger.error(f"Gateway send_text error: {e}")
 
 async def _gateway_send_media(phone: str, media_type: str, media_url: str, caption: str = "", phone_number_id: Optional[str] = None, access_token: Optional[str] = None):
-    # Intentar enviar via Evolution API (para WhatsApp QR vinculado)
+    # Intentar enviar via Evolution API (para WhatsApp QR vinculado multilínea)
     try:
         clean_p = phone.replace("+", "").replace(" ", "").strip()
+        target_instance = "sucursal_centro"
+        try:
+            import redis.asyncio as aioredis
+            import os
+            r_url = os.getenv("REDIS_URL", "redis://redis:6379/0")
+            rc = aioredis.from_url(r_url)
+            inst_bytes = await rc.get(f"user_instance:{clean_p}")
+            if inst_bytes:
+                target_instance = inst_bytes.decode('utf-8') if isinstance(inst_bytes, bytes) else str(inst_bytes)
+            await rc.aclose()
+        except Exception:
+            pass
+
         evo_mediatype = media_type.lower()
         if "audio" in evo_mediatype or "voice" in evo_mediatype:
             evo_mediatype = "audio"
@@ -131,7 +162,7 @@ async def _gateway_send_media(phone: str, media_type: str, media_url: str, capti
         async with httpx.AsyncClient() as client:
             if evo_mediatype == "audio":
                 audio_resp = await client.post(
-                    "http://evolution-api:8080/message/sendWhatsAppAudio/sucursal_centro",
+                    f"http://evolution-api:8080/message/sendWhatsAppAudio/{target_instance}",
                     json={"number": clean_p, "audio": media_url},
                     headers={"apikey": "ferreteria_evolution_key_2026"},
                     timeout=20.0
@@ -188,20 +219,54 @@ async def receive_incoming_message(
     if "data" in raw_payload and isinstance(raw_payload["data"], dict) and "key" in raw_payload["data"]:
         data = raw_payload["data"]
         key = data.get("key", {})
-        
-        # Ignorar mensajes salientes enviados desde el teléfono propio
-        if key.get("fromMe", False):
-            return {"status": "ignored_outbound"}
             
         remote_jid = key.get("remoteJid", "")
         # Ignorar grupos de WhatsApp
         if "@g.us" in remote_jid:
             return {"status": "ignored_group"}
             
-        phone = remote_jid.split("@")[0].replace("+", "").replace(" ", "").strip()
-        if not phone:
+        # Resolver teléfono real (WhatsApp @lid vs número estándar)
+        remote_jid_alt = key.get("remoteJidAlt", "") or data.get("remoteJidAlt", "")
+        participant = key.get("participant", "") or data.get("participant", "")
+        target_jid = remote_jid
+
+        if "@lid" in target_jid:
+            if remote_jid_alt and "@s.whatsapp.net" in remote_jid_alt:
+                target_jid = remote_jid_alt
+            elif participant and "@s.whatsapp.net" in participant:
+                target_jid = participant
+            else:
+                lid_clean = target_jid.split("@")[0].split(":")[0]
+                cached_p = await redis_client.get(f"lid_map:{lid_clean}")
+                if cached_p:
+                    target_jid = f"{cached_p.decode('utf-8') if isinstance(cached_p, bytes) else str(cached_p)}@s.whatsapp.net"
+                else:
+                    try:
+                        import asyncpg
+                        conn = await asyncpg.connect("postgresql://chatbot:change_me@postgres:5432/evolution")
+                        row = await conn.fetchrow('SELECT "remoteJid" FROM "IsOnWhatsapp" WHERE "jidOptions" LIKE $1 LIMIT 1', f"%{lid_clean}%")
+                        if not row:
+                            row = await conn.fetchrow('SELECT "remoteJid" FROM "Contact" WHERE "remoteJid" LIKE $1 LIMIT 1', f"%{lid_clean}%")
+                        await conn.close()
+                        if row and row['remoteJid'] and "@s.whatsapp.net" in row['remoteJid']:
+                            target_jid = row['remoteJid']
+                            await redis_client.set(f"lid_map:{lid_clean}", target_jid.split("@")[0], ex=86400 * 7)
+                    except Exception as db_e:
+                        logger.debug(f"Error resolviendo lid en DB: {db_e}")
+
+        phone = target_jid.split("@")[0].replace("+", "").replace(" ", "").strip()
+        if not phone or phone in ["status", "0"]:
             return {"status": "ignored_no_phone"}
-            
+
+        # Guardar en caché mapeo lid -> teléfono real
+        if "@lid" in remote_jid and phone:
+            lid_c = remote_jid.split("@")[0].split(":")[0]
+            await redis_client.set(f"lid_map:{lid_c}", phone, ex=86400 * 7)
+
+        # Guardar instancia de procedencia para routing multilínea (25 números)
+        curr_instance = raw_payload.get("instance") or "sucursal_centro"
+        await redis_client.set(f"user_instance:{phone}", curr_instance, ex=86400 * 30)
+
         msg_obj = data.get("message", {}) or {}
         extracted_text = ""
         interactive_id = ""
@@ -248,13 +313,13 @@ async def receive_incoming_message(
             interactive_id = msg_obj["templateButtonReplyMessage"].get("selectedId", "")
             extracted_text = msg_obj["templateButtonReplyMessage"].get("selectedDisplayText", interactive_id)
             
-        if not extracted_text and not interactive_id:
+        if not extracted_text and not interactive_id and not media_type:
             return {"status": "ignored_unsupported_type"}
             
         metadata = {
             "provider": "evolution",
             "push_name": data.get("pushName", ""),
-            "instance": raw_payload.get("instance", "sucursal_centro")
+            "instance": curr_instance
         }
         if media_type:
             metadata["media_type"] = media_type
@@ -273,6 +338,84 @@ async def receive_incoming_message(
                 metadata["base64"] = media_b64
         if interactive_id:
             metadata["interactive_id"] = interactive_id
+
+        # Sincronización viceversa: Mensajes salientes desde WhatsApp Móvil o WhatsApp Web
+        if key.get("fromMe", False):
+            import hashlib
+            msg_sig = hashlib.md5(f"{phone}:{extracted_text[:120]}".encode()).hexdigest()
+            msg_id_val = key.get("id")
+            
+            # Si fue originado por Chatwoot o el bot, ignorar eco
+            if await redis_client.get(f"cw_out_sent:{msg_sig}") or (msg_id_val and await redis_client.get(f"cw_out_sent:{msg_id_val}")):
+                logger.info(f"Mensaje saliente confirmado de WhatsApp (eco de Chatwoot): {msg_id_val}")
+                return {"status": "ignored_echo_chatwoot"}
+
+            logger.info(f"Mensaje saliente manual detectado desde WhatsApp ({phone}): {extracted_text[:50]}")
+            chatwoot = ChatwootService()
+            if chatwoot.is_configured:
+                try:
+                    inbox_id = None
+                    mapping = settings.whatsapp_inbox_mapping or {}
+                    cw_contact_id = await chatwoot.get_or_create_contact(phone, f"Cliente +{phone}", inbox_id=inbox_id)
+                    if cw_contact_id:
+                        cw_conv_id = await chatwoot.get_or_create_conversation(cw_contact_id, inbox_id=inbox_id)
+                        if cw_conv_id:
+                            has_up = False
+                            if media_type:
+                                try:
+                                    b64_raw = metadata.get("base64")
+                                    if not b64_raw and key:
+                                        async with httpx.AsyncClient() as client:
+                                            b64_resp = await client.post(
+                                                f"http://evolution-api:8080/chat/getBase64FromMediaMessage/{curr_instance}",
+                                                json={"message": {"key": key}, "convertToMp4": False},
+                                                headers={"apikey": "ferreteria_evolution_key_2026"},
+                                                timeout=15.0
+                                            )
+                                            if b64_resp.status_code == 200:
+                                                b64_raw = b64_resp.json().get("base64", "")
+                                    if b64_raw:
+                                        if "," in b64_raw:
+                                            b64_raw = b64_raw.split(",", 1)[1]
+                                        import base64
+                                        f_bytes = base64.b64decode(b64_raw)
+                                        f_name = metadata.get("media_filename") or f"adjunto_{msg_id_val}"
+                                        f_mime = metadata.get("media_mimetype") or "application/octet-stream"
+                                        has_up = await chatwoot.post_message_with_attachment(
+                                            conversation_id=cw_conv_id,
+                                            content=extracted_text if extracted_text not in ["📷 [Foto / Imagen recibida]", "🎥 [Video recibido]", "🎙️ [Mensaje de voz / Audio recibido]"] else "",
+                                            file_bytes=f_bytes,
+                                            filename=f_name,
+                                            mimetype=f_mime,
+                                            message_type="outgoing"
+                                        )
+                                except Exception as m_err:
+                                    logger.error(f"Error procesando adjunto manual para Chatwoot: {m_err}")
+
+                            if not has_up and extracted_text:
+                                await chatwoot.post_message(cw_conv_id, extracted_text, message_type="outgoing")
+
+                            # Registrar como conversación atendida por humano
+                            try:
+                                conv = await session_service.get_or_create_conversation(phone, provider="evolution")
+                                conv.status = "human_active"
+                                db.add(conv)
+                                from app.db.tables import Message as DBMessage
+                                db_msg = DBMessage(
+                                    conversation_id=conv.id,
+                                    direction="outbound",
+                                    role="seller",
+                                    content=extracted_text,
+                                    message_type="text"
+                                )
+                                db.add(db_msg)
+                                await db.commit()
+                            except Exception as db_save_err:
+                                logger.debug(f"Error guardando mensaje manual localmente: {db_save_err}")
+                except Exception as cw_sync_err:
+                    logger.error(f"Error sincronizando salida manual a Chatwoot: {cw_sync_err}")
+
+            return {"status": "outbound_manual_synced_to_chatwoot"}
             
         payload = IncomingWhatsAppMessage(
             phone=phone,
@@ -917,6 +1060,7 @@ async def chatwoot_webhook(
             if not is_new:
                 logger.info(f"Ignorando duplicado de webhook Chatwoot para mensaje {msg_id}")
                 return {"status": "duplicate"}
+            await redis_client.set(f"cw_out_sent:{msg_id}", "1", ex=120)
 
         # Evitar bucles: Solo reenviar si el mensaje fue escrito por un agente humano
         sender = payload.get("sender")
@@ -953,6 +1097,10 @@ async def chatwoot_webhook(
 
         if phone:
             clean_phone = phone.replace("+", "").strip()
+            if content:
+                import hashlib
+                sig = hashlib.md5(f"{clean_phone}:{content[:120]}".encode()).hexdigest()
+                await redis_client.set(f"cw_out_sent:{sig}", "1", ex=120)
 
             # ── Medir tiempo de respuesta (FRT) del asesor y métricas de salida ──
             try:
