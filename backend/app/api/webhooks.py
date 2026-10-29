@@ -79,17 +79,19 @@ async def save_message(db: AsyncSession, conv_id, direction: str, role: str, con
 
 async def _gateway_send_text(phone: str, message: str, phone_number_id: Optional[str] = None, access_token: Optional[str] = None, sync_to_chatwoot: bool = True):
     clean_p = phone.replace("+", "").replace(" ", "").strip()
+    norm_msg = (message or "").strip()
     
-    # Marcar firma en Redis para que el eco de Evolution no se duplique en Chatwoot
+    # Marcar firmas en Redis para evitar bucles o ecos cruzados entre WhatsApp y Chatwoot
     import hashlib
-    sig = hashlib.md5(f"{clean_p}:{message[:120]}".encode()).hexdigest()
+    sig = hashlib.md5(f"{clean_p}:{norm_msg}".encode()).hexdigest()
     target_instance = "sucursal_centro"
     try:
         import redis.asyncio as aioredis
         import os
         r_url = os.getenv("REDIS_URL", "redis://redis:6379/0")
         rc = aioredis.from_url(r_url)
-        await rc.set(f"cw_out_sent:{sig}", "1", ex=120)
+        await rc.set(f"cw_to_evo:{sig}", "1", ex=60)
+        await rc.set(f"wa_to_cw:{sig}", "1", ex=60)
         inst_bytes = await rc.get(f"user_instance:{clean_p}")
         if inst_bytes:
             target_instance = inst_bytes.decode('utf-8') if isinstance(inst_bytes, bytes) else str(inst_bytes)
@@ -339,18 +341,31 @@ async def receive_incoming_message(
         if interactive_id:
             metadata["interactive_id"] = interactive_id
 
+        # Deduplicación general de webhook por ID de mensaje de WhatsApp
+        msg_id_val = key.get("id")
+        if msg_id_val:
+            is_new_webhook = await redis_client.set(f"evo_msg_seen:{msg_id_val}", "1", ex=300, nx=True)
+            if not is_new_webhook:
+                logger.info(f"Webhook duplicado ignorado de Evolution: {msg_id_val}")
+                return {"status": "duplicate_webhook"}
+
         # Sincronización viceversa: Mensajes salientes desde WhatsApp Móvil o WhatsApp Web
         if key.get("fromMe", False):
             import hashlib
-            msg_sig = hashlib.md5(f"{phone}:{extracted_text[:120]}".encode()).hexdigest()
-            msg_id_val = key.get("id")
+            norm_text = (extracted_text or "").strip()
+            msg_sig = hashlib.md5(f"{phone}:{norm_text}".encode()).hexdigest()
             
             # Si fue originado por Chatwoot o el bot, ignorar eco
-            if await redis_client.get(f"cw_out_sent:{msg_sig}") or (msg_id_val and await redis_client.get(f"cw_out_sent:{msg_id_val}")):
+            if await redis_client.get(f"cw_to_evo:{msg_sig}") or (msg_id_val and await redis_client.get(f"cw_to_evo:{msg_id_val}")):
                 logger.info(f"Mensaje saliente confirmado de WhatsApp (eco de Chatwoot): {msg_id_val}")
                 return {"status": "ignored_echo_chatwoot"}
 
             logger.info(f"Mensaje saliente manual detectado desde WhatsApp ({phone}): {extracted_text[:50]}")
+            # Registrar para que cuando Chatwoot emita su webhook no lo devuelva a WhatsApp
+            await redis_client.set(f"wa_to_cw:{msg_sig}", "1", ex=60)
+            if msg_id_val:
+                await redis_client.set(f"wa_to_cw:{msg_id_val}", "1", ex=60)
+
             chatwoot = ChatwootService()
             if chatwoot.is_configured:
                 try:
@@ -1097,10 +1112,19 @@ async def chatwoot_webhook(
 
         if phone:
             clean_phone = phone.replace("+", "").strip()
-            if content:
-                import hashlib
-                sig = hashlib.md5(f"{clean_phone}:{content[:120]}".encode()).hexdigest()
-                await redis_client.set(f"cw_out_sent:{sig}", "1", ex=120)
+            norm_content = (content or "").strip()
+            import hashlib
+            cw_sig = hashlib.md5(f"{clean_phone}:{norm_content}".encode()).hexdigest()
+
+            # Evitar rebotes: Si este mensaje fue escrito en WhatsApp (móvil/web), NO volver a enviarlo a WhatsApp
+            if await redis_client.get(f"wa_to_cw:{cw_sig}") or (msg_id and await redis_client.get(f"wa_to_cw:{msg_id}")):
+                logger.info(f"Ignorando reenvío a WhatsApp: mensaje originado en WhatsApp ({msg_id})")
+                return {"status": "ignored_origin_whatsapp"}
+
+            # Registrar que este mensaje va de Chatwoot a WhatsApp para que Evolution no lo duplique
+            await redis_client.set(f"cw_to_evo:{cw_sig}", "1", ex=60)
+            if msg_id:
+                await redis_client.set(f"cw_to_evo:{msg_id}", "1", ex=60)
 
             # ── Medir tiempo de respuesta (FRT) del asesor y métricas de salida ──
             try:
