@@ -108,7 +108,19 @@ async def _gateway_send_text(phone: str, message: str, phone_number_id: Optional
         except Exception as cw_err:
             logger.error(f"Error sincronizando salida de texto del bot con Chatwoot: {cw_err}")
 
-    # Intentar enviar via Evolution API usando la instancia correspondiente (multilínea 25 números)
+    # 1. Si viene con credenciales explícitas de Meta Cloud (phone_number_id y access_token)
+    if phone_number_id and access_token:
+        headers = {"X-Internal-API-Key": internal_api_key}
+        payload = {"phone": phone, "message": message, "phone_number_id": phone_number_id, "access_token": access_token}
+        try:
+            async with httpx.AsyncClient() as client:
+                gw_resp = await client.post(f"{GATEWAY_URL}/send", json=payload, headers=headers, timeout=10.0)
+                if gw_resp.status_code in [200, 201]:
+                    return
+        except Exception as gw_e:
+            logger.debug(f"Gateway Meta Cloud send fallback: {gw_e}")
+
+    # 2. Intentar enviar via Evolution API usando la instancia correspondiente (multilínea 25 números QR)
     try:
         async with httpx.AsyncClient() as client:
             evo_resp = await client.post(
@@ -122,6 +134,7 @@ async def _gateway_send_text(phone: str, message: str, phone_number_id: Optional
     except Exception as evo_e:
         logger.debug(f"Evolution send fallback: {evo_e}")
 
+    # 3. Fallback general al Gateway
     headers = {"X-Internal-API-Key": internal_api_key}
     payload = {"phone": phone, "message": message}
     if phone_number_id:
@@ -135,7 +148,19 @@ async def _gateway_send_text(phone: str, message: str, phone_number_id: Optional
         logger.error(f"Gateway send_text error: {e}")
 
 async def _gateway_send_media(phone: str, media_type: str, media_url: str, caption: str = "", phone_number_id: Optional[str] = None, access_token: Optional[str] = None):
-    # Intentar enviar via Evolution API (para WhatsApp QR vinculado multilínea)
+    # 1. Si viene con credenciales explícitas de Meta Cloud (phone_number_id y access_token)
+    if phone_number_id and access_token:
+        headers = {"X-Internal-API-Key": internal_api_key}
+        payload = {"phone": phone, "media_type": media_type, "media_url": media_url, "caption": caption, "phone_number_id": phone_number_id, "access_token": access_token}
+        try:
+            async with httpx.AsyncClient() as client:
+                gw_resp = await client.post(f"{GATEWAY_URL}/send-media", json=payload, headers=headers, timeout=15.0)
+                if gw_resp.status_code in [200, 201]:
+                    return
+        except Exception as gw_e:
+            logger.debug(f"Gateway Meta Cloud send media fallback: {gw_e}")
+
+    # 2. Intentar enviar via Evolution API (para WhatsApp QR vinculado multilínea)
     try:
         clean_p = phone.replace("+", "").replace(" ", "").strip()
         target_instance = "sucursal_centro"
