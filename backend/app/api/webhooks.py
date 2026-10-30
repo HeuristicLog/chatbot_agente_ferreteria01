@@ -580,31 +580,34 @@ async def receive_incoming_message(
                             labels.append(f"adjunto-{media_type}")
 
                         clean_lower = sanitized.lower()
-                        if any(k in clean_lower for k in ["camioneta", "pickup", "4x4", "dmax", "d-max", "hilux", "poer"]):
-                            cust_attrs["flujo_actual"] = "Camionetas 4x4"
-                            labels.append("camionetas-4x4")
-                            if "d-max" in clean_lower or "dmax" in clean_lower:
-                                cust_attrs["modelo_interes"] = "Chevrolet D-Max 3.0L"
-                            elif "hilux" in clean_lower:
-                                cust_attrs["modelo_interes"] = "Toyota Hilux 2.4L"
-                            elif "poer" in clean_lower:
-                                cust_attrs["modelo_interes"] = "Great Wall Poer 2.0L"
-                        elif any(k in clean_lower for k in ["hibrido", "híbrido", "yaris", "pico y placa"]):
-                            cust_attrs["flujo_actual"] = "Híbridos Cero Pico y Placa"
-                            cust_attrs["modelo_interes"] = "Toyota Yaris Cross Híbrido"
-                            labels.append("hibrido-0-pico-y-placa")
-                        elif any(k in clean_lower for k in ["suv", "suvs", "sportage", "tracker", "tucson", "sonet", "tiggo"]):
-                            cust_attrs["flujo_actual"] = "SUVs Familiares"
-                            labels.append("suv-familiar")
-                        elif any(k in clean_lower for k in ["credito", "crédito", "cuota", "financiamiento", "entrada"]):
-                            cust_attrs["flujo_actual"] = "Simulación Crédito"
-                            labels.append("credito-vehicular")
-                        elif any(k in clean_lower for k in ["retoma", "usado", "mi auto"]):
-                            cust_attrs["flujo_actual"] = "Plan Retoma"
-                            labels.append("plan-retoma")
-                        elif any(k in clean_lower for k in ["test drive", "testdrive", "prueba"]):
-                            cust_attrs["flujo_actual"] = "Test Drive"
-                            labels.append("test-drive")
+                        if any(k in clean_lower for k in ["herramienta", "herramientas", "taladro", "amoladora", "makita", "dewalt", "stanley", "truper", "sierra"]):
+                            cust_attrs["flujo_actual"] = "Herramientas"
+                            labels.append("herramientas")
+                            if "makita" in clean_lower:
+                                cust_attrs["producto_interes"] = "Makita"
+                            elif "dewalt" in clean_lower:
+                                cust_attrs["producto_interes"] = "DeWalt"
+                            elif "stanley" in clean_lower:
+                                cust_attrs["producto_interes"] = "Stanley"
+                        elif any(k in clean_lower for k in ["cemento", "varilla", "varillas", "adelca", "holcim", "selvalegre", "arena", "construccion", "construcción"]):
+                            cust_attrs["flujo_actual"] = "Materiales de Construcción"
+                            cust_attrs["producto_interes"] = "Construcción y Varillas"
+                            labels.append("construccion")
+                        elif any(k in clean_lower for k in ["pintura", "pinturas", "esmalte", "latex", "látex", "vinilac"]):
+                            cust_attrs["flujo_actual"] = "Pinturas y Acabados"
+                            labels.append("pinturas")
+                        elif any(k in clean_lower for k in ["tubo", "tubos", "pvc", "plastigama", "griferia", "grifería", "plomeria", "plomería", "briggs"]):
+                            cust_attrs["flujo_actual"] = "Plomería"
+                            labels.append("plomeria")
+                        elif any(k in clean_lower for k in ["cable", "cables", "breaker", "tomacorriente", "indeco", "schneider", "electricidad"]):
+                            cust_attrs["flujo_actual"] = "Electricidad"
+                            labels.append("electricidad")
+                        elif any(k in clean_lower for k in ["pedido", "cast-", "op-", "rastreo", "orden"]):
+                            cust_attrs["flujo_actual"] = "Consulta de Pedido"
+                            labels.append("consulta-pedido")
+                        elif any(k in clean_lower for k in ["catalogo", "catálogo", "carrito", "comprar", "cotizar"]):
+                            cust_attrs["flujo_actual"] = "Catálogo y Carrito"
+                            labels.append("catalogo-web")
 
                         if cust_attrs:
                             await chatwoot.set_conversation_custom_attributes(cw_conv_id, cust_attrs)
@@ -657,72 +660,27 @@ async def receive_incoming_message(
             await save_message(db, conv.id, "outbound", "assistant", "Menú principal automotriz enviado")
             return {"status": "processed"}
 
-        # ── Flujo Automotriz: Menú de Vehículos / Categorías
-        if interactive_id == "auto_menu_vehiculos":
+        # ── Menú de Categorías de Ferretería
+        if interactive_id in ["flow_categorias", "auto_menu_vehiculos"]:
             await clear_flow_state(redis_client, payload.phone)
-            await flows.send_vehicle_types_flow(payload.phone, internal_api_key, phone_number_id=dest_phone_number_id)
-            await save_message(db, conv.id, "outbound", "assistant", "Categorías de vehículos enviadas")
+            from app.services import in_chat_cart_service as in_chat_cart
+            await in_chat_cart.send_categories_menu(payload.phone, internal_api_key, phone_number_id=dest_phone_number_id)
+            await save_message(db, conv.id, "outbound", "assistant", "Categorías de ferretería enviadas")
             return {"status": "processed"}
 
-        # ── Flujo Automotriz: Horarios y Sedes
-        if interactive_id == "auto_horarios":
+        # ── Horarios y Sucursales
+        if interactive_id in ["flow_horarios", "auto_horarios"]:
             await clear_flow_state(redis_client, payload.phone)
-            await flows.send_horarios_info(payload.phone, internal_api_key, phone_number_id=dest_phone_number_id)
-            await save_message(db, conv.id, "outbound", "assistant", "Horarios y sedes enviados")
+            await flows.send_faq_answer(payload.phone, "faq_horarios", internal_api_key, phone_number_id=dest_phone_number_id)
+            await save_message(db, conv.id, "outbound", "assistant", "Horarios y sucursales enviados")
             return {"status": "processed"}
 
-        # ── Flujo Automotriz: Categoría Camionetas 4x4
-        if interactive_id == "auto_cat_pickups":
+        # ── Envíos y Métodos de Pago
+        if interactive_id in ["flow_envios", "auto_flow_credito"]:
             await clear_flow_state(redis_client, payload.phone)
-            await flows.send_pickups_flow(payload.phone, internal_api_key, phone_number_id=dest_phone_number_id)
-            await save_message(db, conv.id, "outbound", "assistant", "Flujo de camionetas 4x4 enviado")
+            await flows.send_faq_answer(payload.phone, "faq_envios", internal_api_key, phone_number_id=dest_phone_number_id)
+            await save_message(db, conv.id, "outbound", "assistant", "Información de envíos y pagos enviada")
             return {"status": "processed"}
-
-        # ── Flujo Automotriz: Categoría SUVs
-        if interactive_id == "auto_cat_suvs":
-            await clear_flow_state(redis_client, payload.phone)
-            await flows.send_suvs_flow(payload.phone, internal_api_key, phone_number_id=dest_phone_number_id)
-            await save_message(db, conv.id, "outbound", "assistant", "Flujo de SUVs enviado")
-            return {"status": "processed"}
-
-        # ── Flujo Automotriz: Categoría Híbridos / Eléctricos
-        if interactive_id == "auto_cat_hibridos":
-            await clear_flow_state(redis_client, payload.phone)
-            await flows.send_hibridos_flow(payload.phone, internal_api_key, phone_number_id=dest_phone_number_id)
-            await save_message(db, conv.id, "outbound", "assistant", "Flujo de híbridos enviado")
-            return {"status": "processed"}
-
-        # ── Flujo Automotriz: Simulación de Crédito por rangos
-        if interactive_id == "auto_flow_credito":
-            await clear_flow_state(redis_client, payload.phone)
-            await flows.send_credito_flow(payload.phone, internal_api_key, phone_number_id=dest_phone_number_id)
-            await save_message(db, conv.id, "outbound", "assistant", "Flujo de crédito vehicular enviado")
-            return {"status": "processed"}
-
-        if interactive_id in ["auto_down_3to5", "auto_down_5to8", "auto_down_more8"]:
-            await clear_flow_state(redis_client, payload.phone)
-            await flows.send_credito_range_result(payload.phone, interactive_id, internal_api_key, phone_number_id=dest_phone_number_id)
-            await save_message(db, conv.id, "outbound", "assistant", f"Resultado de financiamiento para {interactive_id} enviado")
-            return {"status": "processed"}
-
-        # ── Flujo Automotriz: Plan Retoma (Auto Usado)
-        if interactive_id == "auto_flow_retoma" or interactive_id == "auto_tasar_usado":
-            await clear_flow_state(redis_client, payload.phone)
-            await flows.send_retoma_flow(payload.phone, internal_api_key, phone_number_id=dest_phone_number_id)
-            await save_message(db, conv.id, "outbound", "assistant", "Flujo de plan retoma enviado")
-            return {"status": "processed"}
-
-        # ── Flujo Automotriz: Agendar Test Drive
-        if interactive_id in ["auto_flow_testdrive", "auto_td_pickups", "auto_td_suvs", "auto_td_hibridos"]:
-            await clear_flow_state(redis_client, payload.phone)
-            await flows.send_testdrive_flow(payload.phone, internal_api_key, phone_number_id=dest_phone_number_id)
-            await save_message(db, conv.id, "outbound", "assistant", "Flujo de test drive enviado")
-            return {"status": "processed"}
-
-        if interactive_id in ["auto_td_domicilio", "auto_td_showroom"]:
-            await clear_flow_state(redis_client, payload.phone)
-            await flows.confirm_testdrive_preference(payload.phone, interactive_id, internal_api_key, phone_number_id=dest_phone_number_id)
-            await save_message(db, conv.id, "outbound", "assistant", f"Confirmación de test drive {interactive_id} enviada")
             return {"status": "processed"}
 
         # ── Flujo: Catálogo Oficial (Pantalla emergente Webview)
@@ -939,11 +897,11 @@ async def receive_incoming_message(
             m_msg = "¡Muchas gracias! 🎥 Hemos recibido tu video. Nuestro equipo comercial lo revisará de inmediato en Chatwoot para atenderte."
 
         buttons = [
-            {"id": "auto_menu_vehiculos", "title": "🚘 Ver Vehículos"},
-            {"id": "auto_flow_credito", "title": "💳 Simular Crédito"},
+            {"id": "flow_catalogo", "title": "🛍️ Ver Catálogo"},
+            {"id": "flow_pedido", "title": "📦 Consultar Pedido"},
             {"id": "flow_asesor", "title": "👨‍💼 Hablar con Asesor"}
         ]
-        await flows._send_buttons(payload.phone, m_msg, buttons, header="AutoEcuador Motors", internal_key=internal_api_key, phone_number_id=dest_phone_number_id)
+        await flows._send_buttons(payload.phone, m_msg, buttons, header="🛠️ Ferretería Castor", internal_key=internal_api_key, phone_number_id=dest_phone_number_id)
         await save_message(db, conv.id, "outbound", "assistant", m_msg)
         return {"status": "processed"}
 
@@ -955,61 +913,55 @@ async def receive_incoming_message(
         await save_message(db, conv.id, "outbound", "assistant", "Menú de bienvenida enviado")
         return {"status": "processed"}
 
-    # 1. Ver Vehículos / Modelos / Categorías (Opción 1 del menú)
-    if clean_msg in ["1", "1.", "ver vehiculos", "ver vehículos", "vehiculos", "vehículos", "modelos", "catalogo", "catálogo", "autos", "carros"]:
+    # 1. Catálogo interactivo In-App Webview (Opción 1 del menú o keywords)
+    if clean_msg in ["1", "1.", "catalogo", "catálogo", "productos", "inventario", "precios", "tienda", "comprar", "lista de productos"]:
         await clear_flow_state(redis_client, payload.phone)
-        await flows.send_vehicle_types_flow(payload.phone, internal_api_key, phone_number_id=dest_phone_number_id)
-        await save_message(db, conv.id, "outbound", "assistant", "Categorías de vehículos enviadas")
+        await flows.send_catalog_link(payload.phone, internal_api_key, phone_number_id=dest_phone_number_id)
+        await save_message(db, conv.id, "outbound", "assistant", "Catálogo interactivo enviado")
         return {"status": "processed"}
 
-    # 2. Horarios y Sedes / Showrooms (Opción 2 del menú)
-    horarios_keywords = ["2", "2.", "horario", "horarios", "a que hora", "a qué hora", "hora", "abren", "cierran", "atencion", "atención", "donde estan", "dónde están", "ubicacion", "ubicación", "showroom", "showrooms", "sede", "sedes", "direccion", "dirección", "donde queda", "dónde queda"]
-    if any(k in clean_msg for k in horarios_keywords) or clean_msg in ["2", "2.", "horarios"]:
+    # 2. Consultar Pedido (Opción 2 del menú o código directo CAST- / OP-)
+    order_inquiry_keywords = ["2", "2.", "pedido", "pedidos", "consultar pedido", "mi pedido", "estado de pedido", "rastreo", "orden"]
+    if any(clean_msg == k or clean_msg.startswith(k) for k in order_inquiry_keywords) or clean_msg.startswith("cast-") or clean_msg.startswith("op-") or clean_msg.startswith("#cast-") or clean_msg.startswith("#op-"):
         await clear_flow_state(redis_client, payload.phone)
-        await flows.send_horarios_info(payload.phone, internal_api_key, phone_number_id=dest_phone_number_id)
-        await save_message(db, conv.id, "outbound", "assistant", "Información de horarios y sedes enviada")
+        if clean_msg.startswith("cast-") or clean_msg.startswith("op-") or clean_msg.startswith("#cast-") or clean_msg.startswith("#op-"):
+            await flows.handle_order_result(payload.phone, sanitized, internal_api_key, redis_client, phone_number_id=dest_phone_number_id)
+            await save_message(db, conv.id, "outbound", "assistant", f"Consulta de pedido {sanitized}")
+        else:
+            await set_flow_state(redis_client, payload.phone, {"flow": "order_status", "step": "waiting_id"})
+            await flows.send_order_status_request(payload.phone, internal_api_key, phone_number_id=dest_phone_number_id)
+            await save_message(db, conv.id, "outbound", "assistant", "Solicitud de ID de pedido enviada")
         return {"status": "processed"}
 
-    # 3. Hablar con Asesor Humano / Transferencia (Opción 3 del menú)
-    advisor_keywords = ["3", "3.", "asesor", "asesora", "hablar con asesor", "hablar con un asesor", "comunicarme con un asesor", "humano", "agente", "atencion al cliente", "atención al cliente", "persona", "ejecutivo", "ejecutiva", "vendedor"]
-    if any(k in clean_msg for k in advisor_keywords) or clean_msg in ["3", "3.", "asesor"]:
+    # 3. Categorías de Productos Ferretería (Opción 3 del menú)
+    if clean_msg in ["3", "3.", "categoria", "categorias", "categorías", "herramientas"]:
+        await clear_flow_state(redis_client, payload.phone)
+        from app.services import in_chat_cart_service as in_chat_cart
+        await in_chat_cart.send_categories_menu(payload.phone, internal_api_key, phone_number_id=dest_phone_number_id)
+        await save_message(db, conv.id, "outbound", "assistant", "Categorías de productos enviadas")
+        return {"status": "processed"}
+
+    # 4. Horarios y Sucursales (Opción 4 del menú)
+    horarios_keywords = ["4", "4.", "horario", "horarios", "a que hora", "a qué hora", "hora", "abren", "cierran", "atencion", "atención", "donde estan", "dónde están", "ubicacion", "ubicación", "sucursal", "sucursales", "direccion", "dirección", "donde queda", "dónde queda"]
+    if any(k in clean_msg for k in horarios_keywords) or clean_msg in ["4", "4.", "horarios"]:
+        await clear_flow_state(redis_client, payload.phone)
+        await flows.send_faq_answer(payload.phone, "faq_horarios", internal_api_key, phone_number_id=dest_phone_number_id)
+        await save_message(db, conv.id, "outbound", "assistant", "Información de horarios y sucursales enviada")
+        return {"status": "processed"}
+
+    # 5. Envíos y Métodos de Pago (Opción 5 del menú)
+    envios_keywords = ["5", "5.", "envio", "envíos", "entregas", "flete", "cobertura", "pago", "pagos", "metodos de pago", "transferencia"]
+    if any(k in clean_msg for k in envios_keywords):
+        await clear_flow_state(redis_client, payload.phone)
+        await flows.send_faq_answer(payload.phone, "faq_envios", internal_api_key, phone_number_id=dest_phone_number_id)
+        await save_message(db, conv.id, "outbound", "assistant", "Información de envíos y pagos enviada")
+        return {"status": "processed"}
+
+    # 6. Hablar con Asesor Humano / Transferencia (Opción 6 del menú)
+    advisor_keywords = ["6", "6.", "asesor", "asesora", "hablar con asesor", "hablar con un asesor", "comunicarme con un asesor", "humano", "agente", "atencion al cliente", "atención al cliente", "persona", "vendedor", "ayuda humano"]
+    if any(k in clean_msg for k in advisor_keywords) or clean_msg in ["6", "6.", "asesor"]:
         await flows.send_advisor_confirmation(payload.phone, internal_api_key, phone_number_id=dest_phone_number_id)
         await save_message(db, conv.id, "outbound", "assistant", "Opciones de asesor por sucursal enviadas")
-        return {"status": "processed"}
-
-    # Simular Crédito / Cuotas
-    credito_keywords = ["credito", "crédito", "simular credito", "simular crédito", "financiamiento", "cuotas", "cuota", "prestamo", "préstamo"]
-    if any(k in clean_msg for k in credito_keywords):
-        await clear_flow_state(redis_client, payload.phone)
-        await flows.send_credito_flow(payload.phone, internal_api_key, phone_number_id=dest_phone_number_id)
-        await save_message(db, conv.id, "outbound", "assistant", "Flujo de crédito vehicular enviado")
-        return {"status": "processed"}
-
-    # Plan Retoma / Auto Usado
-    retoma_keywords = ["retoma", "plan retoma", "usado", "auto usado", "carro usado", "tasar usado", "parte de pago", "avaluo", "avalúo"]
-    if any(k in clean_msg for k in retoma_keywords):
-        await clear_flow_state(redis_client, payload.phone)
-        await flows.send_retoma_flow(payload.phone, internal_api_key, phone_number_id=dest_phone_number_id)
-        await save_message(db, conv.id, "outbound", "assistant", "Flujo de plan retoma enviado")
-        return {"status": "processed"}
-
-    # Test Drive / Prueba de Manejo
-    testdrive_keywords = ["test drive", "testdrive", "prueba de manejo", "probar auto", "probar carro", "manejar"]
-    if any(k in clean_msg for k in testdrive_keywords):
-        await clear_flow_state(redis_client, payload.phone)
-        await flows.send_testdrive_flow(payload.phone, internal_api_key, phone_number_id=dest_phone_number_id)
-        await save_message(db, conv.id, "outbound", "assistant", "Flujo de test drive enviado")
-        return {"status": "processed"}
-
-    # Catálogo / Productos / Tienda Meta WhatsApp Flow (Pantalla emergente nativa)
-    catalog_keywords = ["catalogo", "catálogo", "productos", "inventario", "precios", "tienda", "comprar", "lista de productos"]
-    if any(k in clean_msg for k in catalog_keywords):
-        await clear_flow_state(redis_client, payload.phone)
-        sent = await flows.send_catalog_flow(payload.phone, internal_api_key, phone_number_id=dest_phone_number_id)
-        if not sent:
-            from app.services import in_chat_cart_service as in_chat_cart
-            await in_chat_cart.send_categories_menu(payload.phone, internal_api_key, phone_number_id=dest_phone_number_id)
-        await save_message(db, conv.id, "outbound", "assistant", "Catálogo interactivo enviado")
         return {"status": "processed"}
 
     # Ver Carrito directo
@@ -1020,26 +972,13 @@ async def receive_incoming_message(
         await save_message(db, conv.id, "outbound", "assistant", "Vista de carrito enviada")
         return {"status": "processed"}
 
-    # Código de Pedido directo (ej. CAST-2026-1024 o OP-101)
-    if clean_msg.startswith("cast-") or clean_msg.startswith("op-") or clean_msg.startswith("#cast-") or clean_msg.startswith("#op-"):
-        await clear_flow_state(redis_client, payload.phone)
-        await flows.handle_order_result(payload.phone, sanitized, internal_api_key, redis_client, phone_number_id=dest_phone_number_id)
-        await save_message(db, conv.id, "outbound", "assistant", f"Consulta de pedido {sanitized}")
-        return {"status": "processed"}
-
-    # ── 4.5 Asistente Comercial Automotriz Inteligente (AutoEcuador Motors) ──
-    from app.services.auto_sales_assistant import process_auto_sales_message
-    handled = await process_auto_sales_message(payload.phone, sanitized, db, redis_client, internal_api_key, phone_number_id=dest_phone_number_id)
-    if handled:
-        await save_message(db, conv.id, "outbound", "assistant", "Respuesta comercial automotriz enviada")
-        return {"status": "processed", "session_id": session_id}
-
-    # ── 5. Free-text → LangChain Automotive AI ─────────────────────────────
+    # ── 5. Free-text → LangChain Ferretería Castor AI ───────────────────────
     ai_response = await ai_service.get_prediction(sanitized, session_id, phone=payload.phone)
     await save_message(db, conv.id, "outbound", "assistant", ai_response)
 
     # Enviar respuesta IA con botones de navegación
     await flows.send_ai_response_with_menu(payload.phone, ai_response, internal_api_key, phone_number_id=dest_phone_number_id)
+    return {"status": "processed", "session_id": session_id}
     return {"status": "processed", "session_id": session_id}
 
 
