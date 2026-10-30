@@ -1,0 +1,74 @@
+version: '3.8'
+
+networks:
+  woocommerce-net:
+    name: woocommerce-net
+    driver: bridge
+
+volumes:
+  mariadb_data:
+  wordpress_data:
+
+services:
+  # ─── 1. Base de Datos MariaDB para WordPress / WooCommerce ───
+  mariadb:
+    image: mariadb:10.11-jammy
+    container_name: woocommerce-mariadb
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root_secure_password_2026
+      MYSQL_DATABASE: woocommerce_db
+      MYSQL_USER: woo_user
+      MYSQL_PASSWORD: woo_secure_password_2026
+    volumes:
+      - mariadb_data:/var/lib/mysql
+    networks:
+      - woocommerce-net
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─── 2. WordPress con PHP y Apache ───────────────────────────
+  wordpress:
+    image: wordpress:6-php8.2-apache
+    container_name: woocommerce-wordpress
+    restart: unless-stopped
+    ports:
+      - "8088:80"
+    environment:
+      WORDPRESS_DB_HOST: mariadb:3306
+      WORDPRESS_DB_USER: woo_user
+      WORDPRESS_DB_PASSWORD: woo_secure_password_2026
+      WORDPRESS_DB_NAME: woocommerce_db
+      WORDPRESS_TABLE_PREFIX: wp_
+    volumes:
+      - wordpress_data:/var/www/html
+    networks:
+      - woocommerce-net
+    depends_on:
+      mariadb:
+        condition: service_healthy
+
+  # ─── 3. Servicio CLI de Auto-Configuración de WooCommerce ─────
+  # (Opcional: Permite instalar WooCommerce y generar llaves de API automáticamente)
+  wp-cli:
+    image: wordpress:cli
+    container_name: woocommerce-cli
+    user: 33:33
+    command: >
+      sh -c "
+      echo 'Esperando a que WordPress esté disponible...';
+      sleep 15;
+      wp core is-installed --path=/var/www/html || wp core install --path=/var/www/html --url=http://localhost:8088 --title='AutoEcuador Motors Catálogo' --admin_user=admin --admin_password=admin_pass_2026 --admin_email=admin@autoeconomotors.com;
+      wp plugin install woocommerce --activate --path=/var/www/html || true;
+      echo 'WooCommerce listo para pruebas!';
+      tail -f /dev/null
+      "
+    volumes:
+      - wordpress_data:/var/www/html
+    networks:
+      - woocommerce-net
+    depends_on:
+      - wordpress
