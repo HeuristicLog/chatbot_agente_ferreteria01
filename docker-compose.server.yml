@@ -1,0 +1,136 @@
+version: '3.8'
+
+networks:
+  autoeconomotors-net:
+    name: autoeconomotors-net
+    driver: bridge
+
+volumes:
+  postgres-data:
+  redis-data:
+  caddy_data:
+  caddy_config:
+
+services:
+  # ─── 1. Base de Datos Relacional (PostgreSQL 15) ─────────────
+  postgres:
+    image: postgres:15-alpine
+    container_name: autoeconomotors-postgres
+    restart: always
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-ferreteria_chatbot}
+      - POSTGRES_USER=${POSTGRES_USER:-chatbot}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-change_me_secure_2026}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - autoeconomotors-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-chatbot} -d ${POSTGRES_DB:-ferreteria_chatbot} || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ─── 2. Caché y Memoria Conversacional (Redis 7) ─────────────
+  redis:
+    image: redis:7-alpine
+    container_name: autoeconomotors-redis
+    restart: always
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    networks:
+      - autoeconomotors-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ─── 3. WhatsApp Engine Baileys (Evolution API v2) ───────────
+  evolution-api:
+    image: evoapicloud/evolution-api:latest
+    container_name: autoeconomotors-evolution
+    restart: always
+    ports:
+      - "8082:8080"
+    environment:
+      - SERVER_URL=${SERVER_PUBLIC_URL:-http://localhost:8082}
+      - AUTHENTICATION_API_KEY=${EVOLUTION_API_KEY:-ferreteria_evolution_key_2026}
+      - DATABASE_PROVIDER=postgresql
+      - DATABASE_CONNECTION_URI=postgresql://${POSTGRES_USER:-chatbot}:${POSTGRES_PASSWORD:-change_me_secure_2026}@postgres:5432/evolution?schema=public
+      - DATABASE_CONNECTION_CLIENT_NAME=evolution_db
+      - DATABASE_SAVE_DATA_INSTANCE=true
+      - DATABASE_SAVE_DATA_NEW_MESSAGE=true
+      - DATABASE_SAVE_MESSAGE_UPDATE=true
+      - DATABASE_SAVE_DATA_CONTACTS=true
+      - DATABASE_SAVE_DATA_CHATS=true
+      - REDIS_ENABLED=false
+      - CHATWOOT_ENABLED=true
+      - WEBHOOK_GLOBAL_ENABLED=true
+      - WEBHOOK_GLOBAL_URL=http://backend:8080/webhooks/whatsapp
+    networks:
+      - autoeconomotors-net
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # ─── 4. Backend Inteligente LangChain (FastAPI Python) ───────
+  backend:
+    image: kevinagk/autoeconomotors-backend:latest
+    container_name: autoeconomotors-backend
+    restart: always
+    environment:
+      - APP_ENV=production
+      - LOG_LEVEL=INFO
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-chatbot}:${POSTGRES_PASSWORD:-change_me_secure_2026}@postgres:5432/${POSTGRES_DB:-ferreteria_chatbot}
+      - REDIS_URL=redis://redis:6379/0
+      - INTERNAL_API_KEY=${INTERNAL_API_KEY:-change_me_internal_key_2026}
+      - CHATWOOT_BASE_URL=${CHATWOOT_BASE_URL:-https://app.chatwoot.com}
+      - CHATWOOT_API_TOKEN=${CHATWOOT_API_TOKEN:-mMJycxtZ3GBmQhNBS3VaJgXC}
+      - CHATWOOT_ACCOUNT_ID=${CHATWOOT_ACCOUNT_ID:-193795}
+      - CHATWOOT_INBOX_ID=${CHATWOOT_INBOX_ID:-150556}
+      - CATALOG_BASE_URL=${CATALOG_BASE_URL:-https://tudominio.com}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - GROQ_API_KEY=${GROQ_API_KEY:-}
+      - WHATSAPP_INBOX_MAPPING={"593988921136": {"inbox_id": 150556, "phone_display": "+593 98 892 1136", "sucursal": "Centro"}}
+    networks:
+      - autoeconomotors-net
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # ─── 5. Gateway de WhatsApp y Proxy Webview ─────────────────
+  whatsapp-gateway:
+    image: kevinagk/autoeconomotors-gateway:latest
+    container_name: autoeconomotors-gateway
+    restart: always
+    environment:
+      - CHATBOT_API_URL=http://backend:8080
+      - INTERNAL_API_KEY=${INTERNAL_API_KEY:-change_me_internal_key_2026}
+      - REDIS_URL=redis://redis:6379/0
+    networks:
+      - autoeconomotors-net
+    depends_on:
+      - backend
+
+  # ─── 6. Reverse Proxy Caddy con SSL Automático (Let's Encrypt)
+  caddy:
+    image: caddy:2-alpine
+    container_name: autoeconomotors-caddy
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      - DOMAIN=${DOMAIN:-tudominio.com}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - autoeconomotors-net
+    depends_on:
+      - whatsapp-gateway
