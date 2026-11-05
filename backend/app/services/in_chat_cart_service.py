@@ -445,7 +445,7 @@ async def complete_in_chat_order(
     tax = (subtotal * Decimal("0.15")).quantize(Decimal("0.01"))
     total = subtotal + tax
 
-    # 2. Generar número de orden
+    # 2. Generar número de orden y sincronizar con Odoo ERP
     clean_phone = phone.replace("+", "").replace(" ", "").strip()
     order_number = f"CAST-{datetime.utcnow().year}-{random.randint(1000, 9999)}"
     
@@ -456,10 +456,27 @@ async def complete_in_chat_order(
     delivery_type = cart.get("delivery_type") or "pickup"
     delivery_address = cart.get("address")
     sucursal = cart.get("sucursal") or "Centro"
+    ruc_cedula = cart.get("ruc_cedula")
+
+    # Integración con Odoo ERP (sale.order)
+    from app.services.odoo_service import OdooService
+    odoo_service = OdooService()
+    odoo_order = await odoo_service.create_sale_order(
+        customer_phone=clean_phone,
+        customer_name=customer_name,
+        items=order_items_to_save,
+        delivery_type=delivery_type,
+        sucursal=sucursal,
+        payment_method=payment_method,
+        ruc_cedula=ruc_cedula,
+        delivery_address=delivery_address
+    )
+    odoo_order_name = odoo_order.get("order_name") or order_number
+    payment_link = odoo_order.get("payment_link")
 
     # 3. Guardar orden
     order = Order(
-        order_number=order_number,
+        order_number=odoo_order_name,
         phone_hash=phone_hash,
         customer_phone=clean_phone,
         customer_name=customer_name,
@@ -498,20 +515,39 @@ async def complete_in_chat_order(
 
     delivery_info = f"📍 *Retiro en Sucursal:* {sucursal}" if delivery_type == "pickup" else f"🚚 *Envío a Domicilio:* {delivery_address}"
 
+    payment_instructions = ""
+    if payment_method in ["transferencia", "banco"]:
+        payment_instructions = (
+            "\n🏦 *Datos para Transferencia Bancaria:*\n"
+            "• *Banco:* Banco Pichincha (Cta. Corriente)\n"
+            "• *N° Cuenta:* 2100458921\n"
+            "• *Beneficiario:* Ferretería Castor S.A.S.\n"
+            "• *RUC:* 1792458912001\n"
+            "• *Correo:* pagos@ferreteriacastor.ec\n"
+            "_Envía tu comprobante a este chat para validar tu pedido._\n"
+        )
+    elif payment_link:
+        payment_instructions = (
+            f"\n💳 *Enlace de Pago Seguro (Odoo Payment Link):*\n"
+            f"👉 {payment_link}\n"
+            "_Acepta tarjetas de crédito, débito, PayPhone y DeUna._\n"
+        )
+
     receipt_msg = (
-        f"🎉 *¡PEDIDO CONFIRMADO CON ÉXITO!* 🦫\n"
+        f"🎉 *¡PEDIDO CONFIRMADO EN ODOO ERP!* 🦫\n"
         f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"📋 *N° de Pedido:* `{order_number}`\n"
+        f"📋 *N° de Orden Odoo:* `{odoo_order_name}`\n"
         f"{delivery_info}\n"
-        f"💳 *Método de Pago:* {payment_method.capitalize()}\n\n"
+        f"💳 *Método de Pago:* {payment_method.capitalize()}\n"
+        f"{payment_instructions}\n"
         f"📦 *Productos Solicitados:*\n"
         f"{items_text}\n\n"
         f"💵 *Subtotal:* ${subtotal:.2f}\n"
         f"📊 *IVA (15%):* ${tax:.2f}\n"
         f"💰 *TOTAL:* *${total:.2f}*\n"
         f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"⏱️ *Estado actual:* ⏳ *Preparando en Bodega (Picking)*\n\n"
-        f"¡Gracias por tu compra en Ferretería Castor! Te notificaremos cuando tu pedido esté listo."
+        f"⏱️ *Estado Odoo:* ⏳ *Inventario Reservado en Bodega ({sucursal})*\n\n"
+        f"¡Gracias por tu compra en Ferretería Castor! Tu pedido ya está registrado en nuestro sistema."
     )
 
     buttons = [
@@ -524,12 +560,12 @@ async def complete_in_chat_order(
         phone=phone,
         body=receipt_msg,
         buttons=buttons,
-        footer="Ferretería Castor • Atención 24/7",
+        footer="Ferretería Castor • Odoo ERP Sync",
         internal_key=internal_key,
         phone_number_id=phone_number_id
     )
 
-    # 6. Notificar en Chatwoot
+    # 6. Notificar y actualizar métricas en Chatwoot
     try:
         chatwoot = ChatwootService()
         if chatwoot.is_configured:
@@ -538,16 +574,27 @@ async def complete_in_chat_order(
                 conv_id = await chatwoot.get_or_create_conversation(contact_id)
                 if conv_id:
                     note = (
-                        f"🛍️ *NUEVO PEDIDO NATIVO EN WHATSAPP* 🛒\n\n"
-                        f"• *Pedido:* {order_number}\n"
-                        f"• *Cliente:* +{clean_phone}\n"
+                        f"🛍️ *NUEVO PEDIDO SINCRONIZADO CON ODOO ERP* 📦\n\n"
+                        f"• *Orden Odoo:* {odoo_order_name}\n"
+                        f"• *Cliente:* {customer_name} (+{clean_phone})\n"
+                        f"• *Bodega Asignada:* Bodega Sucursal {sucursal}\n"
                         f"• *Entrega:* {delivery_type.upper()} ({sucursal or delivery_address})\n"
                         f"• *Pago:* {payment_method.capitalize()}\n"
-                        f"• *Total:* ${total:.2f}\n\n"
-                        f"📦 *Items:*\n{items_text}"
+                        f"• *Total:* ${total:.2f} USD\n\n"
+                        f"📦 *Items en Odoo (sale.order.line):*\n{items_text}"
                     )
                     await chatwoot.post_message(conv_id, note, is_private=True)
+                    
+                    # Actualizar custom attributes y etiquetas en Chatwoot
+                    cust_attrs = {
+                        "codigo_pedido": odoo_order_name,
+                        "monto_compra": float(total),
+                        "tipo_entrega": f"Retiro en Sucursal {sucursal}" if delivery_type == "pickup" else "Envío a Domicilio",
+                        "sucursal_asignada": f"Sucursal {sucursal}"
+                    }
+                    await chatwoot.set_conversation_custom_attributes(conv_id, cust_attrs)
+                    await chatwoot.add_conversation_labels(conv_id, ["pedido-web", "odoo-sync"])
     except Exception as cw_err:
         logger.error(f"Error sincronizando orden nativa con Chatwoot: {cw_err}")
 
-    return order_number
+    return odoo_order_name

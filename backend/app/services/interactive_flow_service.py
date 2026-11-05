@@ -356,8 +356,26 @@ async def handle_order_result(phone: str, order_id: str, internal_key: str, redi
                 f"¿Necesitas consultar algo más?"
             )
         else:
-            # 2. Fallback a operación logística legacy
-            op_clean = clean_id.replace("OP-", "").replace("OP", "").strip()
+            # 2. Consultar en Odoo ERP (sale.order)
+            from app.services.odoo_service import OdooService
+            odoo_service = OdooService()
+            odoo_res = await odoo_service.get_order_status(clean_id)
+            if odoo_res and odoo_res.get("found"):
+                msg = (
+                    f"📦 *Estado de tu Pedido Odoo ERP #{odoo_res['order_name']}*\n"
+                    f"━━━━━━━━━━━━━━━━━━━━\n"
+                    f"👤 *Cliente:* {odoo_res['customer_name']}\n"
+                    f"📊 *Estado:* {odoo_res['status_title']}\n"
+                    f"🏢 *Almacén:* {odoo_res['warehouse']}\n"
+                    f"📍 *Entrega:* {odoo_res['delivery_type']}\n"
+                    f"💰 *Total:* ${odoo_res['total']:.2f}\n\n"
+                    f"🛒 *Productos en Bodega:*\n  • {odoo_res['items_summary']}\n"
+                    f"━━━━━━━━━━━━━━━━━━━━\n"
+                    f"¿Necesitas consultar algo más?"
+                )
+            else:
+                # 3. Fallback a operación logística legacy
+                op_clean = clean_id.replace("OP-", "").replace("OP", "").strip()
             try:
                 op_id_int = int(op_clean)
             except ValueError:
