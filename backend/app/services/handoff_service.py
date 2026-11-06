@@ -139,7 +139,7 @@ class HandoffService:
                             "tiempo_respuesta_frt": "Esperando respuesta..."
                         })
                         suc_label = f"sede-{(sucursal or 'centro').lower().replace('á','a')}"
-                        await chatwoot.add_conversation_labels(cw_conv_id, ["esperando-asesor", suc_label])
+                        await chatwoot.add_conversation_labels(cw_conv_id, ["asesor-humano", "esperando-asesor", suc_label])
 
                         # Enviar nota privada con el resumen para el agente
                         note_text = (

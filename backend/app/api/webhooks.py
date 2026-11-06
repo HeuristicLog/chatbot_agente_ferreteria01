@@ -602,12 +602,12 @@ async def receive_incoming_message(
                         elif any(k in clean_lower for k in ["cable", "cables", "breaker", "tomacorriente", "indeco", "schneider", "electricidad"]):
                             cust_attrs["flujo_actual"] = "Electricidad"
                             labels.append("electricidad")
-                        elif any(k in clean_lower for k in ["pedido", "cast-", "op-", "rastreo", "orden"]):
-                            cust_attrs["flujo_actual"] = "Consulta de Pedido"
-                            labels.append("consulta-pedido")
-                        elif any(k in clean_lower for k in ["catalogo", "catálogo", "carrito", "comprar", "cotizar"]):
-                            cust_attrs["flujo_actual"] = "Catálogo y Carrito"
-                            labels.append("catalogo-web")
+                        elif any(k in clean_lower for k in ["pedido", "cast-", "op-", "so-", "#so-", "rastreo", "orden", "catalogo", "catálogo", "carrito", "comprar", "cotizar"]):
+                            cust_attrs["flujo_actual"] = "Pedido y Catálogo Web"
+                            labels.append("pedido-web")
+                        elif any(k in clean_lower for k in ["asesor", "asesora", "humano", "agente", "atencion", "atención", "persona", "ayuda"]):
+                            cust_attrs["flujo_actual"] = "Asesor Humano"
+                            labels.append("asesor-humano")
 
                         if cust_attrs:
                             await chatwoot.set_conversation_custom_attributes(cw_conv_id, cust_attrs)
