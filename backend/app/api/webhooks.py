@@ -920,11 +920,11 @@ async def receive_incoming_message(
         await save_message(db, conv.id, "outbound", "assistant", "Catálogo interactivo enviado")
         return {"status": "processed"}
 
-    # 2. Consultar Pedido (Opción 2 del menú o código directo CAST- / OP-)
+    # 2. Consultar Pedido (Opción 2 del menú o código directo SO- / CAST- / OP-)
     order_inquiry_keywords = ["2", "2.", "pedido", "pedidos", "consultar pedido", "mi pedido", "estado de pedido", "rastreo", "orden"]
-    if any(clean_msg == k or clean_msg.startswith(k) for k in order_inquiry_keywords) or clean_msg.startswith("cast-") or clean_msg.startswith("op-") or clean_msg.startswith("#cast-") or clean_msg.startswith("#op-"):
+    if any(clean_msg == k or clean_msg.startswith(k) for k in order_inquiry_keywords) or clean_msg.startswith("so-") or clean_msg.startswith("#so-") or clean_msg.startswith("cast-") or clean_msg.startswith("op-") or clean_msg.startswith("#cast-") or clean_msg.startswith("#op-"):
         await clear_flow_state(redis_client, payload.phone)
-        if clean_msg.startswith("cast-") or clean_msg.startswith("op-") or clean_msg.startswith("#cast-") or clean_msg.startswith("#op-"):
+        if clean_msg.startswith("so-") or clean_msg.startswith("#so-") or clean_msg.startswith("cast-") or clean_msg.startswith("op-") or clean_msg.startswith("#cast-") or clean_msg.startswith("#op-"):
             await flows.handle_order_result(payload.phone, sanitized, internal_api_key, redis_client, phone_number_id=dest_phone_number_id)
             await save_message(db, conv.id, "outbound", "assistant", f"Consulta de pedido {sanitized}")
         else:

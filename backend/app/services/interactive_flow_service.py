@@ -376,38 +376,38 @@ async def handle_order_result(phone: str, order_id: str, internal_key: str, redi
             else:
                 # 3. Fallback a operación logística legacy
                 op_clean = clean_id.replace("OP-", "").replace("OP", "").strip()
-            try:
-                op_id_int = int(op_clean)
-            except ValueError:
-                op_id_int = None
+                try:
+                    op_id_int = int(op_clean)
+                except ValueError:
+                    op_id_int = None
+                    
+                op = None
+                if op_id_int is not None:
+                    auth_service = LogisticsAuthService(redis_client)
+                    op_service = LogisticOperationService(auth_service)
+                    op = await op_service.get_operation_by_id(op_id_int)
                 
-            op = None
-            if op_id_int is not None:
-                auth_service = LogisticsAuthService(redis_client)
-                op_service = LogisticOperationService(auth_service)
-                op = await op_service.get_operation_by_id(op_id_int)
-            
-            if op is not None:
-                status_text = op.status_display or op.status
-                driver = op.raw_payload.get("driver_name", "Por asignar")
-                vehicle = op.raw_payload.get("vehicle", "Por asignar")
-                route = op.raw_payload.get("route", "N/A")
-                
-                msg = (
-                    f"📦 *Pedido #{clean_id}*\n"
-                    f"━━━━━━━━━━━━━━━\n"
-                    f"Estado: {status_text}\n"
-                    f"Ruta: {route}\n"
-                    f"Conductor: {driver}\n"
-                    f"Vehículo: {vehicle}\n"
-                    f"━━━━━━━━━━━━━━━\n"
-                    f"¿Necesitas más ayuda?"
-                )
-            else:
-                msg = (
-                    f"🔍 No encontré el pedido *{order_id}*.\n\n"
-                    "Verifica el número de orden (ej. *CAST-2026-1042*) e inténtalo de nuevo, o contacta a un asesor si el problema persiste."
-                )
+                if op is not None:
+                    status_text = op.status_display or op.status
+                    driver = op.raw_payload.get("driver_name", "Por asignar")
+                    vehicle = op.raw_payload.get("vehicle", "Por asignar")
+                    route = op.raw_payload.get("route", "N/A")
+                    
+                    msg = (
+                        f"📦 *Pedido #{clean_id}*\n"
+                        f"━━━━━━━━━━━━━━━\n"
+                        f"Estado: {status_text}\n"
+                        f"Ruta: {route}\n"
+                        f"Conductor: {driver}\n"
+                        f"Vehículo: {vehicle}\n"
+                        f"━━━━━━━━━━━━━━━\n"
+                        f"¿Necesitas más ayuda?"
+                    )
+                else:
+                    msg = (
+                        f"🔍 No encontré el pedido *{order_id}*.\n\n"
+                        "Verifica el número de orden (ej. *SO-2026-1048* o *CAST-2026-1042*) e inténtalo de nuevo, o contacta a un asesor si el problema persiste."
+                    )
     except Exception as e:
         logger.error(f"Error fetching order {clean_id}: {str(e)}")
         msg = "⚠️ No pude consultar tu pedido en este momento. Intenta más tarde."
