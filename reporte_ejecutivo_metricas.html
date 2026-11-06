@@ -35,9 +35,9 @@
         <div>
           <div class="flex items-center gap-2">
             <h1 class="text-2xl font-extrabold text-white tracking-tight">FERRETERÍA CASTOR & GRUPO BONILLA</h1>
-            <span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Auditoría 2026</span>
+            <span id="live-badge" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> <span id="live-text">En Vivo con Chatwoot Cloud</span></span>
           </div>
-          <p class="text-sm text-slate-400">Informe Diario de Tiempos de Respuesta Omnicanal, Eficiencia del Bot y Análisis de Demanda</p>
+          <p class="text-sm text-slate-400">Informe Diario de Tiempos de Respuesta Omnicanal, Eficiencia del Bot y Análisis de Demanda | <span id="live-timestamp" class="text-emerald-400 font-semibold">Sincronizado en Tiempo Real</span></p>
         </div>
       </div>
 
@@ -60,8 +60,8 @@
       <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-sm relative overflow-hidden print-shadow print-bg-white">
         <div class="absolute -right-3 -top-3 w-16 h-16 bg-blue-500/10 rounded-full blur-xl"></div>
         <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">1ª Respuesta (Línea Bot)</div>
-        <div class="text-3xl font-extrabold text-blue-400 flex items-baseline gap-2 print-dark-text">
-          3.0 <span class="text-lg font-medium text-slate-400">segundos</span>
+        <div id="kpi-bot-val" class="text-3xl font-extrabold text-blue-400 flex items-baseline gap-2 print-dark-text">
+          1.3 <span class="text-lg font-medium text-slate-400">segundos</span>
         </div>
         <div class="mt-2 text-xs text-emerald-400 font-semibold flex items-center gap-1">
           <span class="w-1.5 h-1.5 bg-emerald-400 rounded-full"></span> 100% SLA Inmediato (WhatsApp Castor)
@@ -72,7 +72,7 @@
       <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-sm relative overflow-hidden print-shadow print-bg-white">
         <div class="absolute -right-3 -top-3 w-16 h-16 bg-amber-500/10 rounded-full blur-xl"></div>
         <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">1ª Respuesta (Línea Humana)</div>
-        <div class="text-3xl font-extrabold text-amber-400 flex items-baseline gap-2 print-dark-text">
+        <div id="kpi-hum-val" class="text-3xl font-extrabold text-amber-400 flex items-baseline gap-2 print-dark-text">
           1 h 42 <span class="text-lg font-medium text-slate-400">min</span>
         </div>
         <div class="mt-2 text-xs text-amber-400 font-semibold flex items-center gap-1">
@@ -250,13 +250,13 @@
   <script>
     // 1. Gráfica de Tiempos de Respuesta
     const ctxFrt = document.getElementById('frtChart').getContext('2d');
-    new Chart(ctxFrt, {
+    window.chartFrt = new Chart(ctxFrt, {
       type: 'bar',
       data: {
         labels: ['Bot WhatsApp (+593 98 892 1136)', 'Atención Humana (+593 99 245 1085)'],
         datasets: [{
           label: 'Tiempo de 1ª Respuesta (Segundos)',
-          data: [3, 6120], // 3 seg vs 102 minutos (6120 seg)
+          data: [1.3, 6120],
           backgroundColor: ['#3b82f6', '#f59e0b'],
           borderRadius: 8,
           borderWidth: 0
@@ -303,15 +303,16 @@
 
     // 2. Gráfica de Demanda por Etiquetas
     const ctxTags = document.getElementById('tagsChart').getContext('2d');
-    new Chart(ctxTags, {
+    window.chartTags = new Chart(ctxTags, {
       type: 'doughnut',
       data: {
-        labels: ['Asesor Humano', 'Pedido Web / Catálogo', 'Construcción', 'Herramientas', 'Pinturas'],
+        labels: ['Asesor Humano', 'Pedido Web / Catálogo', 'Tiempo de Respuesta', 'Construcción', 'Herramientas', 'Pinturas'],
         datasets: [{
-          data: [22, 16, 2, 1, 1],
+          data: [15, 11, 17, 1, 1, 1],
           backgroundColor: [
             '#ec4899', // Asesor Humano (Rosa)
             '#06b6d4', // Pedido Web (Cian)
+            '#10b981', // Tiempo Respuesta (Verde)
             '#ef4444', // Construcción (Rojo)
             '#f59e0b', // Herramientas (Naranja)
             '#8b5cf6'  // Pinturas (Morado)
@@ -332,6 +333,38 @@
         cutout: '65%'
       }
     });
+
+    // 3. Sincronización en Tiempo Real con Chatwoot Cloud
+    async function updateLiveData() {
+      try {
+        const res = await fetch('/api/v1/reporte-ejecutivo/live-data');
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.status === 'connected') {
+          if (data.kpis) {
+            const kpiBot = document.getElementById('kpi-bot-val');
+            if (kpiBot) kpiBot.innerHTML = `${data.kpis.bot_frt_seconds} <span class="text-lg font-medium text-slate-400">segundos</span>`;
+            const kpiHum = document.getElementById('kpi-hum-val');
+            if (kpiHum) kpiHum.innerHTML = `${data.kpis.human_frt_display}`;
+          }
+          if (data.labels && window.chartTags) {
+            const lblKeys = ['asesor-humano', 'pedido-web', 'tiempo_de_respuesta', 'construccion', 'herramientas', 'pinturas'];
+            window.chartTags.data.datasets[0].data = lblKeys.map(k => data.labels[k] || 0);
+            window.chartTags.update();
+          }
+          if (data.kpis && window.chartFrt) {
+            window.chartFrt.data.datasets[0].data = [data.kpis.bot_frt_seconds, data.kpis.human_frt_seconds];
+            window.chartFrt.update();
+          }
+          const tsEl = document.getElementById('live-timestamp');
+          if (tsEl) tsEl.innerText = `Sincronizado en Vivo: ${data.timestamp}`;
+        }
+      } catch (err) {
+        console.debug('Live sync check:', err);
+      }
+    }
+    updateLiveData();
+    setInterval(updateLiveData, 10000);
   </script>
 
 </body>

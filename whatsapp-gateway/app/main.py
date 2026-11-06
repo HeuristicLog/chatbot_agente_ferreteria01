@@ -241,6 +241,18 @@ async def proxy_reporte_ejecutivo(request: Request):
             logger.error(f"Error proxying reporte ejecutivo: {e}")
             raise HTTPException(status_code=502, detail="Error cargando reporte ejecutivo.")
 
+@app.get("/api/v1/reporte-ejecutivo/live-data")
+async def proxy_reporte_ejecutivo_live_data():
+    """Proxy live real-time report data JSON from backend."""
+    url = f"{chatbot_api_url}/api/v1/reporte-ejecutivo/live-data"
+    async with httpx.AsyncClient() as client:
+        try:
+            resp = await client.get(url, timeout=20.0)
+            return Response(content=resp.content, status_code=resp.status_code, media_type="application/json")
+        except Exception as e:
+            logger.error(f"Error proxying live report data: {e}")
+            raise HTTPException(status_code=502, detail="Error consultando datos en vivo de Chatwoot.")
+
 @app.get("/api/v1/reporte-ejecutivo/excel", response_class=Response)
 async def proxy_reporte_ejecutivo_excel():
     """Proxy executive excel download from backend."""
