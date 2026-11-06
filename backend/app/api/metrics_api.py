@@ -749,3 +749,43 @@ async def serve_metrics_dashboard():
 </body>
 </html>"""
     return HTMLResponse(content=html_content)
+
+
+@router.get("/reporte-ejecutivo", response_class=HTMLResponse)
+async def get_executive_report_view():
+    """Sirve el reporte ejecutivo con gráficos interactivos Chart.js y botón de exportación PDF."""
+    import os
+    candidate_paths = [
+        "/app/app/reporte_ejecutivo_metricas.html",
+        "/app/reporte_ejecutivo_metricas.html",
+        "backend/app/reporte_ejecutivo_metricas.html",
+        "backend/reporte_ejecutivo_metricas.html",
+        "reporte_ejecutivo_metricas.html"
+    ]
+    for p in candidate_paths:
+        if os.path.exists(p):
+            with open(p, "r", encoding="utf-8") as f:
+                return HTMLResponse(content=f.read())
+    return HTMLResponse(content="<h2>Reporte ejecutivo listo para generar.</h2>")
+
+
+@router.get("/api/v1/reporte-ejecutivo/excel")
+async def download_executive_excel():
+    """Permite descargar el libro oficial de Excel (.xlsx) formateado con KPIs."""
+    import os
+    from fastapi.responses import FileResponse
+    candidate_paths = [
+        "/app/app/Reporte_Ejecutivo_Tiempos_de_Respuesta_Chatwoot.xlsx",
+        "/app/Reporte_Ejecutivo_Tiempos_de_Respuesta_Chatwoot.xlsx",
+        "backend/app/Reporte_Ejecutivo_Tiempos_de_Respuesta_Chatwoot.xlsx",
+        "backend/Reporte_Ejecutivo_Tiempos_de_Respuesta_Chatwoot.xlsx",
+        "Reporte_Ejecutivo_Tiempos_de_Respuesta_Chatwoot.xlsx"
+    ]
+    for p in candidate_paths:
+        if os.path.exists(p):
+            return FileResponse(
+                path=p,
+                filename="Reporte_Ejecutivo_Tiempos_de_Respuesta_Chatwoot.xlsx",
+                media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+    return JSONResponse(status_code=404, content={"error": "Archivo Excel no encontrado"})

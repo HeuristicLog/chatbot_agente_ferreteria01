@@ -229,6 +229,35 @@ async def proxy_metricas_dashboard(request: Request):
             logger.error(f"Error proxying metrics dashboard: {e}")
             raise HTTPException(status_code=502, detail="Error cargando panel de métricas.")
 
+@app.get("/reporte-ejecutivo", response_class=Response)
+async def proxy_reporte_ejecutivo(request: Request):
+    """Proxy executive report HTML view with charts and PDF print from backend."""
+    url = f"{chatbot_api_url}/reporte-ejecutivo"
+    async with httpx.AsyncClient() as client:
+        try:
+            resp = await client.get(url, timeout=15.0)
+            return Response(content=resp.content, status_code=resp.status_code, media_type="text/html")
+        except Exception as e:
+            logger.error(f"Error proxying reporte ejecutivo: {e}")
+            raise HTTPException(status_code=502, detail="Error cargando reporte ejecutivo.")
+
+@app.get("/api/v1/reporte-ejecutivo/excel", response_class=Response)
+async def proxy_reporte_ejecutivo_excel():
+    """Proxy executive excel download from backend."""
+    url = f"{chatbot_api_url}/api/v1/reporte-ejecutivo/excel"
+    async with httpx.AsyncClient() as client:
+        try:
+            resp = await client.get(url, timeout=30.0)
+            return Response(
+                content=resp.content,
+                status_code=resp.status_code,
+                media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                headers={"Content-Disposition": 'attachment; filename="Reporte_Ejecutivo_Tiempos_de_Respuesta_Chatwoot.xlsx"'}
+            )
+        except Exception as e:
+            logger.error(f"Error proxying reporte excel: {e}")
+            raise HTTPException(status_code=502, detail="Error descargando reporte excel.")
+
 @app.get("/api/v1/metrics")
 async def proxy_metrics_api(request: Request):
     """Proxy metrics JSON API from backend."""
