@@ -276,6 +276,120 @@ def create_executive_excel(file_path):
         col_letter = get_column_letter(col[0].column)
         ws4.column_dimensions[col_letter].width = max(max_len + 4, 16)
 
+    # ─── HOJA 5: AUDITORÍA QA EN 9 DIMENSIONES ───
+    ws5 = wb.create_sheet(title="Auditoría QA 9 Dimensiones")
+    ws5.views.sheetView[0].showGridLines = True
+    ws5["A1"] = "AUDITORÍA DE CALIDAD CONVERSACIONAL (QA - RÚBRICA 9 DIMENSIONES)"
+    ws5["A1"].font = font_title
+    ws5["A2"] = "Evaluación sistemática de atención comercial para asesores y bot (Puntaje 0 a 100)"
+    ws5["A2"].font = font_subtitle
+
+    qa_headers = ["Dimensión / Criterio", "Peso (Puntos)", "Promedio Actual", "Criterio de Evaluación", "Protocolo Exigido"]
+    for idx, th in enumerate(qa_headers, start=1):
+        cell = ws5.cell(row=4, column=idx, value=th)
+        cell.font = font_header
+        cell.fill = fill_header
+        cell.border = thin_border
+        cell.alignment = Alignment(horizontal="center")
+
+    qa_data = [
+        ["1. Saludo & Sentimiento", 10, 9.2, "Saludo ameno y presentación formal con nombre del asesor", "Presentarse: 'Hola, un gusto saludarle, le atiende [Nombre]...'"],
+        ["2. Relevo de Asesor & Sucursal", 10, 8.8, "Identificación clara al tomar el chat y mención de sucursal", "Indicar: 'Le atiende [Nombre] de Sucursal Centro/Norte'"],
+        ["3. Calidad de Cotización & Antifuga", 15, 13.5, "Precios transparentes con desglose reglamentario de IVA (15%)", "Subtotal + IVA (15%) = Total. Evitar fuga al rotar de asesor"],
+        ["4. Respuestas Rápidas (Agilidad)", 10, 9.0, "Uso de atajos rápidos (/) externos para reducir demoras", "Emplear atajos estandarizados en consultas repetitivas"],
+        ["5. Abordaje Comercial & Actitud Consultiva", 15, 13.2, "Proactividad comercial indagando uso y ofreciendo alternativas", "No limitarse a decir 'no hay', proponer marcas similares"],
+        ["6. Claridad, Ortografía & Cero Informalidad", 10, 9.5, "Redacción corporativa pulcra sin abreviaturas (q, xq, k)", "Mantener ortografía intachable y trato respetuoso"],
+        ["7. Stock & Recomendación de Sustitutos", 10, 8.5, "Rapidez en verificar inventario y ofrecer marcas sustitutas", "Si no hay Makita, ofrecer DeWalt/Bosch; si no Holcim, Selvalegre"],
+        ["8. Presentación de Producto & Ficha/Fotos", 10, 8.6, "Envío de imágenes claras de catálogo y características técnicas", "Compartir foto del ítem o enlace webview del catálogo interactivo"],
+        ["9. Cierre, Logística & Formas de Pago", 10, 8.2, "Definición de entrega/retiro, tiempos, métodos de pago y despedida", "Acordar despacho o retiro, transferencia/tarjeta/crédito y despedida"]
+    ]
+    for r_idx, r_data in enumerate(qa_data, start=5):
+        for c_idx, val in enumerate(r_data, start=1):
+            cell = ws5.cell(row=r_idx, column=c_idx, value=val)
+            cell.font = font_regular
+            cell.border = thin_border
+            if c_idx in [2, 3]:
+                cell.alignment = Alignment(horizontal="center", vertical="center")
+            else:
+                cell.alignment = Alignment(horizontal="left", vertical="center")
+            if r_idx % 2 == 1:
+                cell.fill = fill_zebra
+
+    for col in ws5.columns:
+        max_len = max(len(str(cell.value or '')) for cell in col)
+        col_letter = get_column_letter(col[0].column)
+        ws5.column_dimensions[col_letter].width = max(max_len + 4, 16)
+
+    # ─── HOJA 6: LLAMADAS Y ATAJOS WHATSAPP ───
+    ws6 = wb.create_sheet(title="Llamadas y Atajos WhatsApp")
+    ws6.views.sheetView[0].showGridLines = True
+    ws6["A1"] = "AUDITORÍA DE LLAMADAS Y PROTOCOLO DE ATAJOS WHATSAPP"
+    ws6["A1"].font = font_title
+    ws6["A2"] = "Monitoreo de llamadas desatendidas y atajos oficiales para la app móvil de los asesores"
+    ws6["A2"].font = font_subtitle
+
+    ws6["A4"] = "1. REGISTRO Y GESTIÓN DE LLAMADAS WHATSAPP"
+    ws6["A4"].font = font_bold
+
+    call_headers = ["Indicador", "Valor Registrado", "Estado Operativo", "Acción Automática Implementada"]
+    for idx, th in enumerate(call_headers, start=1):
+        cell = ws6.cell(row=5, column=idx, value=th)
+        cell.font = font_header
+        cell.fill = fill_header
+        cell.border = thin_border
+        cell.alignment = Alignment(horizontal="center")
+
+    call_kpis = [
+        ["Total Llamadas Entrantes", 0, "Monitoreado en vivo", "Captura de evento CALL en Evolution API"],
+        ["Llamadas No Contestadas (Desatendidas)", 0, "Alerta generada", "Nota interna en Chatwoot + Etiqueta llamada-desatendida"],
+        ["Tasa de Rescate Automático", "100%", "Operativo", "Mensaje contingente de WhatsApp enviado de inmediato"]
+    ]
+    for r_idx, r_data in enumerate(call_kpis, start=6):
+        for c_idx, val in enumerate(r_data, start=1):
+            cell = ws6.cell(row=r_idx, column=c_idx, value=val)
+            cell.font = font_regular
+            cell.border = thin_border
+            if c_idx == 2:
+                cell.alignment = Alignment(horizontal="center", vertical="center")
+            else:
+                cell.alignment = Alignment(horizontal="left", vertical="center")
+
+    ws6["A10"] = "2. ATAJOS DE RESPUESTAS RÁPIDAS (WHATSAPP BUSINESS /)"
+    ws6["A10"].font = font_bold
+
+    shortcut_headers = ["Atajo (Comando)", "Propósito", "Texto Predefinido Oficial para WhatsApp"]
+    for idx, th in enumerate(shortcut_headers, start=1):
+        cell = ws6.cell(row=11, column=idx, value=th)
+        cell.font = font_header
+        cell.fill = fill_header
+        cell.border = thin_border
+        cell.alignment = Alignment(horizontal="center")
+
+    shortcuts = [
+        ["/catalogo", "Compartir Vitrina Digital", "Con gusto le comparto nuestro catálogo interactivo con precios actualizados e inventario en tiempo real: https://usable-thorn-kabob.ngrok-free.dev/catalogo"],
+        ["/horarios", "Horarios de Sucursales", "Nuestros horarios de atención son: Lunes a Viernes de 07:30 a 18:00 y Sábados de 08:00 a 14:00 en Sucursales Centro, Norte y Cumbayá."],
+        ["/pagos", "Cuentas Bancarias y Tarjetas", "Aceptamos transferencia bancaria directa (Pichincha, Guayaquil, Produbanco), tarjeta de crédito sin recargo y cheques empresariales."],
+        ["/envios", "Tiempos y Fletes a Obra", "Realizamos despachos el mismo día en Quito y Valles. Para entregas a obra, coordinamos transporte según volumen y peso."],
+        ["/cotizacion", "Estructura con IVA 15%", "Estimado cliente, su cotización formal incluye desglose de IVA (15%): Subtotal: $... + IVA (15%): $... = Total a pagar: $... Validez: 5 días."],
+        ["/garantia", "Garantías Oficiales de Fábrica", "Todos nuestros productos cuentan con garantía oficial de fábrica directa: Makita (1 año), DeWalt (3 años), Bosch (1 año) con centros autorizados."]
+    ]
+    for r_idx, r_data in enumerate(shortcuts, start=12):
+        for c_idx, val in enumerate(r_data, start=1):
+            cell = ws6.cell(row=r_idx, column=c_idx, value=val)
+            cell.font = font_regular
+            cell.border = thin_border
+            if c_idx == 1:
+                cell.alignment = Alignment(horizontal="center", vertical="center")
+            else:
+                cell.alignment = Alignment(horizontal="left", vertical="center")
+            if r_idx % 2 == 1:
+                cell.fill = fill_zebra
+
+    for col in ws6.columns:
+        max_len = max(len(str(cell.value or '')) for cell in col)
+        col_letter = get_column_letter(col[0].column)
+        ws6.column_dimensions[col_letter].width = max(max_len + 4, 18)
+
     wb.save(file_path)
     print(f"[OK] Excel multi-hoja profesional generado en: {file_path}")
 

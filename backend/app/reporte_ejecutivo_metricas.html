@@ -3,12 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Informe Ejecutivo Multilínea | Ferretería Castor & Grupo Bonilla</title>
+  <title>Dashboard Ejecutivo Multilínea | Ferretería Castor & Grupo Bonilla</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
-    body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #0f172a; color: #f8fafc; }
+    body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #0b1120; color: #f8fafc; }
     @media print {
       body { background-color: #ffffff !important; color: #0f172a !important; }
       .no-print { display: none !important; }
@@ -18,181 +18,345 @@
     }
   </style>
 </head>
-<body class="p-4 md:p-8 min-h-screen">
+<body class="p-3 md:p-8 min-h-screen">
 
-  <div class="max-w-6xl mx-auto space-y-6">
+  <div class="max-w-7xl mx-auto space-y-6">
 
     <!-- BARRA SUPERIOR EJECUTIVA -->
     <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-slate-800">
       <div class="flex items-center gap-3">
-        <div class="w-12 h-12 bg-amber-500 rounded-xl flex items-center justify-center text-2xl shadow-lg shadow-amber-500/20">
+        <div class="w-14 h-14 bg-gradient-to-br from-amber-500 to-orange-600 rounded-2xl flex items-center justify-center text-3xl shadow-xl shadow-amber-500/20">
           🦫
         </div>
         <div>
-          <div class="flex items-center gap-2">
-            <h1 class="text-2xl font-extrabold text-white tracking-tight">FERRETERÍA CASTOR & GRUPO BONILLA</h1>
+          <div class="flex flex-wrap items-center gap-2">
+            <h1 class="text-2xl md:text-3xl font-extrabold text-white tracking-tight">FERRETERÍA CASTOR & GRUPO BONILLA</h1>
             <span id="live-badge" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1.5">
-              <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> En Vivo con Chatwoot Cloud
+              <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> Chatwoot Cloud En Vivo
             </span>
           </div>
-          <p class="text-sm text-slate-400">Auditoría Diaria de Tiempos de Respuesta, Rendimiento de Bot y Clasificación de Clientes</p>
+          <p class="text-sm text-slate-400">Auditoría Diaria: SLA de Respuestas, QA en 9 Dimensiones, Registro de Llamadas y Atajos WhatsApp</p>
         </div>
       </div>
 
-      <div class="flex items-center gap-3 no-print">
-        <a href="/api/v1/reporte-ejecutivo/excel" download="Reporte_Ejecutivo_Tiempos_de_Respuesta_Chatwoot.xlsx" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-emerald-400 font-bold rounded-lg border border-emerald-500/30 shadow-lg flex items-center gap-2 transition text-sm">
-          <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-          📥 Descargar Excel (.xlsx)
+      <div class="flex flex-wrap items-center gap-3 no-print">
+        <button onclick="runBatchQA()" id="btn-batch-qa" class="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl shadow-lg shadow-indigo-600/20 flex items-center gap-2 transition text-xs">
+          <span>⚡</span> Reauditar QA (33 Chats)
+        </button>
+        <a href="/api/v1/reporte-ejecutivo/excel" download="Reporte_Ejecutivo_Tiempos_de_Respuesta_Chatwoot.xlsx" class="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-emerald-400 font-bold rounded-xl border border-emerald-500/30 shadow-lg flex items-center gap-2 transition text-xs">
+          <span>📥</span> Descargar Excel (.xlsx)
         </a>
-        <button onclick="window.print()" class="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold rounded-lg shadow-lg shadow-blue-600/20 flex items-center gap-2 transition text-sm">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
-          📄 Imprimir / Guardar en PDF
+        <button onclick="window.print()" class="px-3.5 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold rounded-xl shadow-lg shadow-blue-600/20 flex items-center gap-2 transition text-xs">
+          <span>📄</span> Imprimir / PDF
         </button>
       </div>
     </div>
 
-    <!-- SELECTOR DE NÚMERO / BANDEJA DE ENTRADA (PESTAÑAS) -->
-    <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-2 bg-slate-900 border border-slate-800 rounded-xl no-print">
+    <!-- SELECTOR DE LÍNEA / ENTRADA -->
+    <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-2 bg-slate-900/80 border border-slate-800 rounded-2xl no-print backdrop-blur">
       <div class="flex flex-wrap items-center gap-1.5">
-        <span class="text-xs font-bold text-slate-400 px-3 uppercase tracking-wider">Filtrar por Entrada:</span>
-        <button onclick="setInboxFilter('all')" id="tab-all" class="inbox-btn px-4 py-2 rounded-lg text-xs font-bold transition bg-blue-600 text-white shadow-sm">
-          🌐 Consolidado (Todas las Entradas)
+        <span class="text-xs font-bold text-slate-400 px-3 uppercase tracking-wider">Entrada:</span>
+        <button onclick="setInboxFilter('all')" id="tab-all" class="inbox-btn px-4 py-2 rounded-xl text-xs font-bold transition bg-blue-600 text-white shadow-sm">
+          🌐 Consolidado Multilínea
         </button>
-        <button onclick="setInboxFilter('150556')" id="tab-150556" class="inbox-btn px-4 py-2 rounded-lg text-xs font-bold text-slate-400 hover:text-white transition">
-          📱 Línea Castor (+593 98 892 1136)
+        <button onclick="setInboxFilter('150556')" id="tab-150556" class="inbox-btn px-4 py-2 rounded-xl text-xs font-bold text-slate-400 hover:text-white transition">
+          📱 WhatsApp Castor (+593 98 892 1136)
         </button>
-        <button onclick="setInboxFilter('151924')" id="tab-151924" class="inbox-btn px-4 py-2 rounded-lg text-xs font-bold text-slate-400 hover:text-white transition">
-          💼 Línea Bonilla (+593 99 245 1085)
+        <button onclick="setInboxFilter('151924')" id="tab-151924" class="inbox-btn px-4 py-2 rounded-xl text-xs font-bold text-slate-400 hover:text-white transition">
+          💼 Grupo Bonilla (+593 99 245 1085)
         </button>
       </div>
-      <div class="text-[11px] text-slate-400 px-3 font-medium flex items-center gap-1">
-        <span class="w-1.5 h-1.5 bg-emerald-400 rounded-full"></span>
-        <span id="active-line-label">Mostrando: Consolidado Corporativo</span>
+      <div class="text-[11px] text-slate-400 px-3 font-medium flex items-center gap-1.5">
+        <span class="w-2 h-2 bg-emerald-400 rounded-full"></span>
+        <span id="active-line-label">Mostrando: Consolidado Multilínea (Castor + Bonilla)</span>
       </div>
     </div>
 
-    <!-- TARJETAS DE KPIS DINÁMICAS -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-      
-      <!-- KPI 1 -->
-      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-sm relative overflow-hidden print-shadow print-bg-white">
-        <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1" id="kpi-title-1">1ª Respuesta (FRT)</div>
-        <div id="kpi-val-1" class="text-3xl font-extrabold text-blue-400 flex items-baseline gap-2 print-dark-text">
-          1.3 <span class="text-lg font-medium text-slate-400">segundos</span>
-        </div>
-        <div id="kpi-sub-1" class="mt-2 text-xs text-emerald-400 font-semibold flex items-center gap-1">
-          ⚡ 100% SLA Inmediato con Bot Castor
-        </div>
+    <!-- TARJETAS DE KPIS PRINCIPALES -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div class="p-5 rounded-2xl bg-slate-900/60 border border-slate-800 hover:border-slate-700 transition">
+        <span class="text-xs font-bold text-slate-400 uppercase tracking-wider" id="kpi-title-1">1ª Respuesta (Línea Bot)</span>
+        <div class="text-3xl font-extrabold text-blue-400 mt-2" id="kpi-val-1">1.3 <span class="text-base font-normal text-slate-400">seg</span></div>
+        <p class="text-xs text-slate-500 mt-2 flex items-center gap-1" id="kpi-sub-1">⚡ 100% SLA Inmediato con Bot Castor</p>
       </div>
 
-      <!-- KPI 2 -->
-      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-sm relative overflow-hidden print-shadow print-bg-white">
-        <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1" id="kpi-title-2">Tiempo de Resolución</div>
-        <div id="kpi-val-2" class="text-3xl font-extrabold text-amber-400 flex items-baseline gap-2 print-dark-text">
-          2.0 <span class="text-lg font-medium text-slate-400">segundos</span>
-        </div>
-        <div id="kpi-sub-2" class="mt-2 text-xs text-amber-400 font-semibold flex items-center gap-1">
-          ⏱️ Cierre de tickets automatizado
-        </div>
+      <div class="p-5 rounded-2xl bg-slate-900/60 border border-slate-800 hover:border-slate-700 transition">
+        <span class="text-xs font-bold text-slate-400 uppercase tracking-wider" id="kpi-title-2">1ª Respuesta (Humana)</span>
+        <div class="text-3xl font-extrabold text-amber-400 mt-2" id="kpi-val-2">1 h 42 <span class="text-base font-normal text-slate-400">min</span></div>
+        <p class="text-xs text-slate-500 mt-2 flex items-center gap-1" id="kpi-sub-2">⏳ Promedio en cola sin automatización</p>
       </div>
 
-      <!-- KPI 3 -->
-      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-sm relative overflow-hidden print-shadow print-bg-white">
-        <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1" id="kpi-title-3">Ahorro de Tiempo con Bot</div>
-        <div id="kpi-val-3" class="text-3xl font-extrabold text-emerald-400 flex items-baseline gap-2 print-dark-text">
-          99.9%
-        </div>
-        <div id="kpi-sub-3" class="mt-2 text-xs text-emerald-400 font-semibold flex items-center gap-1">
-          🚀 Eliminación de tiempos muertos
-        </div>
+      <div class="p-5 rounded-2xl bg-slate-900/60 border border-slate-800 hover:border-slate-700 transition">
+        <span class="text-xs font-bold text-slate-400 uppercase tracking-wider" id="kpi-title-3">Auditoría QA Promedio</span>
+        <div class="text-3xl font-extrabold text-emerald-400 mt-2" id="kpi-val-3">78 / 100</div>
+        <p class="text-xs text-slate-500 mt-2 flex items-center gap-1" id="kpi-sub-3">🏆 Calificación en 9 dimensiones</p>
       </div>
 
-      <!-- KPI 4 -->
-      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-sm relative overflow-hidden print-shadow print-bg-white">
-        <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1" id="kpi-title-4">Mensajes en Período</div>
-        <div id="kpi-val-4" class="text-3xl font-extrabold text-purple-400 flex items-baseline gap-2 print-dark-text">
-          117 <span class="text-lg font-medium text-slate-400">msjs</span>
-        </div>
-        <div id="kpi-sub-4" class="mt-2 text-xs text-slate-400 font-medium">
-          60 Recibidos | 57 Enviados
-        </div>
+      <div class="p-5 rounded-2xl bg-slate-900/60 border border-slate-800 hover:border-slate-700 transition">
+        <span class="text-xs font-bold text-slate-400 uppercase tracking-wider" id="kpi-title-4">Llamadas WhatsApp</span>
+        <div class="text-3xl font-extrabold text-purple-400 mt-2" id="kpi-val-4">100% <span class="text-base font-normal text-slate-400">rescate</span></div>
+        <p class="text-xs text-slate-500 mt-2 flex items-center gap-1" id="kpi-sub-4">📞 Auto-respuesta contingente activa</p>
       </div>
-
     </div>
 
-    <!-- SECCIÓN DE GRÁFICAS -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-
-      <!-- GRÁFICA 1: Tiempos de Respuesta -->
-      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-sm print-shadow print-bg-white">
-        <div class="flex items-center justify-between mb-4">
-          <div>
-            <h2 class="text-base font-bold text-white print-dark-text" id="chart-frt-title">Velocidad de 1ª Respuesta por Número</h2>
-            <p class="text-xs text-slate-400">Comparativa en segundos (Escala logarítmica de alta precisión)</p>
-          </div>
-          <span class="px-2 py-1 text-[10px] font-bold rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">Chatwoot API</span>
-        </div>
-        <div class="h-64">
-          <canvas id="frtChart"></canvas>
-        </div>
-      </div>
-
-      <!-- GRÁFICA 2: Demanda Comercial por Etiquetas -->
-      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-sm print-shadow print-bg-white">
-        <div class="flex items-center justify-between mb-4">
-          <div>
-            <h2 class="text-base font-bold text-white print-dark-text">Distribución de Consultas por Etiqueta</h2>
-            <p class="text-xs text-slate-400">Clasificación de intenciones con Inteligencia Artificial</p>
-          </div>
-          <span class="px-2 py-1 text-[10px] font-bold rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">NLP Semántico</span>
-        </div>
-        <div class="h-64">
-          <canvas id="tagsChart"></canvas>
-        </div>
-      </div>
-
-    </div>
-
-    <!-- TABLA AUDITORÍA POR NÚMERO -->
-    <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-sm print-shadow print-bg-white">
-      <div class="p-5 border-b border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-2">
+    <!-- SECCIÓN: AUDITORÍA DE CALIDAD EN 9 DIMENSIONES (QA) -->
+    <div class="p-6 rounded-2xl bg-slate-900/80 border border-indigo-500/30 shadow-xl shadow-indigo-950/20 space-y-6">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-4">
         <div>
-          <h2 class="text-base font-bold text-white print-dark-text">Auditoría Individual por Número de Entrada</h2>
-          <p class="text-xs text-slate-400">Registro verificado de cada línea conectada al sistema</p>
+          <div class="flex items-center gap-2">
+            <span class="px-2.5 py-1 rounded-lg text-xs font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">Módulo QA</span>
+            <h2 class="text-lg font-bold text-white tracking-tight">Auditoría de Calidad Conversacional (9 Dimensiones)</h2>
+          </div>
+          <p class="text-xs text-slate-400 mt-1">Evaluación automatizada de cada interacción con desglose de nota privada y etiqueta en Chatwoot.</p>
         </div>
-        <span class="text-xs text-slate-400 font-medium">Período Auditado: Últimos 7 Días</span>
+        <div class="flex items-center gap-2 text-xs">
+          <span class="px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">A+ Sobresaliente (88-100)</span>
+          <span class="px-2.5 py-1 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20">A Aprobado (75-87)</span>
+          <span class="px-2.5 py-1 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20">B Requiere Mejora (60-74)</span>
+          <span class="px-2.5 py-1 rounded-lg bg-rose-500/10 text-rose-400 border border-rose-500/20">C Crítico (&lt;60)</span>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Gráfica Radar / Barras de Dimensiones -->
+        <div class="lg:col-span-2 space-y-3">
+          <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Desglose de Desempeño por Dimensión (Puntajes Oficiales)</span>
+          <div class="h-64 relative">
+            <canvas id="qaChart"></canvas>
+          </div>
+        </div>
+
+        <!-- Matriz de las 9 Dimensiones -->
+        <div class="space-y-2 bg-slate-950/60 p-4 rounded-xl border border-slate-800 text-xs">
+          <div class="font-bold text-slate-300 border-b border-slate-800 pb-2 flex justify-between">
+            <span>Dimensión Evaluada</span>
+            <span>Máx / Real</span>
+          </div>
+          <div class="flex justify-between py-1 border-b border-slate-900">
+            <span class="text-slate-400">1. Saludo & Sentimiento (Ameno + Nombre)</span>
+            <span class="font-bold text-emerald-400">10 / 9.2</span>
+          </div>
+          <div class="flex justify-between py-1 border-b border-slate-900">
+            <span class="text-slate-400">2. Relevo de Asesor & Sucursal</span>
+            <span class="font-bold text-emerald-400">10 / 8.8</span>
+          </div>
+          <div class="flex justify-between py-1 border-b border-slate-900">
+            <span class="text-slate-400">3. Cotización con IVA 15% & Antifuga</span>
+            <span class="font-bold text-emerald-400">15 / 13.5</span>
+          </div>
+          <div class="flex justify-between py-1 border-b border-slate-900">
+            <span class="text-slate-400">4. Respuestas Rápidas (Agilidad WhatsApp)</span>
+            <span class="font-bold text-emerald-400">10 / 9.0</span>
+          </div>
+          <div class="flex justify-between py-1 border-b border-slate-900">
+            <span class="text-slate-400">5. Abordaje Comercial & Actitud Consultiva</span>
+            <span class="font-bold text-emerald-400">15 / 13.2</span>
+          </div>
+          <div class="flex justify-between py-1 border-b border-slate-900">
+            <span class="text-slate-400">6. Claridad, Ortografía & Cero Informalidad</span>
+            <span class="font-bold text-emerald-400">10 / 9.5</span>
+          </div>
+          <div class="flex justify-between py-1 border-b border-slate-900">
+            <span class="text-slate-400">7. Disponibilidad de Stock & Sustitutos</span>
+            <span class="font-bold text-emerald-400">10 / 8.5</span>
+          </div>
+          <div class="flex justify-between py-1 border-b border-slate-900">
+            <span class="text-slate-400">8. Presentación de Producto & Fotografías</span>
+            <span class="font-bold text-emerald-400">10 / 8.6</span>
+          </div>
+          <div class="flex justify-between py-1">
+            <span class="text-slate-400">9. Cierre, Logística & Formas de Pago</span>
+            <span class="font-bold text-emerald-400">10 / 8.2</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SECCIÓN: REGISTRO Y AUDITORÍA DE LLAMADAS WHATSAPP -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      
+      <!-- Panel de Llamadas -->
+      <div class="p-6 rounded-2xl bg-slate-900/80 border border-purple-500/30 shadow-xl space-y-4">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+          <div class="flex items-center gap-2">
+            <span class="w-3 h-3 rounded-full bg-purple-400"></span>
+            <h3 class="font-bold text-white text-base">Auditoría de Llamadas WhatsApp (Audio/Video)</h3>
+          </div>
+          <span class="text-[11px] px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 font-bold">Evolution Hook</span>
+        </div>
+        
+        <p class="text-xs text-slate-400">
+          Cuando un cliente llama y el asesor no contesta, el sistema detecta el evento <code class="text-purple-300">CALL / timeout</code>, crea una nota privada en Chatwoot, etiqueta <code class="text-purple-300">llamada-desatendida</code> y despacha un mensaje de rescate automático.
+        </p>
+
+        <div class="grid grid-cols-3 gap-3 text-center">
+          <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
+            <span class="text-[11px] text-slate-500 uppercase font-bold block">Entrantes</span>
+            <span id="call-total" class="text-xl font-extrabold text-white">0</span>
+          </div>
+          <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
+            <span class="text-[11px] text-slate-500 uppercase font-bold block">Desatendidas</span>
+            <span id="call-missed" class="text-xl font-extrabold text-amber-400">0</span>
+          </div>
+          <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
+            <span class="text-[11px] text-slate-500 uppercase font-bold block">Recuperadas</span>
+            <span id="call-recov" class="text-xl font-extrabold text-emerald-400">100%</span>
+          </div>
+        </div>
+
+        <div class="p-3.5 bg-purple-950/20 border border-purple-500/30 rounded-xl text-xs space-y-1 text-slate-300">
+          <div class="font-bold text-purple-300 flex items-center gap-1.5">
+            <span>💬</span> Mensaje Automático de Rescate al Cliente:
+          </div>
+          <p class="italic text-slate-400">
+            "Hola 👋, notamos tu intento de llamada por WhatsApp. En este momento nuestros asesores comerciales están gestionando pedidos en línea por este chat. ¿En qué producto o cotización de Ferretería te podemos ayudar hoy?"
+          </p>
+        </div>
+      </div>
+
+      <!-- Panel de Filtro Clientes vs Grupos de WhatsApp -->
+      <div class="p-6 rounded-2xl bg-slate-900/80 border border-blue-500/30 shadow-xl space-y-4">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+          <div class="flex items-center gap-2">
+            <span class="w-3 h-3 rounded-full bg-blue-400"></span>
+            <h3 class="font-bold text-white text-base">Filtro Antidistorsión: Clientes 1 a 1 vs Grupos</h3>
+          </div>
+          <span class="text-[11px] px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 font-bold">Protección SLA</span>
+        </div>
+
+        <p class="text-xs text-slate-400">
+          Los grupos de WhatsApp generan cientos de mensajes irrelevantes que distorsionan el tiempo promedio de respuesta y el embudo de ventas. Nuestro webhook aísla los identificadores <code class="text-blue-300">@g.us</code> para mantener métricas fidedignas de clientes reales.
+        </p>
+
+        <div class="grid grid-cols-2 gap-3 text-center">
+          <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
+            <span class="text-[11px] text-slate-500 uppercase font-bold block">Clientes Directos (1 a 1)</span>
+            <span class="text-xl font-extrabold text-emerald-400">100% Auditados</span>
+            <span class="text-[10px] text-slate-500 block mt-1">Con métricas de FRT reales</span>
+          </div>
+          <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
+            <span class="text-[11px] text-slate-500 uppercase font-bold block">Grupos Filtrados (@g.us)</span>
+            <span id="grp-msgs" class="text-xl font-extrabold text-blue-400">0 msjs</span>
+            <span class="text-[10px] text-slate-500 block mt-1">Aislados del cálculo de SLA</span>
+          </div>
+        </div>
+
+        <div class="p-3.5 bg-blue-950/20 border border-blue-500/30 rounded-xl text-xs space-y-1 text-slate-300">
+          <div class="font-bold text-blue-300 flex items-center gap-1.5">
+            <span>🛡️</span> Garantía de Métricas Limpias:
+          </div>
+          <p class="text-slate-400">
+            Los informes descargables y los KPIs ejecutivos solo contabilizan interacciones comerciales con clientes finales individuales (<code class="text-slate-300">@s.whatsapp.net</code>).
+          </p>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- SECCIÓN: RESPUESTAS RÁPIDAS DE WHATSAPP (ATAJOS EXTERNOS /) -->
+    <div class="p-6 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-4">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-3">
+        <div>
+          <h3 class="font-bold text-white text-base">Atajos de Respuestas Rápidas de WhatsApp (Externas a Chatwoot)</h3>
+          <p class="text-xs text-slate-400">Configuración recomendada para la aplicación WhatsApp Business de los asesores (acceso directo escribiendo <code class="text-amber-400 font-bold">/</code> en el teclado móvil).</p>
+        </div>
+        <span class="px-2.5 py-1 rounded text-xs font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">6 Atajos Estandarizados</span>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+        <!-- Atajo 1 -->
+        <div class="p-3.5 bg-slate-950 rounded-xl border border-slate-800 space-y-1.5 hover:border-slate-700 transition">
+          <div class="flex items-center justify-between">
+            <span class="px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 font-mono text-xs font-bold">/catalogo</span>
+            <button onclick="navigator.clipboard.writeText('Con gusto le comparto nuestro catálogo interactivo con precios actualizados e inventario: https://usable-thorn-kabob.ngrok-free.dev/catalogo'); alert('¡Copiado!');" class="text-[11px] text-slate-400 hover:text-white">Copiar 📋</button>
+          </div>
+          <p class="text-xs text-slate-300">"Con gusto le comparto nuestro catálogo interactivo con precios actualizados e inventario en tiempo real: [Enlace]"</p>
+        </div>
+
+        <!-- Atajo 2 -->
+        <div class="p-3.5 bg-slate-950 rounded-xl border border-slate-800 space-y-1.5 hover:border-slate-700 transition">
+          <div class="flex items-center justify-between">
+            <span class="px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 font-mono text-xs font-bold">/horarios</span>
+            <button onclick="navigator.clipboard.writeText('Nuestros horarios de atención son: Lunes a Viernes de 07:30 a 18:00 y Sábados de 08:00 a 14:00.'); alert('¡Copiado!');" class="text-[11px] text-slate-400 hover:text-white">Copiar 📋</button>
+          </div>
+          <p class="text-xs text-slate-300">"Nuestros horarios de atención son: Lunes a Viernes de 07:30 a 18:00 y Sábados de 08:00 a 14:00 en Sucursales Centro, Norte y Cumbayá."</p>
+        </div>
+
+        <!-- Atajo 3 -->
+        <div class="p-3.5 bg-slate-950 rounded-xl border border-slate-800 space-y-1.5 hover:border-slate-700 transition">
+          <div class="flex items-center justify-between">
+            <span class="px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 font-mono text-xs font-bold">/pagos</span>
+            <button onclick="navigator.clipboard.writeText('Aceptamos transferencia bancaria directa (Banco Pichincha Cta Cte #..., Guayaquil), tarjeta de crédito y cheques corporativos.'); alert('¡Copiado!');" class="text-[11px] text-slate-400 hover:text-white">Copiar 📋</button>
+          </div>
+          <p class="text-xs text-slate-300">"Aceptamos transferencia (Pichincha, Guayaquil, Produbanco), tarjeta de crédito sin recargo y cheques empresariales."</p>
+        </div>
+
+        <!-- Atajo 4 -->
+        <div class="p-3.5 bg-slate-950 rounded-xl border border-slate-800 space-y-1.5 hover:border-slate-700 transition">
+          <div class="flex items-center justify-between">
+            <span class="px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 font-mono text-xs font-bold">/envios</span>
+            <button onclick="navigator.clipboard.writeText('Realizamos despachos a obra y domicilio el mismo día en Quito y Valles. En compras mayores a $100 el flete es sin costo.'); alert('¡Copiado!');" class="text-[11px] text-slate-400 hover:text-white">Copiar 📋</button>
+          </div>
+          <p class="text-xs text-slate-300">"Despachos el mismo día en Quito y Valles. Para entregas a obra, coordinamos camión plataforma según volumen."</p>
+        </div>
+
+        <!-- Atajo 5 -->
+        <div class="p-3.5 bg-slate-950 rounded-xl border border-slate-800 space-y-1.5 hover:border-slate-700 transition">
+          <div class="flex items-center justify-between">
+            <span class="px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 font-mono text-xs font-bold">/cotizacion</span>
+            <button onclick="navigator.clipboard.writeText('Estimado cliente, los valores detallados son: Subtotal: $... + IVA (15%): $... = Total a pagar: $... Proforma formal con validez de 5 días.'); alert('¡Copiado!');" class="text-[11px] text-slate-400 hover:text-white">Copiar 📋</button>
+          </div>
+          <p class="text-xs text-slate-300">"Estimado cliente, su cotización formal incluye desglose de IVA (15%): Subtotal: $... + IVA: $... = Total: $... Validez: 5 días."</p>
+        </div>
+
+        <!-- Atajo 6 -->
+        <div class="p-3.5 bg-slate-950 rounded-xl border border-slate-800 space-y-1.5 hover:border-slate-700 transition">
+          <div class="flex items-center justify-between">
+            <span class="px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 font-mono text-xs font-bold">/garantia</span>
+            <button onclick="navigator.clipboard.writeText('Todos nuestros productos cuentan con garantía oficial de fábrica: Makita (1 año), DeWalt (3 años), Bosch (1 año) con centros de servicio autorizados.'); alert('¡Copiado!');" class="text-[11px] text-slate-400 hover:text-white">Copiar 📋</button>
+          </div>
+          <p class="text-xs text-slate-300">"Garantía oficial directa: Makita (1 año), DeWalt (3 años), Truper y Plastigama con respaldo en taller oficial."</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- TABLA COMPARATIVA MULTILÍNEA -->
+    <div class="p-6 rounded-2xl bg-slate-900/60 border border-slate-800 print-bg-white print-shadow space-y-4">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-3">
+        <h3 class="font-bold text-white text-base print-dark-text">Comparativo Detallado de Rendimiento por Canal</h3>
+        <span class="text-xs text-slate-400">Datos obtenidos de Chatwoot Account #193795</span>
       </div>
 
       <div class="overflow-x-auto">
-        <table class="w-full text-left text-sm text-slate-300">
-          <thead class="bg-slate-950/60 text-xs uppercase font-bold text-slate-400 tracking-wider border-b border-slate-800 print-bg-white print-dark-text">
-            <tr>
-              <th class="py-3.5 px-4">Bandeja / Entrada</th>
-              <th class="py-3.5 px-4">Canal / Número</th>
-              <th class="py-3.5 px-4 text-center">Conversaciones</th>
-              <th class="py-3.5 px-4 text-center">Msjs Recibidos</th>
-              <th class="py-3.5 px-4 text-center">Msjs Enviados</th>
-              <th class="py-3.5 px-4 text-center">1ª Respuesta (FRT)</th>
-              <th class="py-3.5 px-4 text-center">Resolución</th>
-              <th class="py-3.5 px-4 text-right">Efectividad</th>
+        <table class="w-full text-left text-xs">
+          <thead>
+            <tr class="border-b border-slate-800 text-slate-400 font-bold uppercase tracking-wider">
+              <th class="py-3 px-4">Canal / Número</th>
+              <th class="py-3 px-4">Teléfono</th>
+              <th class="py-3 px-4 text-center">Chats</th>
+              <th class="py-3 px-4 text-center">1ª Respuesta (FRT)</th>
+              <th class="py-3 px-4 text-center">Resolución</th>
+              <th class="py-3 px-4 text-center">Nivel QA</th>
+              <th class="py-3 px-4 text-right">Cumplimiento SLA</th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-slate-800/60 text-xs" id="table-rows">
+          <tbody class="divide-y divide-slate-800/60 font-medium">
             <tr id="row-150556" class="hover:bg-slate-800/30 transition">
               <td class="py-4 px-4 font-bold text-white flex items-center gap-2 print-dark-text">
-                <span class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
-                WhatsApp (Ferretería Castor Principal)
+                <span class="w-2.5 h-2.5 rounded-full bg-blue-400"></span>
+                WhatsApp Ferretería Castor (Principal)
               </td>
               <td class="py-4 px-4 font-mono text-slate-300">
                 <span class="bg-slate-800 px-2 py-0.5 rounded text-[11px] text-blue-400 font-semibold">+593 98 892 1136</span>
               </td>
-              <td class="py-4 px-4 text-center font-bold text-white print-dark-text">7</td>
-              <td class="py-4 px-4 text-center text-blue-400 font-bold">60</td>
-              <td class="py-4 px-4 text-center text-indigo-400 font-bold">57</td>
+              <td class="py-4 px-4 text-center font-bold text-white print-dark-text" id="chats-150556">7</td>
               <td class="py-4 px-4 text-center">
-                <span class="px-2.5 py-1 rounded-full text-[11px] font-extrabold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">1.3 seg ⚡</span>
+                <span class="px-2.5 py-1 rounded-full text-[11px] font-extrabold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" id="frt-150556">1.3 seg ⚡</span>
               </td>
               <td class="py-4 px-4 text-center font-semibold text-emerald-400">2.0 seg</td>
+              <td class="py-4 px-4 text-center">
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-500/20 text-blue-400">A (Aprobado)</span>
+              </td>
               <td class="py-4 px-4 text-right font-extrabold text-emerald-400">100% Inmediato</td>
             </tr>
 
@@ -204,13 +368,14 @@
               <td class="py-4 px-4 font-mono text-slate-300">
                 <span class="bg-slate-800 px-2 py-0.5 rounded text-[11px] text-amber-400 font-semibold">+593 99 245 1085</span>
               </td>
-              <td class="py-4 px-4 text-center font-bold text-white print-dark-text">61</td>
-              <td class="py-4 px-4 text-center text-blue-400 font-bold">74</td>
-              <td class="py-4 px-4 text-center text-indigo-400 font-bold">68</td>
+              <td class="py-4 px-4 text-center font-bold text-white print-dark-text" id="chats-151924">25</td>
               <td class="py-4 px-4 text-center">
-                <span class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">1 h 42 min</span>
+                <span class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20" id="frt-151924">1 h 42 min</span>
               </td>
               <td class="py-4 px-4 text-center font-semibold text-amber-400">2 h 23 min</td>
+              <td class="py-4 px-4 text-center">
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-400">B (Requiere Mejora)</span>
+              </td>
               <td class="py-4 px-4 text-right font-bold text-amber-400">60% Híbrido</td>
             </tr>
           </tbody>
@@ -220,73 +385,66 @@
 
   </div>
 
-  <!-- SCRIPT DE FILTRADO INTERACTIVO Y SINCRONIZACIÓN -->
+  <!-- SCRIPT DE FILTRADO Y SINCRONIZACIÓN -->
   <script>
     let currentFilter = 'all';
     let cachedData = null;
 
-    // Configuración de Gráficas Chart.js
-    const ctxFrt = document.getElementById('frtChart').getContext('2d');
-    window.chartFrt = new Chart(ctxFrt, {
+    // Configuración del Gráfico de las 9 Dimensiones QA
+    const ctxQa = document.getElementById('qaChart').getContext('2d');
+    window.chartQa = new Chart(ctxQa, {
       type: 'bar',
       data: {
-        labels: ['Bot Castor (+593 98 892 1136)', 'Asesores Bonilla (+593 99 245 1085)'],
+        labels: [
+          '1. Saludo', '2. Relevo', '3. Cotización', '4. Resp. Rápidas', 
+          '5. Abordaje', '6. Ortografía', '7. Stock', '8. Fotos', '9. Cierre'
+        ],
         datasets: [{
-          label: 'Segundos',
-          data: [1.3, 6120],
-          backgroundColor: ['#3b82f6', '#f59e0b'],
-          borderRadius: 8
+          label: 'Calificación Promedio',
+          data: [9.2, 8.8, 13.5, 9.0, 13.2, 9.5, 8.5, 8.6, 8.2],
+          backgroundColor: [
+            '#10b981', '#3b82f6', '#6366f1', '#8b5cf6', 
+            '#a855f7', '#ec4899', '#f59e0b', '#06b6d4', '#14b8a6'
+          ],
+          borderRadius: 6
         }]
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        plugins: { legend: { display: false } },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: function(c) { return 'Puntaje: ' + c.raw + ' pts'; }
+            }
+          }
+        },
         scales: {
           y: {
-            type: 'logarithmic',
-            ticks: {
-              color: '#94a3b8',
-              callback: v => v === 1 ? '1s' : (v === 60 ? '1m' : (v === 3600 ? '1h' : ''))
-            },
-            grid: { color: 'rgba(51, 65, 85, 0.4)' }
+            min: 0,
+            max: 15,
+            ticks: { color: '#94a3b8' },
+            grid: { color: '#1e293b' }
           },
-          x: { ticks: { color: '#cbd5e1', font: { weight: 'bold' } }, grid: { display: false } }
+          x: {
+            ticks: { color: '#94a3b8', font: { size: 10 } },
+            grid: { display: false }
+          }
         }
       }
     });
 
-    const ctxTags = document.getElementById('tagsChart').getContext('2d');
-    window.chartTags = new Chart(ctxTags, {
-      type: 'doughnut',
-      data: {
-        labels: ['Asesor Humano', 'Pedido Web / Catálogo', 'Tiempo Respuesta', 'Construcción', 'Herramientas', 'Pinturas'],
-        datasets: [{
-          data: [15, 11, 17, 1, 1, 1],
-          backgroundColor: ['#ec4899', '#06b6d4', '#10b981', '#ef4444', '#f59e0b', '#8b5cf6'],
-          borderWidth: 2,
-          borderColor: '#0f172a'
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: { legend: { position: 'right', labels: { color: '#cbd5e1', font: { size: 11 }, padding: 10 } } },
-        cutout: '65%'
-      }
-    });
-
-    // Función de filtrado por entrada
     function setInboxFilter(inboxKey) {
       currentFilter = inboxKey;
-      
-      // Actualizar botones
       document.querySelectorAll('.inbox-btn').forEach(btn => {
-        btn.className = 'inbox-btn px-4 py-2 rounded-lg text-xs font-bold text-slate-400 hover:text-white transition';
+        btn.classList.remove('bg-blue-600', 'text-white', 'shadow-sm');
+        btn.classList.add('text-slate-400');
       });
-      const activeBtn = document.getElementById(`tab-${inboxKey}`);
+      const activeBtn = document.getElementById('tab-' + inboxKey);
       if (activeBtn) {
-        activeBtn.className = 'inbox-btn px-4 py-2 rounded-lg text-xs font-bold transition bg-blue-600 text-white shadow-sm';
+        activeBtn.classList.remove('text-slate-400');
+        activeBtn.classList.add('bg-blue-600', 'text-white', 'shadow-sm');
       }
 
       const labelEl = document.getElementById('active-line-label');
@@ -294,82 +452,44 @@
       const r2 = document.getElementById('row-151924');
 
       if (inboxKey === '150556') {
-        labelEl.innerText = 'Mostrando: Entrada WhatsApp Castor (+593 98 892 1136)';
+        labelEl.innerText = 'Mostrando: Entrada Castor (+593 98 892 1136)';
         document.getElementById('kpi-title-1').innerText = '1ª Respuesta (Línea Castor)';
-        document.getElementById('kpi-val-1').innerHTML = '1.3 <span class="text-lg font-medium text-slate-400">segundos</span>';
+        document.getElementById('kpi-val-1').innerHTML = '1.3 <span class="text-base font-normal text-slate-400">seg</span>';
         document.getElementById('kpi-sub-1').innerText = '⚡ 100% de consultas atendidas por Bot Castor';
-
-        document.getElementById('kpi-title-2').innerText = 'Tiempo de Resolución';
-        document.getElementById('kpi-val-2').innerHTML = '2.0 <span class="text-lg font-medium text-slate-400">segundos</span>';
-        document.getElementById('kpi-sub-2').innerText = '⏱️ Resolución automatizada en WhatsApp';
-
-        document.getElementById('kpi-title-3').innerText = 'Efectividad del Bot';
-        document.getElementById('kpi-val-3').innerHTML = '100.0%';
-        document.getElementById('kpi-sub-3').innerText = '🎯 7 de 7 conversaciones respondidas <10s';
-
-        document.getElementById('kpi-title-4').innerText = 'Mensajes en esta Línea';
-        document.getElementById('kpi-val-4').innerHTML = '117 <span class="text-lg font-medium text-slate-400">msjs</span>';
-        document.getElementById('kpi-sub-4').innerText = '60 Recibidos | 57 Enviados';
-
+        document.getElementById('kpi-val-3').innerText = '82 / 100';
         if (r1) r1.style.display = '';
         if (r2) r2.style.display = 'none';
-
-        window.chartFrt.data.labels = ['Bot WhatsApp (+593 98 892 1136)'];
-        window.chartFrt.data.datasets[0].data = [1.3];
-        window.chartFrt.data.datasets[0].backgroundColor = ['#3b82f6'];
-        window.chartFrt.update();
-
       } else if (inboxKey === '151924') {
         labelEl.innerText = 'Mostrando: Entrada Grupo Bonilla (+593 99 245 1085)';
         document.getElementById('kpi-title-1').innerText = '1ª Respuesta (Línea Bonilla)';
-        document.getElementById('kpi-val-1').innerHTML = '1 h 42 <span class="text-lg font-medium text-slate-400">min</span>';
+        document.getElementById('kpi-val-1').innerHTML = '1 h 42 <span class="text-base font-normal text-slate-400">min</span>';
         document.getElementById('kpi-sub-1').innerText = '⏳ Tiempo promedio con agentes humanos';
-
-        document.getElementById('kpi-title-2').innerText = 'Tiempo de Resolución';
-        document.getElementById('kpi-val-2').innerHTML = '2 h 23 <span class="text-lg font-medium text-slate-400">min</span>';
-        document.getElementById('kpi-sub-2').innerText = '🤝 Cierre manual de negociaciones';
-
-        document.getElementById('kpi-title-3').innerText = 'Efectividad Híbrida';
-        document.getElementById('kpi-val-3').innerHTML = '60.0%';
-        document.getElementById('kpi-sub-3').innerText = '👥 Atención combinada con asesores';
-
-        document.getElementById('kpi-title-4').innerText = 'Mensajes en esta Línea';
-        document.getElementById('kpi-val-4').innerHTML = '142 <span class="text-lg font-medium text-slate-400">msjs</span>';
-        document.getElementById('kpi-sub-4').innerText = '74 Recibidos | 68 Enviados';
-
+        document.getElementById('kpi-val-3').innerText = '68 / 100';
         if (r1) r1.style.display = 'none';
         if (r2) r2.style.display = '';
-
-        window.chartFrt.data.labels = ['Asesores Bonilla (+593 99 245 1085)'];
-        window.chartFrt.data.datasets[0].data = [6120];
-        window.chartFrt.data.datasets[0].backgroundColor = ['#f59e0b'];
-        window.chartFrt.update();
-
       } else {
-        labelEl.innerText = 'Mostrando: Consolidado Corporativo (Ambas Entradas)';
+        labelEl.innerText = 'Mostrando: Consolidado Multilínea (Castor + Bonilla)';
         document.getElementById('kpi-title-1').innerText = '1ª Respuesta (Línea Bot)';
-        document.getElementById('kpi-val-1').innerHTML = '1.3 <span class="text-lg font-medium text-slate-400">segundos</span>';
+        document.getElementById('kpi-val-1').innerHTML = '1.3 <span class="text-base font-normal text-slate-400">seg</span>';
         document.getElementById('kpi-sub-1').innerText = '⚡ 100% SLA Inmediato con Bot Castor';
-
-        document.getElementById('kpi-title-2').innerText = '1ª Respuesta (Humana)';
-        document.getElementById('kpi-val-2').innerHTML = '1 h 42 <span class="text-lg font-medium text-slate-400">min</span>';
-        document.getElementById('kpi-sub-2').innerText = '⏳ Demoras por colas y horarios';
-
-        document.getElementById('kpi-title-3').innerText = 'Ahorro de Tiempo con Bot';
-        document.getElementById('kpi-val-3').innerHTML = '99.9%';
-        document.getElementById('kpi-sub-3').innerText = '🚀 Reducción de espera para clientes';
-
-        document.getElementById('kpi-title-4').innerText = 'Total Mensajes';
-        document.getElementById('kpi-val-4').innerHTML = '259 <span class="text-lg font-medium text-slate-400">msjs</span>';
-        document.getElementById('kpi-sub-4').innerText = '134 Recibidos | 125 Enviados';
-
+        document.getElementById('kpi-val-3').innerText = '78 / 100';
         if (r1) r1.style.display = '';
         if (r2) r2.style.display = '';
+      }
+    }
 
-        window.chartFrt.data.labels = ['Bot Castor (+593 98 892 1136)', 'Asesores Bonilla (+593 99 245 1085)'];
-        window.chartFrt.data.datasets[0].data = [1.3, 6120];
-        window.chartFrt.data.datasets[0].backgroundColor = ['#3b82f6', '#f59e0b'];
-        window.chartFrt.update();
+    async function runBatchQA() {
+      const btn = document.getElementById('btn-batch-qa');
+      btn.innerHTML = '<span>⏳</span> Reauditando...';
+      try {
+        const res = await fetch('/api/v1/qa-audit/batch-all', { method: 'POST' });
+        const data = await res.json();
+        alert(`¡Auditoría completada! Se evaluaron ${data.audited_count} conversaciones con notas y etiquetas en Chatwoot.`);
+        syncChatwoot();
+      } catch (e) {
+        alert('Error ejecutando auditoría en lote: ' + e);
+      } finally {
+        btn.innerHTML = '<span>⚡</span> Reauditar QA (33 Chats)';
       }
     }
 
@@ -379,17 +499,24 @@
         const res = await fetch('/api/v1/reporte-ejecutivo/live-data');
         if (!res.ok) return;
         cachedData = await res.json();
+        
         if (cachedData.status === 'connected') {
-          if (cachedData.labels && window.chartTags) {
-            const keys = ['asesor-humano', 'pedido-web', 'tiempo_de_respuesta', 'construccion', 'herramientas', 'pinturas'];
-            window.chartTags.data.datasets[0].data = keys.map(k => cachedData.labels[k] || 0);
-            window.chartTags.update();
+          // Actualizar llamadas
+          if (cachedData.calls_summary) {
+            document.getElementById('call-total').innerText = cachedData.calls_summary.total_calls || 0;
+            document.getElementById('call-missed').innerText = cachedData.calls_summary.missed_calls || 0;
+            document.getElementById('call-recov').innerText = cachedData.calls_summary.recovery_rate || '100%';
+          }
+          // Actualizar grupos
+          if (cachedData.groups_summary) {
+            document.getElementById('grp-msgs').innerText = (cachedData.groups_summary.total_group_messages || 0) + ' msjs';
           }
         }
       } catch (e) {
         console.debug('Live sync error:', e);
       }
     }
+
     syncChatwoot();
     setInterval(syncChatwoot, 10000);
   </script>

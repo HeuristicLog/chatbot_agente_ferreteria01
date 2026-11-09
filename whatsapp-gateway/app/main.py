@@ -270,6 +270,30 @@ async def proxy_reporte_ejecutivo_excel():
             logger.error(f"Error proxying reporte excel: {e}")
             raise HTTPException(status_code=502, detail="Error descargando reporte excel.")
 
+@app.post("/api/v1/qa-audit/batch-all")
+async def proxy_qa_audit_batch(request: Request):
+    """Proxy QA batch audit execution."""
+    url = f"{chatbot_api_url}/api/v1/qa-audit/batch-all"
+    async with httpx.AsyncClient() as client:
+        try:
+            resp = await client.post(url, timeout=60.0)
+            return Response(content=resp.content, status_code=resp.status_code, media_type="application/json")
+        except Exception as e:
+            logger.error(f"Error proxying QA batch audit: {e}")
+            raise HTTPException(status_code=502, detail="Error ejecutando auditoría QA.")
+
+@app.get("/api/v1/calls/summary")
+async def proxy_calls_summary(request: Request):
+    """Proxy WhatsApp calls summary."""
+    url = f"{chatbot_api_url}/api/v1/calls/summary"
+    async with httpx.AsyncClient() as client:
+        try:
+            resp = await client.get(url, timeout=15.0)
+            return Response(content=resp.content, status_code=resp.status_code, media_type="application/json")
+        except Exception as e:
+            logger.error(f"Error proxying calls summary: {e}")
+            raise HTTPException(status_code=502, detail="Error consultando llamadas.")
+
 @app.get("/api/v1/metrics")
 async def proxy_metrics_api(request: Request):
     """Proxy metrics JSON API from backend."""

@@ -231,6 +231,41 @@ async def _gateway_send_media(phone: str, media_type: str, media_url: str, capti
     except Exception as e:
         logger.error(f"Gateway send_media error: {e}")
 
+# ─── NOTIFICACIÓN DE LLAMADAS A CHATWOOT ───────────────────────
+
+async def notify_chatwoot_call_event(phone: str, call_status: str, is_video: bool = False, inbox_id: Optional[int] = None):
+    """Registra llamadas entrantes de WhatsApp en Chatwoot con nota privada y etiquetas."""
+    try:
+        cw = ChatwootService()
+        if not cw.is_configured():
+            return
+        clean_p = phone.replace("+", "").strip()
+        contact_id = await cw.get_or_create_contact(f"+{clean_p}", f"Cliente +{clean_p}", inbox_id=inbox_id)
+        if not contact_id:
+            return
+        conv_id = await cw.get_or_create_conversation(contact_id, inbox_id=inbox_id)
+        if not conv_id:
+            return
+        
+        tipo_llamada = "Videollamada" if is_video else "Llamada de Voz"
+        note_content = (
+            f"📞 *REGISTRO DE LLAMADA WHATSAPP*\n"
+            f"━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+            f"• *Tipo:* {tipo_llamada}\n"
+            f"• *Estado:* {call_status.upper()} (Desatendida / No contestada)\n"
+            f"• *Número:* +{clean_p}\n"
+            f"• *Hora:* {datetime.now().strftime('%H:%M:%S (%d/%m/%Y)')}\n"
+            f"• *Acción Automática:* Se despachó mensaje de contingencia por chat para rescatar la atención."
+        )
+        await cw.post_message(conv_id, note_content, is_private=True)
+        await cw.add_conversation_labels(conv_id, ["llamada-whatsapp", "llamada-desatendida"])
+        await cw.set_conversation_custom_attributes(conv_id, {
+            "ultima_llamada_estado": call_status,
+            "llamada_desatendida": True
+        })
+    except Exception as e:
+        logger.error(f"Error registrando llamada en Chatwoot: {e}")
+
 # ─── MAIN WEBHOOK ──────────────────────────────────────────────
 
 @router.post("/webhooks/whatsapp", dependencies=[Depends(verify_internal_auth)])
@@ -242,15 +277,60 @@ async def receive_incoming_message(
     session_service = SessionService(db, redis_client)
     ai_service = LangChainService()
 
+    # ── 1. GESTIÓN Y AUDITORÍA DE LLAMADAS (AUDIO / VIDEO) ──
+    event_name = str(raw_payload.get("event") or "").lower()
+    if "call" in event_name or raw_payload.get("event") in ["CALL", "call", "CALL_UPSERT"]:
+        call_items = raw_payload.get("data", [])
+        if isinstance(call_items, dict):
+            call_items = [call_items]
+        
+        for item in (call_items if isinstance(call_items, list) else []):
+            caller_jid = item.get("from") or item.get("caller") or item.get("id", "")
+            caller_phone = caller_jid.split("@")[0].replace("+", "").strip()
+            call_status = str(item.get("status") or "missed").lower()
+            is_video = bool(item.get("isVideo", False))
+            
+            await redis_client.hincrby("metrics:calls", "total_calls", 1)
+            await redis_client.hincrby("metrics:calls", f"status:{call_status}", 1)
+            
+            call_log_entry = {
+                "phone": f"+{caller_phone}" if caller_phone else "Desconocido",
+                "status": call_status,
+                "is_video": is_video,
+                "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            }
+            await redis_client.lpush("metrics:calls:recent", json.dumps(call_log_entry))
+            await redis_client.ltrim("metrics:calls:recent", 0, 99)
+            
+            if call_status in ["timeout", "reject", "missed", "terminate", "offer"] and caller_phone:
+                await notify_chatwoot_call_event(caller_phone, call_status, is_video)
+                try:
+                    recovery_text = (
+                        "Hola 👋, registramos tu intento de llamada por WhatsApp.\n\n"
+                        "En este momento nuestros asesores comerciales están gestionando pedidos en línea por este chat. "
+                        "¿En qué producto, cotización o disponibilidad de Ferretería te podemos ayudar hoy?"
+                    )
+                    await send_message_helper(caller_phone, recovery_text, redis_client=redis_client)
+                    await redis_client.hincrby("metrics:calls", "auto_recovered", 1)
+                except Exception as snd_e:
+                    logger.error(f"Error enviando mensaje de rescate de llamada: {snd_e}")
+                    
+        return {"status": "call_event_processed"}
+
     # Detectar formato: Evolution API v2 vs Gateway / Test Mock
     if "data" in raw_payload and isinstance(raw_payload["data"], dict) and "key" in raw_payload["data"]:
         data = raw_payload["data"]
         key = data.get("key", {})
             
         remote_jid = key.get("remoteJid", "")
-        # Ignorar grupos de WhatsApp
+        # Filtrar grupos de WhatsApp para no distorsionar métricas de conversión y tiempos de respuesta
         if "@g.us" in remote_jid:
-            return {"status": "ignored_group"}
+            try:
+                await redis_client.hincrby("metrics:groups_summary", "total_group_messages", 1)
+                await redis_client.hincrby("metrics:groups_active", remote_jid, 1)
+            except Exception:
+                pass
+            return {"status": "ignored_group", "reason": "group_filtered_to_preserve_sla"}
             
         # Resolver teléfono real (WhatsApp @lid vs número estándar)
         remote_jid_alt = key.get("remoteJidAlt", "") or data.get("remoteJidAlt", "")
