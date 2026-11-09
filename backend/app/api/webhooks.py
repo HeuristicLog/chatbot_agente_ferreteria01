@@ -1212,6 +1212,43 @@ async def chatwoot_webhook(
             except Exception as check_err:
                 logger.error(f"Error actualizando estado a human_active: {check_err}")
 
+            # ── Comandos de Control Rápido del Bot (/bot off, /bot on, /pausar, /activar) ──
+            content_lower = str(content or "").strip().lower()
+            cw_conv_id = conversation.get("id")
+            
+            if content_lower in ["/bot off", "/bot pausar", "/bot pausa", "/pausar", "/silencio"]:
+                try:
+                    if conv:
+                        conv.status = "human_active"
+                        db.add(conv)
+                        await db.commit()
+                    cw_srv = ChatwootService()
+                    await cw_srv.post_message(cw_conv_id, "⏸️ *BOT DESACTIVADO:* El bot ha sido pausado para este cliente. El asesor humano tiene el control exclusivo de la conversación.", is_private=True)
+                    await cw_srv.add_conversation_labels(cw_conv_id, ["bot-pausado", "asesor-humano"])
+                except Exception as e:
+                    logger.error(f"Error pausando bot via comando: {e}")
+                return {"status": "bot_paused_by_command"}
+
+            elif content_lower in ["/bot on", "/bot activar", "/activar", "/bot reanudar"]:
+                try:
+                    if conv:
+                        conv.status = "bot_active"
+                        db.add(conv)
+                        await db.commit()
+                        from app.repositories.audit_repository import AuditRepository
+                        audit_repo = AuditRepository(db)
+                        active_handoff = await audit_repo.get_active_handoff(conv.id)
+                        if active_handoff:
+                            await audit_repo.resolve_handoff(active_handoff.id, "Chatwoot Agent Command")
+                        await redis_client.delete(f"flow_state:{clean_phone}")
+                        
+                    cw_srv = ChatwootService()
+                    await cw_srv.post_message(cw_conv_id, "▶️ *BOT REACTIVADO:* El bot vuelve a estar activo y responderá automáticamente las próximas consultas del cliente.", is_private=True)
+                    await cw_srv.add_conversation_labels(cw_conv_id, ["bot-activo"])
+                except Exception as e:
+                    logger.error(f"Error reactivando bot via comando: {e}")
+                return {"status": "bot_activated_by_command"}
+
             # 1. Reenvío de adjuntos multimedia (fotos, videos, audios, documentos)
             attachments = payload.get("attachments", [])
             has_sent_media = False
@@ -1312,7 +1349,7 @@ async def chatwoot_webhook(
 
                         await redis_client.delete(f"flow_state:{clean_phone}")
 
-                        msg = "✅ *Atención al cliente finalizada.* El asesor comercial virtual Alex de AutoEcuador Motors 🇪🇨 vuelve a estar activo. Escribe *hola* para ver el menú o explorar vehículos."
+                        msg = "✅ *Atención personalizada finalizada.* Nuestro asistente virtual de Ferretería Castor 🦫 vuelve a estar disponible para ti. Escribe *hola* o *menu* si requieres cotizaciones, catálogo o disponibilidad de productos."
                         await _gateway_send_text(clean_phone, msg, phone_number_id=target_phone_number_id, access_token=target_access_token)
 
                         db_msg = DBMessage(
