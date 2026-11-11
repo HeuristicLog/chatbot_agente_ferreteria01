@@ -869,22 +869,37 @@ async def receive_incoming_message(
             from app.services import in_chat_cart_service as in_chat_cart
             cart = await in_chat_cart.get_cart(redis_client, payload.phone)
             cart["customer_name"] = flow_data.get("nombre") or "Cliente WhatsApp"
-            cart["delivery_type"] = flow_data.get("tipo_entrega") or "pickup"
-            cart["sucursal"] = flow_data.get("sucursal") or "Centro"
+            suc = flow_data.get("sucursal") or "Centro"
+            cart["delivery_type"] = "delivery" if str(suc).lower() == "domicilio" else "pickup"
+            cart["sucursal"] = "Centro" if str(suc).lower() == "domicilio" else suc
             cart["address"] = flow_data.get("direccion")
             await in_chat_cart.save_cart(redis_client, payload.phone, cart)
             
-            # Cargar productos del flow al carrito
-            prods = flow_data.get("productos", [])
+            # Cargar productos del flow al carrito (soporta selección múltiple o 1-tap)
+            prods = flow_data.get("productos") or flow_data.get("producto") or []
             if isinstance(prods, str):
                 prods = [prods]
+            has_valid_prod = False
             for p_sku in prods:
-                await in_chat_cart.add_item_to_cart(redis_client, payload.phone, p_sku, 1)
+                if p_sku and p_sku != "OTRO_MATERIAL":
+                    added = await in_chat_cart.add_item_to_cart(redis_client, payload.phone, p_sku, 1)
+                    if added:
+                        has_valid_prod = True
                 
             payment_method = flow_data.get("metodo_pago", "efectivo")
-            await in_chat_cart.complete_in_chat_order(
-                payload.phone, redis_client, db, payment_method, internal_api_key, phone_number_id=dest_phone_number_id
-            )
+            if has_valid_prod:
+                await in_chat_cart.complete_in_chat_order(
+                    payload.phone, redis_client, db, payment_method, internal_api_key, phone_number_id=dest_phone_number_id
+                )
+            else:
+                msg_text = (
+                    f"¡Muchas gracias {cart['customer_name']}! 🦫\n\n"
+                    f"📋 *Solicitud de Cotización Especial Recibida*\n"
+                    f"• *Modalidad:* {suc}\n"
+                    f"• *Forma de pago:* {payment_method.capitalize()}\n\n"
+                    "Un asesor comercial revisará tu lista y te responderá con precios de distribuidor en unos minutos."
+                )
+                await flows._send(payload.phone, msg_text, internal_api_key, phone_number_id=dest_phone_number_id)
             return {"status": "processed"}
 
         # ── Flujo: Estado de pedido
