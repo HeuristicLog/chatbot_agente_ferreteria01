@@ -37,8 +37,6 @@ services:
     image: postgres:15-alpine
     container_name: ferreteria-postgres-bot
     restart: unless-stopped
-    ports:
-      - "5435:5432"
     environment:
       - POSTGRES_DB=${POSTGRES_DB:-ferreteria_chatbot}
       - POSTGRES_USER=${POSTGRES_USER:-chatbot}
@@ -113,7 +111,7 @@ services:
     environment:
       - APP_ENV=${APP_ENV:-development}
       - APP_TIMEZONE=${APP_TIMEZONE:-America/Guayaquil}
-      - DATABASE_URL=${DATABASE_URL:-postgresql+asyncpg://chatbot:change_me@postgres:5432/ferreteria_chatbot}
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-chatbot}:${POSTGRES_PASSWORD:-change_me}@postgres:5432/${POSTGRES_DB:-ferreteria_chatbot}
       - REDIS_URL=${REDIS_URL:-redis://redis:6379/0}
       - QDRANT_URL=${QDRANT_URL:-http://qdrant:6333}
       - QDRANT_COLLECTION=${QDRANT_COLLECTION:-ferreteria_faq}
