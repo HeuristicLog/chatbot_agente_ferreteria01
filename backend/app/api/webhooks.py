@@ -78,14 +78,14 @@ async def save_message(db: AsyncSession, conv_id, direction: str, role: str, con
 
 # ─── Send helpers (fire-and-forget) ──────────────────────────
 
-async def _gateway_send_text(phone: str, message: str, phone_number_id: Optional[str] = None, access_token: Optional[str] = None, sync_to_chatwoot: bool = True):
+async def _gateway_send_text(phone: str, message: str, phone_number_id: Optional[str] = None, access_token: Optional[str] = None, sync_to_chatwoot: bool = True, instance: Optional[str] = None):
     clean_p = phone.replace("+", "").replace(" ", "").strip()
     norm_msg = (message or "").strip()
     
     # Marcar firmas en Redis para evitar bucles o ecos cruzados entre WhatsApp y Chatwoot
     import hashlib
     sig = hashlib.md5(f"{clean_p}:{norm_msg}".encode()).hexdigest()
-    target_instance = "sucursal_centro"
+    target_instance = instance or "sucursal_centro"
     try:
         import redis.asyncio as aioredis
         import os
@@ -93,9 +93,10 @@ async def _gateway_send_text(phone: str, message: str, phone_number_id: Optional
         rc = aioredis.from_url(r_url)
         await rc.set(f"cw_to_evo:{sig}", "1", ex=60)
         await rc.set(f"wa_to_cw:{sig}", "1", ex=60)
-        inst_bytes = await rc.get(f"user_instance:{clean_p}")
-        if inst_bytes:
-            target_instance = inst_bytes.decode('utf-8') if isinstance(inst_bytes, bytes) else str(inst_bytes)
+        if not instance:
+            inst_bytes = await rc.get(f"user_instance:{clean_p}")
+            if inst_bytes:
+                target_instance = inst_bytes.decode('utf-8') if isinstance(inst_bytes, bytes) else str(inst_bytes)
         await rc.aclose()
     except Exception:
         pass
@@ -121,7 +122,7 @@ async def _gateway_send_text(phone: str, message: str, phone_number_id: Optional
         except Exception as gw_e:
             logger.debug(f"Gateway Meta Cloud send fallback: {gw_e}")
 
-    # 2. Intentar enviar via Evolution API usando la instancia correspondiente (multilínea 25 números QR)
+    # 2. Intentar enviar via Evolution API usando la instancia correspondiente (multilínea QR)
     try:
         async with httpx.AsyncClient() as client:
             evo_resp = await client.post(
@@ -133,7 +134,7 @@ async def _gateway_send_text(phone: str, message: str, phone_number_id: Optional
             if evo_resp.status_code in [200, 201]:
                 return
     except Exception as evo_e:
-        logger.debug(f"Evolution send fallback: {evo_e}")
+        logger.debug(f"Evolution send fallback ({target_instance}): {evo_e}")
 
     # 3. Fallback general al Gateway
     headers = {"X-Internal-API-Key": internal_api_key}
@@ -148,7 +149,7 @@ async def _gateway_send_text(phone: str, message: str, phone_number_id: Optional
     except Exception as e:
         logger.error(f"Gateway send_text error: {e}")
 
-async def _gateway_send_media(phone: str, media_type: str, media_url: str, caption: str = "", phone_number_id: Optional[str] = None, access_token: Optional[str] = None):
+async def _gateway_send_media(phone: str, media_type: str, media_url: str, caption: str = "", phone_number_id: Optional[str] = None, access_token: Optional[str] = None, instance: Optional[str] = None):
     # 1. Si viene con credenciales explícitas de Meta Cloud (phone_number_id y access_token)
     if phone_number_id and access_token:
         headers = {"X-Internal-API-Key": internal_api_key}
@@ -164,18 +165,19 @@ async def _gateway_send_media(phone: str, media_type: str, media_url: str, capti
     # 2. Intentar enviar via Evolution API (para WhatsApp QR vinculado multilínea)
     try:
         clean_p = phone.replace("+", "").replace(" ", "").strip()
-        target_instance = "sucursal_centro"
-        try:
-            import redis.asyncio as aioredis
-            import os
-            r_url = os.getenv("REDIS_URL", "redis://redis:6379/0")
-            rc = aioredis.from_url(r_url)
-            inst_bytes = await rc.get(f"user_instance:{clean_p}")
-            if inst_bytes:
-                target_instance = inst_bytes.decode('utf-8') if isinstance(inst_bytes, bytes) else str(inst_bytes)
-            await rc.aclose()
-        except Exception:
-            pass
+        target_instance = instance or "sucursal_centro"
+        if not instance:
+            try:
+                import redis.asyncio as aioredis
+                import os
+                r_url = os.getenv("REDIS_URL", "redis://redis:6379/0")
+                rc = aioredis.from_url(r_url)
+                inst_bytes = await rc.get(f"user_instance:{clean_p}")
+                if inst_bytes:
+                    target_instance = inst_bytes.decode('utf-8') if isinstance(inst_bytes, bytes) else str(inst_bytes)
+                await rc.aclose()
+            except Exception:
+                pass
 
         evo_mediatype = media_type.lower()
         if "audio" in evo_mediatype or "voice" in evo_mediatype:
@@ -205,7 +207,7 @@ async def _gateway_send_media(phone: str, media_type: str, media_url: str, capti
                 "caption": caption or ""
             }
             evo_resp = await client.post(
-                "http://evolution-api:8080/message/sendMedia/sucursal_centro",
+                f"http://evolution-api:8080/message/sendMedia/{target_instance}",
                 json=evo_payload,
                 headers={"apikey": "ferreteria_evolution_key_2026"},
                 timeout=20.0
@@ -213,7 +215,7 @@ async def _gateway_send_media(phone: str, media_type: str, media_url: str, capti
             if evo_resp.status_code in [200, 201]:
                 return
     except Exception as evo_e:
-        logger.error(f"Evolution send media error: {evo_e}")
+        logger.error(f"Evolution send media error ({target_instance}): {evo_e}")
 
     headers = {"X-Internal-API-Key": internal_api_key}
     payload = {
@@ -429,6 +431,12 @@ async def receive_incoming_message(
             "push_name": data.get("pushName", ""),
             "instance": curr_instance
         }
+        if curr_instance == "bonilla_1085":
+            metadata["phone_number_id"] = "593992451085"
+            metadata["inbox_id"] = 151924
+        elif curr_instance == "sucursal_centro":
+            metadata["phone_number_id"] = "593988921136"
+            metadata["inbox_id"] = 150556
         if media_type:
             metadata["media_type"] = media_type
             metadata["media_mimetype"] = media_mimetype
@@ -600,10 +608,11 @@ async def receive_incoming_message(
     cw_conv_id = None
     if chatwoot.is_configured:
         try:
-            inbox_id = None
-            mapping = settings.whatsapp_inbox_mapping or {}
-            if dest_phone_number_id and dest_phone_number_id in mapping:
-                inbox_id = mapping[dest_phone_number_id].get("inbox_id")
+            inbox_id = payload.metadata.get("inbox_id")
+            if not inbox_id:
+                mapping = settings.whatsapp_inbox_mapping or {}
+                if dest_phone_number_id and dest_phone_number_id in mapping:
+                    inbox_id = mapping[dest_phone_number_id].get("inbox_id")
             
             cw_contact_id = await chatwoot.get_or_create_contact(payload.phone, f"Cliente +{payload.phone}", inbox_id=inbox_id)
             if cw_contact_id:
@@ -1016,8 +1025,85 @@ async def receive_incoming_message(
         await save_message(db, conv.id, "outbound", "assistant", "Catálogo interactivo enviado")
         return {"status": "processed"}
 
-    # 2. Consultar Pedido (Opción 2 del menú o código directo SO- / CAST- / OP-)
-    order_inquiry_keywords = ["2", "2.", "pedido", "pedidos", "consultar pedido", "mi pedido", "estado de pedido", "rastreo", "orden"]
+    # 2. Ir directo al Asesor (Opción 2 del Menú Principal o palabras clave)
+    direct_advisor_keywords = [
+        "2", "2.", "asesor", "asesora", "hablar con asesor", "hablar con un asesor",
+        "comunicarme con un asesor", "ir directo al asesor", "directo al asesor",
+        "humano", "asesor humano", "agente", "atencion al cliente", "atención al cliente",
+        "persona", "vendedor", "ayuda humano", "admin", "administracion", "administración",
+        "facturacion", "facturación", "factura", "proveedor", "proveedores", "cobranza", "cobranzas",
+        "gerencia", "contabilidad"
+    ]
+    if any(clean_msg == k or clean_msg.startswith(k) for k in direct_advisor_keywords) or clean_msg in ["6", "6."]:
+        await clear_flow_state(redis_client, payload.phone)
+
+        # Pausar el bot para permitir intervención humana
+        conv.status = "human_active"
+        db.add(conv)
+        await db.commit()
+
+        # Condicionar respuesta según si es consulta administrativa o línea de Grupo Bonilla
+        is_admin_req = (
+            any(k in clean_msg for k in ["admin", "administra", "factur", "proveed", "cobran", "gerenc", "contab"]) or
+            payload.phone.replace("+", "") in ["593992451085"] or
+            payload.metadata.get("instance") == "bonilla_1085"
+        )
+        admin_link = "https://wa.me/593992451085?text=Hola,%20solicito%20atenci%C3%B3n%20administrativa"
+
+        if is_admin_req:
+            reply = (
+                "👨‍💼 *Atención Administrativa Directa — Grupo Bonilla*\n\n"
+                "Hemos canalizado tu consulta con el equipo administrativo.\n\n"
+                "🏢 *Línea Administrativa:* +593 99 245 1085\n"
+                f"👉 Toca aquí para escribir directo: {admin_link}\n\n"
+                "Un asesor tomará esta conversación en breve. ¡Gracias por tu paciencia!"
+            )
+        else:
+            reply = (
+                "👨‍💼 *Atención con Asesor Humano*\n\n"
+                "¡Con gusto! Te hemos transferido con nuestro equipo para atenderte personalmente.\n\n"
+                "🏢 *¿Consultas Administrativas, Facturación o Proveedores?*\n"
+                f"• Escribe directo a la línea de administración: {admin_link}\n\n"
+                "🦫 *Ventas y Cotizaciones Ferretería Castor:*\n"
+                "• El bot ha sido pausado. Un asesor comercial te responderá directamente por este chat."
+            )
+
+        await _gateway_send_text(payload.phone, reply, phone_number_id=dest_phone_number_id)
+        await save_message(db, conv.id, "outbound", "assistant", reply)
+
+        # Notificar a Chatwoot con alta prioridad y nota interna
+        if chatwoot.is_configured:
+            try:
+                target_ib = 151924 if is_admin_req else (payload.metadata.get("inbox_id") or 150556)
+                cw_cid = await chatwoot.get_or_create_contact(payload.phone, f"Cliente +{payload.phone}", inbox_id=target_ib)
+                if cw_cid:
+                    cw_cvid = await chatwoot.get_or_create_conversation(cw_cid, inbox_id=target_ib)
+                    if cw_cvid:
+                        await chatwoot.update_conversation_status(cw_cvid, "open")
+                        labels = ["asesor-humano", "prioridad-alta"]
+                        if is_admin_req:
+                            labels.append("atencion-administrativa")
+                        await chatwoot.add_conversation_labels(cw_cvid, labels)
+                        await chatwoot.set_conversation_custom_attributes(cw_cvid, {
+                            "flujo_actual": "Asesor Humano Solicitado",
+                            "solicitud_admin": "Sí" if is_admin_req else "No",
+                            "tiempo_respuesta_frt": "Esperando respuesta..."
+                        })
+                        note = (
+                            f"🚨 *CLIENTE SOLICITA ASESOR HUMANO (Opción Directa)*\n\n"
+                            f"• *Cliente:* +{payload.phone}\n"
+                            f"• *Área:* {'Administración / Facturación' if is_admin_req else 'Ventas Comercial'}\n"
+                            f"• *Mensaje del cliente:* \"{sanitized}\"\n"
+                            f"• *Estado del bot:* Pausado automáticamente para permitir la intervención humana."
+                        )
+                        await chatwoot.post_message(cw_cvid, note, is_private=True)
+            except Exception as cw_e:
+                logger.error(f"Error alertando a Chatwoot en handoff directo: {cw_e}")
+
+        return {"status": "processed"}
+
+    # Consultar Pedido (keywords de pedido o código directo SO- / CAST- / OP-)
+    order_inquiry_keywords = ["pedido", "pedidos", "consultar pedido", "mi pedido", "estado de pedido", "rastreo", "orden", "rastrear"]
     if any(clean_msg == k or clean_msg.startswith(k) for k in order_inquiry_keywords) or clean_msg.startswith("so-") or clean_msg.startswith("#so-") or clean_msg.startswith("cast-") or clean_msg.startswith("op-") or clean_msg.startswith("#cast-") or clean_msg.startswith("#op-"):
         await clear_flow_state(redis_client, payload.phone)
         if clean_msg.startswith("so-") or clean_msg.startswith("#so-") or clean_msg.startswith("cast-") or clean_msg.startswith("op-") or clean_msg.startswith("#cast-") or clean_msg.startswith("#op-"):
@@ -1264,6 +1350,9 @@ async def chatwoot_webhook(
                     logger.error(f"Error reactivando bot via comando: {e}")
                 return {"status": "bot_activated_by_command"}
 
+            # Determinar instancia de WhatsApp según la bandeja de Chatwoot
+            outbound_instance = "bonilla_1085" if (inbox_id == 151924 or str(inbox_id) == "151924") else "sucursal_centro"
+
             # 1. Reenvío de adjuntos multimedia (fotos, videos, audios, documentos)
             attachments = payload.get("attachments", [])
             has_sent_media = False
@@ -1272,22 +1361,30 @@ async def chatwoot_webhook(
                     file_url = att.get("data_url") or att.get("file_url")
                     file_type = att.get("file_type", "image")
                     if file_url:
-                        logger.info(f"Reenvío de adjunto Chatwoot ({file_type}) a WhatsApp ({clean_phone}): {file_url}")
+                        logger.info(f"Reenvío de adjunto Chatwoot ({file_type}) a WhatsApp ({clean_phone}, inst: {outbound_instance}): {file_url}")
                         await _gateway_send_media(
                             clean_phone,
                             media_type=file_type,
                             media_url=file_url,
                             caption=content or "",
                             phone_number_id=target_phone_number_id,
-                            access_token=target_access_token
+                            access_token=target_access_token,
+                            instance=outbound_instance
                         )
                         has_sent_media = True
 
             # 2. Reenvío de texto si no fue enviado como caption de adjunto
             if content and not has_sent_media:
-                logger.info(f"Reenvío de Chatwoot a WhatsApp ({clean_phone}, inbox: {inbox_id}, phone_number_id: {target_phone_number_id}): {content[:50]}...")
+                logger.info(f"Reenvío de Chatwoot a WhatsApp ({clean_phone}, inbox: {inbox_id}, inst: {outbound_instance}): {content[:50]}...")
                 try:
-                    await _gateway_send_text(clean_phone, content, phone_number_id=target_phone_number_id, access_token=target_access_token, sync_to_chatwoot=False)
+                    await _gateway_send_text(
+                        clean_phone,
+                        content,
+                        phone_number_id=target_phone_number_id,
+                        access_token=target_access_token,
+                        sync_to_chatwoot=False,
+                        instance=outbound_instance
+                    )
 
                     # Registrar mensaje localmente
                     from app.db.tables import Message as DBMessage

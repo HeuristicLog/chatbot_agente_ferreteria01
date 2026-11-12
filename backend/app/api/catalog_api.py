@@ -461,6 +461,25 @@ CATALOG_HTML_TEMPLATE = """<!DOCTYPE html>
 
   <!-- Contenedor Principal de Productos -->
   <main class="flex-1 max-w-2xl w-full mx-auto p-4">
+    <!-- Banner Asesor Directo / Consultas Administrativas -->
+    <div class="flex items-center justify-between bg-slate-900 text-white rounded-xl px-3.5 py-2.5 mb-3 text-xs shadow-sm">
+      <div class="flex items-center gap-2">
+        <span class="text-base">👨‍💼</span>
+        <div>
+          <span class="font-bold text-emerald-400">¿Deseas hablar directo con un Asesor?</span>
+          <p class="text-[11px] text-slate-300">Atención comercial o consultas de administración</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-1.5">
+        <a href="https://wa.me/593992451085?text=Hola,%20solicito%20atenci%C3%B3n%20con%20el%20asesor%20administrativo" target="_blank" class="bg-blue-600 hover:bg-blue-500 text-white px-2.5 py-1.5 rounded-lg font-semibold text-[10px] transition shadow flex items-center gap-1 active:scale-95" title="Administración Grupo Bonilla">
+          🏢 Admin
+        </a>
+        <a href="https://wa.me/593988921136?text=Hola,%20solicito%20atenci%C3%B3n%20con%20un%20asesor%20comercial" target="_blank" class="bg-emerald-600 hover:bg-emerald-500 text-white px-2.5 py-1.5 rounded-lg font-semibold text-[10px] transition shadow flex items-center gap-1 active:scale-95" title="Ventas Ferretería Castor">
+          🦫 Ventas
+        </a>
+      </div>
+    </div>
+
     <!-- Indicador de Sucursal Actual -->
     <div class="flex items-center justify-between bg-teal-50 border border-teal-200/70 rounded-xl px-3.5 py-2 mb-3 text-xs text-teal-900 shadow-sm">
       <div class="flex items-center gap-2">
@@ -1005,7 +1024,7 @@ CATALOG_HTML_TEMPLATE = """<!DOCTYPE html>
 """
 
 @router.get("/vincular-qr", response_class=HTMLResponse)
-async def vincular_qr_page():
+async def vincular_qr_page(instance: str = "sucursal_centro"):
     possible_paths = [
         "/app/app/escanear_qr.html",
         "/app/escanear_qr.html",
@@ -1024,10 +1043,11 @@ async def vincular_qr_page():
         return "<h1>Página de vinculación no encontrada</h1>"
     
     # Pre-render initial QR code server-side so it appears instantaneously
+    target_inst = instance or "sucursal_centro"
     try:
         async with httpx.AsyncClient() as client:
             resp = await client.get(
-                "http://evolution-api:8080/instance/connect/sucursal_centro",
+                f"http://evolution-api:8080/instance/connect/{target_inst}",
                 headers={"apikey": "ferreteria_evolution_key_2026"},
                 timeout=6.0
             )
@@ -1043,13 +1063,14 @@ async def vincular_qr_page():
 
 
 @router.get("/api/v1/whatsapp-status")
-async def get_whatsapp_status():
+async def get_whatsapp_status(instance: str = "sucursal_centro"):
     status = "close"
     base64_qr = None
+    target_inst = instance or "sucursal_centro"
     try:
         async with httpx.AsyncClient() as client:
             state_resp = await client.get(
-                "http://evolution-api:8080/instance/connectionState/sucursal_centro",
+                f"http://evolution-api:8080/instance/connectionState/{target_inst}",
                 headers={"apikey": "ferreteria_evolution_key_2026"},
                 timeout=5.0
             )
@@ -1058,7 +1079,7 @@ async def get_whatsapp_status():
             
             if status != "open":
                 connect_resp = await client.get(
-                    "http://evolution-api:8080/instance/connect/sucursal_centro",
+                    f"http://evolution-api:8080/instance/connect/{target_inst}",
                     headers={"apikey": "ferreteria_evolution_key_2026"},
                     timeout=8.0
                 )
@@ -1071,17 +1092,18 @@ async def get_whatsapp_status():
 
 
 @router.post("/api/v1/whatsapp-reset")
-async def reset_whatsapp_session():
+async def reset_whatsapp_session(instance: str = "sucursal_centro"):
+    target_inst = instance or "sucursal_centro"
     try:
         async with httpx.AsyncClient() as client:
             await client.delete(
-                "http://evolution-api:8080/instance/delete/sucursal_centro",
+                f"http://evolution-api:8080/instance/delete/{target_inst}",
                 headers={"apikey": "ferreteria_evolution_key_2026"},
                 timeout=10.0
             )
             create_payload = {
-                "instanceName": "sucursal_centro",
-                "token": "sucursal_centro_token",
+                "instanceName": target_inst,
+                "token": f"{target_inst}_token",
                 "qrcode": True,
                 "integration": "WHATSAPP-BAILEYS"
             }
@@ -1092,13 +1114,13 @@ async def reset_whatsapp_session():
                 timeout=10.0
             )
             conn_resp = await client.get(
-                "http://evolution-api:8080/instance/connect/sucursal_centro",
+                f"http://evolution-api:8080/instance/connect/{target_inst}",
                 headers={"apikey": "ferreteria_evolution_key_2026"},
                 timeout=10.0
             )
             base64_qr = conn_resp.json().get("base64") if conn_resp.status_code == 200 else None
-            return {"status": "reset_ok", "base64": base64_qr}
+            return {"status": "reset_ok", "instance": target_inst, "base64": base64_qr}
     except Exception as e:
-        logger.error(f"Error resetting session: {e}")
+        logger.error(f"Error resetting session {target_inst}: {e}")
         return {"status": "error", "message": str(e)}
 

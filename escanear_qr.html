@@ -2,21 +2,33 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Vincular WhatsApp - AutoEcuador Motors</title>
+  <title>Vincular WhatsApp - Ferretería Castor / Grupo Bonilla</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-slate-950 text-white min-h-screen flex flex-col items-center justify-center p-6">
   <div class="max-w-lg w-full bg-slate-900 border border-slate-800 rounded-3xl p-8 shadow-2xl text-center">
     
+    <!-- Tab Selector de Líneas -->
+    <div class="flex items-center justify-center bg-slate-950/80 p-1.5 rounded-2xl border border-slate-800 mb-6 gap-2">
+      <button id="tab-castor" onclick="switchInstance('sucursal_centro')" class="flex-1 py-2 px-3 rounded-xl text-xs font-semibold transition flex items-center justify-center gap-1.5 bg-emerald-600 text-white shadow-lg">
+        <span>🦫</span>
+        <span>Castor (+593 98 892 1136)</span>
+      </button>
+      <button id="tab-bonilla" onclick="switchInstance('bonilla_1085')" class="flex-1 py-2 px-3 rounded-xl text-xs font-semibold transition flex items-center justify-center gap-1.5 text-slate-400 hover:text-white">
+        <span>🏢</span>
+        <span>Bonilla (+593 99 245 1085)</span>
+      </button>
+    </div>
+
     <div class="inline-flex items-center justify-center w-16 h-16 bg-emerald-500/10 text-emerald-400 rounded-2xl mb-4 border border-emerald-500/20">
       <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path>
       </svg>
     </div>
 
-    <h1 class="text-2xl font-bold tracking-tight text-white mb-2">Vincular WhatsApp (+593 98 892 1136)</h1>
-    <p class="text-sm text-slate-400 mb-6">Conecta tu WhatsApp a <strong>Chatwoot Cloud</strong> y al <strong>Bot Concesionario</strong> manteniendo coexistencia con WhatsApp Web en tu PC y tu celular.</p>
+    <h1 id="main-title" class="text-2xl font-bold tracking-tight text-white mb-2">Vincular WhatsApp (+593 98 892 1136)</h1>
+    <p id="main-desc" class="text-sm text-slate-400 mb-6">Conecta tu WhatsApp a <strong>Chatwoot Cloud</strong> y al <strong>Bot Ferretería</strong> manteniendo sincronización con la app oficial.</p>
 
     <!-- QR Container -->
     <div class="bg-white p-4 rounded-2xl inline-block shadow-inner mb-4 relative">
@@ -30,7 +42,7 @@
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
         </svg>
         <span class="text-xl">¡WhatsApp Conectado!</span>
-        <span class="text-xs text-emerald-100 font-normal mt-1">Sincronizado con Chatwoot y el Bot con éxito.</span>
+        <span id="connected-line" class="text-xs text-emerald-100 font-normal mt-1">Línea vinculada a Chatwoot y Bot con éxito.</span>
       </div>
     </div>
 
@@ -44,7 +56,7 @@
     <div class="bg-slate-800/50 rounded-2xl p-4 text-left border border-slate-800 mb-4 space-y-2 text-xs text-slate-300">
       <div class="flex items-start space-x-3">
         <span class="flex-shrink-0 w-5 h-5 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center font-bold">1</span>
-        <span>Abre <strong>WhatsApp</strong> en tu teléfono.</span>
+        <span id="step-1">Abre <strong>WhatsApp</strong> en el teléfono de la línea seleccionada.</span>
       </div>
       <div class="flex items-start space-x-3">
         <span class="flex-shrink-0 w-5 h-5 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center font-bold">2</span>
@@ -54,15 +66,6 @@
         <span class="flex-shrink-0 w-5 h-5 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center font-bold">3</span>
         <span>Toca <strong>Vincular un dispositivo</strong> y enfoca la cámara a este código.</span>
       </div>
-    </div>
-
-    <!-- Troubleshooting Box -->
-    <div class="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-3 text-left mb-4 text-xs text-amber-200">
-      <div class="font-semibold text-amber-300 mb-1">💡 ¿Te salió "No se pudo vincular"?</div>
-      <ul class="list-disc pl-4 space-y-1 text-slate-300">
-        <li>Revisa que en tu WhatsApp no tengas más de 4 dispositivos vinculados (elimina uno antiguo si es necesario).</li>
-        <li>Si el escaneo falló, haz clic abajo en <strong>"Reiniciar Sesión Limpia"</strong> para renovar la conexión desde cero.</li>
-      </ul>
     </div>
 
     <!-- Action Buttons -->
@@ -90,21 +93,54 @@
     const connectedDiv = document.getElementById('connected');
     const statusText = document.getElementById('status-text');
     const countdownEl = document.getElementById('countdown');
+    const mainTitle = document.getElementById('main-title');
+    const mainDesc = document.getElementById('main-desc');
+    const tabCastor = document.getElementById('tab-castor');
+    const tabBonilla = document.getElementById('tab-bonilla');
     
+    const urlParams = new URLSearchParams(window.location.search);
+    let currentInstance = urlParams.get('instance') || 'sucursal_centro';
+
     let countdown = 45;
     let timerInterval = null;
     let isConnected = false;
 
+    function updateTabStyles() {
+      if (currentInstance === 'bonilla_1085' || currentInstance === 'sucursal_bonilla') {
+        currentInstance = 'bonilla_1085';
+        tabBonilla.className = "flex-1 py-2 px-3 rounded-xl text-xs font-semibold transition flex items-center justify-center gap-1.5 bg-blue-600 text-white shadow-lg";
+        tabCastor.className = "flex-1 py-2 px-3 rounded-xl text-xs font-semibold transition flex items-center justify-center gap-1.5 text-slate-400 hover:text-white";
+        mainTitle.innerText = "Vincular WhatsApp (+593 99 245 1085)";
+        mainDesc.innerHTML = "Conecta la línea de <strong>Grupo Bonilla / Administración</strong> con Chatwoot Cloud Inbox 151924.";
+      } else {
+        currentInstance = 'sucursal_centro';
+        tabCastor.className = "flex-1 py-2 px-3 rounded-xl text-xs font-semibold transition flex items-center justify-center gap-1.5 bg-emerald-600 text-white shadow-lg";
+        tabBonilla.className = "flex-1 py-2 px-3 rounded-xl text-xs font-semibold transition flex items-center justify-center gap-1.5 text-slate-400 hover:text-white";
+        mainTitle.innerText = "Vincular WhatsApp (+593 98 892 1136)";
+        mainDesc.innerHTML = "Conecta la línea de <strong>Ferretería Castor (Matriz)</strong> con Chatwoot Cloud y el Bot.";
+      }
+    }
+
+    function switchInstance(instanceName) {
+      currentInstance = instanceName;
+      isConnected = false;
+      connectedDiv.classList.add('hidden');
+      updateTabStyles();
+      const newUrl = `${window.location.pathname}?instance=${currentInstance}`;
+      window.history.pushState({ path: newUrl }, '', newUrl);
+      loadQR();
+    }
+
     async function checkStatus() {
       if (isConnected) return true;
       try {
-        const resp = await fetch('/api/v1/whatsapp-status');
+        const resp = await fetch(`/api/v1/whatsapp-status?instance=${currentInstance}`);
         const data = await resp.json();
         if (data.state === 'open') {
           isConnected = true;
           connectedDiv.classList.remove('hidden');
           loading.classList.add('hidden');
-          statusText.innerText = '¡WhatsApp Business vinculado con éxito como entrada!';
+          statusText.innerText = `¡WhatsApp (${currentInstance}) vinculado con éxito como entrada!`;
           clearInterval(timerInterval);
           return true;
         }
@@ -119,10 +155,10 @@
       if (open) return;
 
       loading.classList.remove('hidden');
-      loadingText.innerText = 'Actualizando código QR...';
+      loadingText.innerText = `Cargando código QR (${currentInstance})...`;
 
       try {
-        const resp = await fetch('/api/v1/whatsapp-status');
+        const resp = await fetch(`/api/v1/whatsapp-status?instance=${currentInstance}`);
         const data = await resp.json();
         if (data.base64) {
           qrImg.src = data.base64;
@@ -163,7 +199,7 @@
       btn.innerText = 'Reiniciando...';
       btn.disabled = true;
       try {
-        const resp = await fetch('/api/v1/whatsapp-reset', { method: 'POST' });
+        const resp = await fetch(`/api/v1/whatsapp-reset?instance=${currentInstance}`, { method: 'POST' });
         const data = await resp.json();
         if (data.base64) {
           qrImg.src = data.base64;
@@ -182,10 +218,8 @@
       }
     }
 
-    // Polling ligero solo de estado cada 3s (sin regenerar socket)
+    updateTabStyles();
     setInterval(checkStatus, 3000);
-
-    // Carga inicial
     loadQR();
   </script>
 </body>

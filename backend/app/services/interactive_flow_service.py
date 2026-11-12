@@ -183,7 +183,7 @@ async def _send_flow(phone: str, body: str, flow_id: str, flow_cta: str, flow_to
 # ─────────────────────────────────────────────
 
 async def send_welcome_menu(phone: str, internal_key: str, name: str = "", phone_number_id: Optional[str] = None):
-    """Menú de bienvenida con acceso directo al Catálogo y Carrito interactivo (In-App Browser)."""
+    """Menú de bienvenida con acceso directo al Catálogo interactivo y opción condicionada de Asesor Humano."""
     import os
     clean_phone = phone.replace("+", "").replace(" ", "").strip()
     ngrok_url = os.getenv("CATALOG_BASE_URL", "https://usable-thorn-kabob.ngrok-free.dev")
@@ -191,8 +191,10 @@ async def send_welcome_menu(phone: str, internal_key: str, name: str = "", phone
     
     greeting = f"¡Hola{' ' + name if name else ''}! 😊"
     body = (
-        f"{greeting} Soy *Castor* 🦫, el asistente virtual de *Ferretería Castor*.\n\n"
-        "Toca el botón *🛍️ Abrir Catálogo y Carrito* para explorar nuestra tienda completa con fotos, buscador en vivo y realizar tu pedido sin salir de WhatsApp:"
+        f"{greeting} Soy *Castor* 🦫, asistente virtual de *Ferretería Castor*.\n\n"
+        "¿En qué te podemos ayudar hoy?\n\n"
+        "1️⃣ Toca el botón *🛍️ Abrir Catálogo* para explorar productos, fotos, precios y cotizar online sin salir de WhatsApp.\n\n"
+        "2️⃣ O escribe *ASESOR* (o envía el número *2*) para ir directo con un asesor humano (comercial o administrativo)."
     )
     await _send_cta_url(
         phone=phone,
@@ -200,13 +202,13 @@ async def send_welcome_menu(phone: str, internal_key: str, name: str = "", phone
         display_text="🛍️ Abrir Catálogo",
         url=catalog_url,
         header="🛠️ Ferretería Castor",
-        footer="Tienda Oficial • Pedidos 24/7",
+        footer="Escribe ASESOR para atención humana",
         internal_key=internal_key,
         phone_number_id=phone_number_id
     )
 
 async def send_main_menu(phone: str, internal_key: str, phone_number_id: Optional[str] = None):
-    """Menú principal para volver desde cualquier flujo."""
+    """Menú principal para volver desde cualquier flujo con opción de catálogo y asesor."""
     import os
     clean_phone = phone.replace("+", "").replace(" ", "").strip()
     ngrok_url = os.getenv("CATALOG_BASE_URL", "https://usable-thorn-kabob.ngrok-free.dev")
@@ -214,7 +216,8 @@ async def send_main_menu(phone: str, internal_key: str, phone_number_id: Optiona
     
     body = (
         "¿En qué más te puedo ayudar? 🦫\n\n"
-        "Toca el botón para abrir el catálogo interactivo con fotos y carrito en vivo:"
+        "1️⃣ Toca *🛍️ Abrir Catálogo* para ver productos y carrito en vivo.\n"
+        "2️⃣ Escribe *ASESOR* para hablar directo con un asesor comercial o administrativo."
     )
     await _send_cta_url(
         phone=phone,
@@ -222,7 +225,7 @@ async def send_main_menu(phone: str, internal_key: str, phone_number_id: Optiona
         display_text="🛍️ Abrir Catálogo",
         url=catalog_url,
         header="🛠️ Ferretería Castor",
-        footer="Ferretería Castor",
+        footer="Escribe ASESOR para atención humana",
         internal_key=internal_key,
         phone_number_id=phone_number_id
     )
