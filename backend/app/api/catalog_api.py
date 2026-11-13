@@ -1051,6 +1051,26 @@ async def vincular_qr_page(instance: str = "sucursal_centro"):
                 headers={"apikey": "ferreteria_evolution_key_2026"},
                 timeout=6.0
             )
+            # Si no existe la instancia en Evolution, crearla automáticamente al vuelo
+            if resp.status_code == 404:
+                create_payload = {
+                    "instanceName": target_inst,
+                    "token": f"{target_inst}_token",
+                    "qrcode": True,
+                    "integration": "WHATSAPP-BAILEYS"
+                }
+                await client.post(
+                    "http://evolution-api:8080/instance/create",
+                    json=create_payload,
+                    headers={"apikey": "ferreteria_evolution_key_2026"},
+                    timeout=8.0
+                )
+                resp = await client.get(
+                    f"http://evolution-api:8080/instance/connect/{target_inst}",
+                    headers={"apikey": "ferreteria_evolution_key_2026"},
+                    timeout=6.0
+                )
+
             if resp.status_code == 200:
                 qr_b64 = resp.json().get("base64", "")
                 if qr_b64:
@@ -1074,7 +1094,21 @@ async def get_whatsapp_status(instance: str = "sucursal_centro"):
                 headers={"apikey": "ferreteria_evolution_key_2026"},
                 timeout=5.0
             )
-            if state_resp.status_code == 200:
+            # Auto-creación si no existe en Evolution API
+            if state_resp.status_code == 404:
+                create_payload = {
+                    "instanceName": target_inst,
+                    "token": f"{target_inst}_token",
+                    "qrcode": True,
+                    "integration": "WHATSAPP-BAILEYS"
+                }
+                await client.post(
+                    "http://evolution-api:8080/instance/create",
+                    json=create_payload,
+                    headers={"apikey": "ferreteria_evolution_key_2026"},
+                    timeout=8.0
+                )
+            elif state_resp.status_code == 200:
                 status = state_resp.json().get("instance", {}).get("state", "close")
             
             if status != "open":

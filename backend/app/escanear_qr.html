@@ -4,84 +4,109 @@
   <meta charset="UTF-8">
   <title>Vincular WhatsApp - Ferretería Castor / Grupo Bonilla</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background-color: #020617; color: #f8fafc; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
+    .card-wrap { max-width: 500px; width: 100%; background-color: #0f172a; border: 1px solid #1e293b; border-radius: 24px; padding: 28px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.6); text-align: center; }
+    .tab-bar { display: flex; background: rgba(2, 6, 23, 0.8); padding: 6px; border-radius: 16px; border: 1px solid #1e293b; margin-bottom: 20px; gap: 8px; }
+    .tab-item { flex: 1; padding: 10px 12px; border-radius: 12px; font-size: 12px; font-weight: 600; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; transition: all 0.2s; }
+    .tab-castor-active { background: #059669 !important; color: #ffffff !important; box-shadow: 0 4px 12px rgba(5,150,105,0.4); }
+    .tab-bonilla-active { background: #2563eb !important; color: #ffffff !important; box-shadow: 0 4px 12px rgba(37,99,235,0.4); }
+    .tab-item-inactive { background: transparent !important; color: #94a3b8 !important; }
+    .icon-badge { display: inline-flex; width: 48px; height: 48px; align-items: center; justify-content: center; background: rgba(16, 185, 129, 0.1); color: #34d399; border-radius: 16px; margin-bottom: 12px; border: 1px solid rgba(16, 185, 129, 0.2); }
+    .qr-frame { background: #ffffff; padding: 14px; border-radius: 18px; display: inline-block; position: relative; margin-bottom: 14px; width: 270px; height: 270px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.06); }
+    #qr-image { width: 100%; height: 100%; object-fit: contain; border-radius: 8px; display: block; }
+    #loading { position: absolute; inset: 0; background: rgba(255, 255, 255, 0.95); display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 18px; color: #0f172a; font-size: 13px; font-weight: 600; }
+    .spinner-box { width: 36px !important; height: 36px !important; min-width: 36px; min-height: 36px; max-width: 36px; max-height: 36px; border: 4px solid #10b981; border-top-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 10px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #connected { position: absolute; inset: 0; background: #059669; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 18px; color: white; padding: 16px; }
+    .hidden { display: none !important; }
+    .inst-card { background: rgba(30, 41, 59, 0.5); border-radius: 16px; padding: 14px; text-align: left; border: 1px solid #1e293b; margin-bottom: 16px; font-size: 12px; color: #cbd5e1; }
+    .inst-step { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 8px; }
+    .inst-step:last-child { margin-bottom: 0; }
+    .step-num { width: 20px; height: 20px; background: rgba(16, 185, 129, 0.2); color: #34d399; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; flex-shrink: 0; font-size: 11px; }
+    .btn-act { background: #1e293b; color: #cbd5e1; border: 1px solid #334155; padding: 9px 16px; border-radius: 12px; font-size: 12px; font-weight: 500; cursor: pointer; text-decoration: none; transition: background 0.2s; }
+    .btn-act:hover { background: #334155; color: #ffffff; }
+    .btn-chatwoot { background: #059669; color: #ffffff; padding: 9px 16px; border-radius: 12px; font-size: 12px; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }
+    .btn-chatwoot:hover { background: #10b981; }
+  </style>
 </head>
-<body class="bg-slate-950 text-white min-h-screen flex flex-col items-center justify-center p-6">
-  <div class="max-w-lg w-full bg-slate-900 border border-slate-800 rounded-3xl p-8 shadow-2xl text-center">
+<body>
+  <div class="card-wrap">
     
     <!-- Tab Selector de Líneas -->
-    <div class="flex items-center justify-center bg-slate-950/80 p-1.5 rounded-2xl border border-slate-800 mb-6 gap-2">
-      <button id="tab-castor" onclick="switchInstance('sucursal_centro')" class="flex-1 py-2 px-3 rounded-xl text-xs font-semibold transition flex items-center justify-center gap-1.5 bg-emerald-600 text-white shadow-lg">
+    <div class="tab-bar">
+      <button id="tab-castor" onclick="switchInstance('sucursal_centro')" class="tab-item tab-castor-active">
         <span>🦫</span>
         <span>Castor (+593 98 892 1136)</span>
       </button>
-      <button id="tab-bonilla" onclick="switchInstance('bonilla_1085')" class="flex-1 py-2 px-3 rounded-xl text-xs font-semibold transition flex items-center justify-center gap-1.5 text-slate-400 hover:text-white">
+      <button id="tab-bonilla" onclick="switchInstance('bonilla_1085')" class="tab-item tab-item-inactive">
         <span>🏢</span>
         <span>Bonilla (+593 99 245 1085)</span>
       </button>
     </div>
 
-    <div class="inline-flex items-center justify-center w-16 h-16 bg-emerald-500/10 text-emerald-400 rounded-2xl mb-4 border border-emerald-500/20">
-      <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <div class="icon-badge">
+      <svg style="width:24px; height:24px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path>
       </svg>
     </div>
 
-    <h1 id="main-title" class="text-2xl font-bold tracking-tight text-white mb-2">Vincular WhatsApp (+593 98 892 1136)</h1>
-    <p id="main-desc" class="text-sm text-slate-400 mb-6">Conecta tu WhatsApp a <strong>Chatwoot Cloud</strong> y al <strong>Bot Ferretería</strong> manteniendo sincronización con la app oficial.</p>
+    <h1 id="main-title" style="font-size:20px; font-weight:bold; margin-bottom:6px;">Vincular WhatsApp (+593 98 892 1136)</h1>
+    <p id="main-desc" style="font-size:13px; color:#94a3b8; margin-bottom:16px;">Conecta tu WhatsApp a <strong>Chatwoot Cloud</strong> y al <strong>Bot Ferretería</strong> manteniendo sincronización con la app oficial.</p>
 
     <!-- QR Container -->
-    <div class="bg-white p-4 rounded-2xl inline-block shadow-inner mb-4 relative">
-      <img id="qr-image" src="" alt="Código QR WhatsApp" class="w-64 h-64 object-contain rounded-lg">
-      <div id="loading" class="absolute inset-0 bg-white/90 flex flex-col items-center justify-center rounded-2xl text-slate-800 font-medium">
-        <div class="w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mb-2"></div>
-        <span id="loading-text">Generando código QR...</span>
+    <div class="qr-frame">
+      <img id="qr-image" src="" alt="Código QR WhatsApp">
+      <div id="loading">
+        <div class="spinner-box"></div>
+        <span id="loading-text">Cargando código QR...</span>
       </div>
-      <div id="connected" class="hidden absolute inset-0 bg-emerald-600 flex flex-col items-center justify-center rounded-2xl text-white font-bold p-4">
-        <svg class="w-16 h-16 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <div id="connected" class="hidden">
+        <svg style="width:48px; height:48px; margin-bottom:8px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
         </svg>
-        <span class="text-xl">¡WhatsApp Conectado!</span>
-        <span id="connected-line" class="text-xs text-emerald-100 font-normal mt-1">Línea vinculada a Chatwoot y Bot con éxito.</span>
+        <span style="font-size:18px; font-weight:bold;">¡WhatsApp Conectado!</span>
+        <span id="connected-line" style="font-size:12px; margin-top:4px; opacity:0.9;">Línea vinculada a Chatwoot y Bot con éxito.</span>
       </div>
     </div>
 
     <!-- Countdown & Controls -->
-    <div class="flex items-center justify-between text-xs text-slate-400 px-4 mb-4">
-      <span id="timer-text">El código expira en: <strong id="countdown" class="text-emerald-400">45</strong>s</span>
-      <button onclick="manualRefresh()" class="hover:text-white underline text-slate-400 text-xs">🔄 Actualizar QR</button>
+    <div style="display:flex; justify-content:space-between; font-size:12px; color:#94a3b8; margin-bottom:14px; padding:0 8px;">
+      <span id="timer-text">El código expira en: <strong id="countdown" style="color:#34d399;">45</strong>s</span>
+      <button onclick="manualRefresh()" style="background:none; border:none; color:#38bdf8; cursor:pointer; text-decoration:underline;">🔄 Actualizar QR</button>
     </div>
 
     <!-- Instructions -->
-    <div class="bg-slate-800/50 rounded-2xl p-4 text-left border border-slate-800 mb-4 space-y-2 text-xs text-slate-300">
-      <div class="flex items-start space-x-3">
-        <span class="flex-shrink-0 w-5 h-5 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center font-bold">1</span>
+    <div class="inst-card">
+      <div class="inst-step">
+        <span class="step-num">1</span>
         <span id="step-1">Abre <strong>WhatsApp</strong> en el teléfono de la línea seleccionada.</span>
       </div>
-      <div class="flex items-start space-x-3">
-        <span class="flex-shrink-0 w-5 h-5 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center font-bold">2</span>
+      <div class="inst-step">
+        <span class="step-num">2</span>
         <span>Ve a <strong>Ajustes / Menú (3 puntos)</strong> &gt; <strong>Dispositivos vinculados</strong>.</span>
       </div>
-      <div class="flex items-start space-x-3">
-        <span class="flex-shrink-0 w-5 h-5 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center font-bold">3</span>
-        <span>Toca <strong>Vincular un dispositivo</strong> y enfoca la cámara a este código.</span>
+      <div class="inst-step">
+        <span class="step-num">3</span>
+        <span>Toca <strong>Vincular un dispositivo</strong> y enfoca la cámara a este código QR.</span>
       </div>
     </div>
 
     <!-- Action Buttons -->
-    <div class="flex items-center justify-center space-x-3">
-      <button onclick="cleanReset()" id="btn-reset" class="bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium py-2 px-4 rounded-xl border border-slate-700 transition">
-        🧹 Reiniciar Sesión Limpia
+    <div style="display:flex; justify-content:center; gap:12px; margin-bottom:14px;">
+      <button onclick="cleanReset()" id="btn-reset" class="btn-act">
+        🔄 Renovar Conexión
       </button>
-      <a href="https://app.chatwoot.com/app/accounts/193795/conversations" target="_blank" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold py-2 px-4 rounded-xl transition">
-        Abrir Chatwoot Cloud →
+      <a href="https://app.chatwoot.com/app/accounts/193795/conversations" target="_blank" class="btn-chatwoot">
+        💬 Ir a Chatwoot Cloud
       </a>
     </div>
 
-    <!-- Status -->
-    <div class="text-xs text-slate-500 mt-4 flex items-center justify-center space-x-2">
-      <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-      <span id="status-text">Esperando escaneo desde tu celular...</span>
+    <!-- Live Status Pill -->
+    <div style="font-size:11px; color:#94a3b8; display:flex; align-items:center; justify-content:center; gap:6px;">
+      <span style="width:8px; height:8px; background:#10b981; border-radius:50%; display:inline-block;"></span>
+      <span id="status-text">Escuchando estado de conexión en tiempo real...</span>
     </div>
 
   </div>
@@ -108,14 +133,14 @@
     function updateTabStyles() {
       if (currentInstance === 'bonilla_1085' || currentInstance === 'sucursal_bonilla') {
         currentInstance = 'bonilla_1085';
-        tabBonilla.className = "flex-1 py-2 px-3 rounded-xl text-xs font-semibold transition flex items-center justify-center gap-1.5 bg-blue-600 text-white shadow-lg";
-        tabCastor.className = "flex-1 py-2 px-3 rounded-xl text-xs font-semibold transition flex items-center justify-center gap-1.5 text-slate-400 hover:text-white";
+        tabBonilla.className = "tab-item tab-bonilla-active";
+        tabCastor.className = "tab-item tab-item-inactive";
         mainTitle.innerText = "Vincular WhatsApp (+593 99 245 1085)";
         mainDesc.innerHTML = "Conecta la línea de <strong>Grupo Bonilla / Administración</strong> con Chatwoot Cloud Inbox 151924.";
       } else {
         currentInstance = 'sucursal_centro';
-        tabCastor.className = "flex-1 py-2 px-3 rounded-xl text-xs font-semibold transition flex items-center justify-center gap-1.5 bg-emerald-600 text-white shadow-lg";
-        tabBonilla.className = "flex-1 py-2 px-3 rounded-xl text-xs font-semibold transition flex items-center justify-center gap-1.5 text-slate-400 hover:text-white";
+        tabCastor.className = "tab-item tab-castor-active";
+        tabBonilla.className = "tab-item tab-item-inactive";
         mainTitle.innerText = "Vincular WhatsApp (+593 98 892 1136)";
         mainDesc.innerHTML = "Conecta la línea de <strong>Ferretería Castor (Matriz)</strong> con Chatwoot Cloud y el Bot.";
       }
@@ -145,7 +170,7 @@
           return true;
         }
       } catch (e) {
-        console.error('Error verificando estado:', e);
+        console.error('Error poll:', e);
       }
       return false;
     }
@@ -163,28 +188,31 @@
         if (data.base64) {
           qrImg.src = data.base64;
           loading.classList.add('hidden');
-          resetCountdown();
+          resetTimer();
         } else if (data.state === 'open') {
           isConnected = true;
           connectedDiv.classList.remove('hidden');
           loading.classList.add('hidden');
+        } else {
+          loadingText.innerText = 'Iniciando sesión en Evolution API...';
+          setTimeout(loadQR, 3000);
         }
-      } catch (err) {
-        console.error('Error cargando QR:', err);
-        loadingText.innerText = 'Error al cargar código. Intenta de nuevo.';
+      } catch (e) {
+        console.error('Error loadQR:', e);
+        loadingText.innerText = 'Reconectando con Evolution API...';
+        setTimeout(loadQR, 3000);
       }
     }
 
-    function resetCountdown() {
+    function resetTimer() {
+      clearInterval(timerInterval);
       countdown = 45;
       countdownEl.innerText = countdown;
-      if (timerInterval) clearInterval(timerInterval);
       timerInterval = setInterval(() => {
         countdown--;
-        if (countdown >= 0) {
-          countdownEl.innerText = countdown;
-        }
-        if (countdown === 0) {
+        countdownEl.innerText = countdown;
+        if (countdown <= 0) {
+          clearInterval(timerInterval);
           loadQR();
         }
       }, 1000);
@@ -204,17 +232,16 @@
         if (data.base64) {
           qrImg.src = data.base64;
           loading.classList.add('hidden');
-          resetCountdown();
+          resetTimer();
+        } else {
+          loadQR();
         }
-        btn.innerText = '¡Sesión limpia!';
-        setTimeout(() => {
-          btn.innerText = '🧹 Reiniciar Sesión Limpia';
-          btn.disabled = false;
-        }, 2000);
-      } catch (err) {
-        console.error('Error en cleanReset:', err);
-        btn.innerText = 'Error';
-        setTimeout(() => { btn.disabled = false; btn.innerText = '🧹 Reiniciar Sesión Limpia'; }, 2000);
+      } catch (e) {
+        console.error(e);
+        loadQR();
+      } finally {
+        btn.innerText = '🔄 Renovar Conexión';
+        btn.disabled = false;
       }
     }
 
