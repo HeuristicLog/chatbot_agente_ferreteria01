@@ -1,5 +1,3 @@
-version: '3.8'
-
 networks:
   autoeconomotors-net:
     name: autoeconomotors-net
@@ -93,7 +91,7 @@ services:
       - CATALOG_BASE_URL=${CATALOG_BASE_URL:-https://tudominio.com}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - GROQ_API_KEY=${GROQ_API_KEY:-}
-      - WHATSAPP_INBOX_MAPPING={"593988921136": {"inbox_id": 150556, "phone_display": "+593 98 892 1136", "sucursal": "Centro", "instance": "sucursal_centro"}, "593992451085": {"inbox_id": 151924, "phone_display": "+593 99 245 1085", "sucursal": "Administracion", "instance": "bonilla_1085"}}
+      - 'WHATSAPP_INBOX_MAPPING={"593988921136": {"inbox_id": 150556, "phone_display": "+593 98 892 1136", "sucursal": "Centro", "instance": "sucursal_centro"}, "593992451085": {"inbox_id": 151924, "phone_display": "+593 99 245 1085", "sucursal": "Administracion", "instance": "bonilla_1085"}}'
     networks:
       - autoeconomotors-net
     depends_on:
