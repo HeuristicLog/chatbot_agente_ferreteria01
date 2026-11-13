@@ -125,21 +125,21 @@ services:
     depends_on:
       - backend
 
-  # ─── 6. Reverse Proxy Caddy con SSL Automático (Let's Encrypt)
-  caddy:
-    image: caddy:2-alpine
-    container_name: autoeconomotors-caddy
-    restart: always
-    ports:
-      - "80:80"
-      - "443:443"
-    environment:
-      - DOMAIN=${DOMAIN:-tudominio.com}
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile
-      - caddy_data:/data
-      - caddy_config:/config
-    networks:
-      - autoeconomotors-net
-    depends_on:
-      - whatsapp-gateway
+  # ─── 6. Reverse Proxy Caddy con SSL Automático (Let's Encrypt - Opcional)
+  # caddy:
+  #   image: caddy:2-alpine
+  #   container_name: autoeconomotors-caddy
+  #   restart: always
+  #   ports:
+  #     - "80:80"
+  #     - "443:443"
+  #   environment:
+  #     - DOMAIN=${DOMAIN:-tudominio.com}
+  #   volumes:
+  #     - ./Caddyfile:/etc/caddy/Caddyfile
+  #     - caddy_data:/data
+  #     - caddy_config:/config
+  #   networks:
+  #     - autoeconomotors-net
+  #   depends_on:
+  #     - whatsapp-gateway
