@@ -1074,10 +1074,14 @@ def _extract_qr_base64(data: Any) -> Optional[str]:
     if not isinstance(data, dict):
         return None
     b64 = data.get("base64")
-    if not b64 and isinstance(data.get("qrcode"), dict):
-        b64 = data["qrcode"].get("base64")
+    if not b64 and isinstance(data.get("qrcode"), str):
+        b64 = data["qrcode"]
+    elif not b64 and isinstance(data.get("qrcode"), dict):
+        b64 = data["qrcode"].get("base64") or data["qrcode"].get("code")
     if not b64 and isinstance(data.get("instance"), dict):
         b64 = data["instance"].get("base64")
+    if not b64 and isinstance(data.get("code"), str) and data.get("code").startswith("data:image"):
+        b64 = data["code"]
     if b64 and isinstance(b64, str):
         b64 = b64.strip()
         if not b64.startswith("data:"):
