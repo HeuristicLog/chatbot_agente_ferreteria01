@@ -1023,25 +1023,6 @@ CATALOG_HTML_TEMPLATE = """<!DOCTYPE html>
 </html>
 """
 
-@router.get("/vincular-qr", response_class=HTMLResponse)
-async def vincular_qr_page(instance: str = "sucursal_centro"):
-    possible_paths = [
-        "/app/app/escanear_qr.html",
-        "/app/escanear_qr.html",
-        "backend/app/escanear_qr.html",
-        "escanear_qr.html",
-        "C:/Users/User/Desktop/KEVIN/ChatbotFlowise/escanear_qr.html"
-    ]
-    import os
-    content = ""
-    for p in possible_paths:
-        if os.path.exists(p):
-            with open(p, "r", encoding="utf-8") as f:
-                content = f.read()
-                break
-    if not content:
-        return "<h1>Página de vinculación no encontrada</h1>"
-    
 def _extract_qr_base64(data: Any) -> Optional[str]:
     """Extrae de forma robusta la cadena base64 del código QR desde cualquier estructura de Evolution API."""
     if not isinstance(data, dict):
