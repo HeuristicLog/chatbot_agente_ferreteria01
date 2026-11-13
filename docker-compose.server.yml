@@ -75,9 +75,18 @@ services:
 
   # ─── 4. Backend Inteligente LangChain (FastAPI Python) ───────
   backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
     image: kevinagk/autoeconomotors-backend:latest
     container_name: autoeconomotors-backend
     restart: always
+    ports:
+      - "8085:8080"
+    volumes:
+      - ./backend/app:/app/app
+      - ./data:/app/data
+      - ./scripts:/app/scripts
     environment:
       - APP_ENV=production
       - LOG_LEVEL=INFO
