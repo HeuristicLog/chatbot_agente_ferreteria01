@@ -1,177 +1,325 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" class="dark">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Tablero Drag & Drop QA | Analítica de Conversaciones - Castor & Bonilla</title>
+  <title>Plataforma Enterprise QA | Tablero Drag & Drop & Analítica Conversacional</title>
+  
+  <!-- Tailwind CSS & Plugins -->
   <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#eef2ff',
+              100: '#e0e7ff',
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca',
+              900: '#312e81',
+              950: '#0b0f19',
+            }
+          },
+          fontFamily: {
+            sans: ['Plus Jakarta Sans', 'Inter', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Chart.js & FontAwesome Icons -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
   <style>
-    body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #0b1120; color: #f8fafc; }
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background-color: #070b14;
+      color: #f1f5f9;
+      background-image: 
+        radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.08) 0px, transparent 50%),
+        radial-gradient(at 100% 100%, rgba(16, 185, 129, 0.06) 0px, transparent 50%),
+        radial-gradient(at 50% 50%, rgba(14, 165, 233, 0.04) 0px, transparent 50%);
+      background-attachment: fixed;
+    }
+
+    /* Glassmorphism Classes */
+    .glass-panel {
+      background: rgba(15, 23, 42, 0.75);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.07);
+    }
     
-    /* Drag & Drop Visual Styles */
+    .glass-card {
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    /* Native Drag & Drop Transitions */
     .kanban-col {
-      min-height: 520px;
-      transition: background-color 0.2s ease, border-color 0.2s ease;
+      min-height: 580px;
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
     }
+    
     .kanban-col.drag-over {
-      background-color: rgba(30, 41, 59, 0.9) !important;
-      border-color: #38bdf8 !important;
-      box-shadow: 0 0 20px rgba(56, 189, 248, 0.25) inset;
+      background-color: rgba(30, 41, 59, 0.85) !important;
+      border-color: #6366f1 !important;
+      box-shadow: 0 0 25px rgba(99, 102, 241, 0.25) inset;
     }
+
     .kanban-card {
       cursor: grab;
-      transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+      transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s ease, opacity 0.2s ease, border-color 0.2s ease;
+      touch-action: none;
     }
+
+    .kanban-card:hover {
+      transform: translateY(-2px);
+      border-color: rgba(99, 102, 241, 0.4);
+      box-shadow: 0 12px 24px -10px rgba(0, 0, 0, 0.6);
+    }
+
     .kanban-card:active {
       cursor: grabbing;
     }
+
     .kanban-card.is-dragging {
-      opacity: 0.45;
-      transform: scale(0.97);
+      opacity: 0.35;
+      transform: scale(0.96) rotate(1deg);
+      border-color: #818cf8 !important;
     }
-    
+
+    .drop-ghost {
+      border: 2px dashed #6366f1;
+      background: rgba(99, 102, 241, 0.1);
+      border-radius: 0.75rem;
+      height: 110px;
+      margin-bottom: 0.75rem;
+    }
+
     /* Custom Scrollbars */
     ::-webkit-scrollbar { width: 6px; height: 6px; }
-    ::-webkit-scrollbar-track { background: #0f172a; }
+    ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: #334155; border-radius: 9999px; }
     ::-webkit-scrollbar-thumb:hover { background: #475569; }
 
+    /* Print View */
     @media print {
-      body { background-color: #ffffff !important; color: #0f172a !important; }
+      body { background: #ffffff !important; color: #0f172a !important; }
       .no-print { display: none !important; }
+      .glass-panel, .glass-card { background: #ffffff !important; border: 1px solid #cbd5e1 !important; box-shadow: none !important; }
+      .print-dark { color: #0f172a !important; }
     }
   </style>
 </head>
-<body class="p-3 md:p-6 min-h-screen">
+<body class="p-3 md:p-6 lg:p-8 min-h-screen">
 
-  <div class="max-w-[1600px] mx-auto space-y-6">
+  <div class="max-w-[1700px] mx-auto space-y-6">
 
-    <!-- ── 1. ENCABEZADO EJECUTIVO SUPERIOR ── -->
-    <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-6 border-b border-slate-800">
-      <div class="flex items-center gap-3.5">
-        <div class="w-14 h-14 bg-gradient-to-br from-amber-500 to-orange-600 rounded-2xl flex items-center justify-center text-3xl shadow-xl shadow-amber-500/20">
+    <!-- ══════════════════════════════════════════════════════════════════ -->
+    <!-- 1. BARRA SUPERIOR EJECUTIVA & ESTADO SISTÉMICO                      -->
+    <!-- ══════════════════════════════════════════════════════════════════ -->
+    <header class="glass-panel p-5 rounded-3xl shadow-2xl flex flex-col lg:flex-row lg:items-center justify-between gap-5 relative overflow-hidden">
+      <div class="absolute -right-16 -top-16 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+      <div class="flex items-center gap-4 z-10">
+        <div class="w-14 h-14 rounded-2xl bg-gradient-to-tr from-amber-500 via-orange-600 to-amber-600 flex items-center justify-center text-3xl shadow-xl shadow-amber-500/25 ring-1 ring-white/20">
           🦫
         </div>
         <div>
-          <div class="flex flex-wrap items-center gap-2">
-            <h1 class="text-2xl md:text-3xl font-extrabold text-white tracking-tight">TABLERO QA DRAG & DROP</h1>
-            <span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 flex items-center gap-1.5">
+          <div class="flex flex-wrap items-center gap-2.5">
+            <h1 class="text-xl md:text-2xl font-extrabold text-white tracking-tight">AUDITORÍA QA CONVERSACIONAL</h1>
+            <span class="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-xs font-bold bg-indigo-500/15 text-indigo-300 border border-indigo-500/30">
               <span class="w-2 h-2 rounded-full bg-indigo-400 animate-pulse"></span>
-              Auditoría en 9 Dimensiones
+              9 Dimensiones IA • Rúbrica Oficial
             </span>
           </div>
-          <p class="text-xs md:text-sm text-slate-400">
-            Ferretería Castor Principal (<strong class="text-slate-300">+593 98 892 1136</strong>) & Grupo Bonilla (<strong class="text-slate-300">+593 99 245 1085</strong>)
+          <p class="text-xs md:text-sm text-slate-400 mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
+            <span><i class="fa-solid fa-store text-emerald-400 mr-1"></i> Ferretería Castor (<strong class="text-slate-200">+593 98 892 1136</strong>)</span>
+            <span class="text-slate-600">•</span>
+            <span><i class="fa-solid fa-briefcase text-amber-400 mr-1"></i> Grupo Bonilla (<strong class="text-slate-200">+593 99 245 1085</strong>)</span>
+            <span class="text-slate-600">•</span>
+            <span><i class="fa-solid fa-cloud text-blue-400 mr-1"></i> Chatwoot Cloud Account <strong class="text-slate-200">#193795</strong></span>
           </p>
         </div>
       </div>
 
-      <div class="flex flex-wrap items-center gap-2.5 no-print">
-        <a href="/reporte-ejecutivo" class="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white font-bold rounded-xl border border-slate-700 transition text-xs flex items-center gap-1.5">
-          <span>📊</span> Ver Reporte Ejecutivo
+      <!-- Quick Actions Header -->
+      <div class="flex flex-wrap items-center gap-2.5 z-10 no-print">
+        <a href="/reporte-ejecutivo" class="px-3.5 py-2.5 bg-slate-900/90 hover:bg-slate-800 text-slate-200 hover:text-white font-bold rounded-xl border border-slate-700/80 transition text-xs flex items-center gap-2 shadow-sm">
+          <i class="fa-solid fa-chart-pie text-indigo-400"></i> Reporte Ejecutivo SLA
         </a>
-        <button onclick="toggleDropzone()" class="px-3.5 py-2 bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 font-bold rounded-xl border border-indigo-500/40 transition text-xs flex items-center gap-1.5">
-          <span>📁</span> Arrastrar Archivo Chat
+        <button onclick="toggleDropzone()" class="px-3.5 py-2.5 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 font-bold rounded-xl border border-indigo-500/40 transition text-xs flex items-center gap-2">
+          <i class="fa-solid fa-file-arrow-up"></i> Dropzone Chats
         </button>
-        <button onclick="loadAnalyzedConversations()" class="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-emerald-400 font-bold rounded-xl border border-emerald-500/30 transition text-xs flex items-center gap-1.5">
-          <span>🔄</span> Sincronizar
+        <button onclick="loadAnalyzedConversations()" id="btn-sync" class="px-3.5 py-2.5 bg-slate-900/90 hover:bg-slate-800 text-emerald-400 font-bold rounded-xl border border-emerald-500/30 transition text-xs flex items-center gap-2">
+          <i class="fa-solid fa-arrows-rotate"></i> Sincronizar
         </button>
-        <button onclick="window.print()" class="px-3.5 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 text-white font-bold rounded-xl shadow-lg shadow-blue-600/20 transition text-xs flex items-center gap-1.5">
-          <span>📄</span> Imprimir / PDF
+        <button onclick="exportToCSV()" class="px-3.5 py-2.5 bg-slate-900/90 hover:bg-slate-800 text-slate-300 hover:text-white font-bold rounded-xl border border-slate-700/80 transition text-xs flex items-center gap-2">
+          <i class="fa-solid fa-file-excel text-emerald-400"></i> CSV
+        </button>
+        <button onclick="window.print()" class="px-4 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold rounded-xl shadow-lg shadow-indigo-600/25 transition text-xs flex items-center gap-2">
+          <i class="fa-solid fa-print"></i> Imprimir / PDF
         </button>
       </div>
+    </header>
+
+    <!-- ══════════════════════════════════════════════════════════════════ -->
+    <!-- 2. TARJETAS DE KPIS PRINCIPALES (DATA METRICS RIBBON)               -->
+    <!-- ══════════════════════════════════════════════════════════════════ -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      
+      <!-- KPI 1: Volumen Auditado -->
+      <div class="glass-card p-4 rounded-2xl border-l-4 border-l-indigo-500 space-y-1 relative overflow-hidden">
+        <div class="flex items-center justify-between text-slate-400 text-xs font-semibold">
+          <span>VOLUMEN AUDITADO</span>
+          <i class="fa-solid fa-comments text-indigo-400"></i>
+        </div>
+        <div class="text-2xl md:text-3xl font-extrabold text-white tracking-tight" id="kpi-total-conv">0</div>
+        <div class="text-[11px] text-slate-400 flex items-center gap-1.5">
+          <span class="text-emerald-400 font-bold"><i class="fa-solid fa-check"></i> 100%</span>
+          <span>Analizadas con IA en vivo</span>
+        </div>
+      </div>
+
+      <!-- KPI 2: Calificación Global -->
+      <div class="glass-card p-4 rounded-2xl border-l-4 border-l-emerald-500 space-y-1 relative overflow-hidden">
+        <div class="flex items-center justify-between text-slate-400 text-xs font-semibold">
+          <span>SCORE PROMEDIO QA</span>
+          <i class="fa-solid fa-award text-emerald-400"></i>
+        </div>
+        <div class="text-2xl md:text-3xl font-extrabold text-emerald-400 tracking-tight" id="kpi-avg-score">
+          0.0 <span class="text-sm font-normal text-slate-400">/ 100 pts</span>
+        </div>
+        <div class="text-[11px] text-slate-400 flex items-center gap-1.5">
+          <span class="text-emerald-400 font-bold">Rúbrica:</span>
+          <span>9 Criterios evaluados</span>
+        </div>
+      </div>
+
+      <!-- KPI 3: Tasa de Aprobación -->
+      <div class="glass-card p-4 rounded-2xl border-l-4 border-l-blue-500 space-y-1 relative overflow-hidden">
+        <div class="flex items-center justify-between text-slate-400 text-xs font-semibold">
+          <span>TASA DE APROBACIÓN (≥70)</span>
+          <i class="fa-solid fa-chart-line text-blue-400"></i>
+        </div>
+        <div class="text-2xl md:text-3xl font-extrabold text-blue-400 tracking-tight" id="kpi-approval-rate">0%</div>
+        <div class="text-[11px] text-slate-400 flex items-center gap-1.5">
+          <span id="kpi-passing-count" class="font-bold text-slate-300">0</span>
+          <span>Conversaciones conformes</span>
+        </div>
+      </div>
+
+      <!-- KPI 4: Velocidad de Respuesta -->
+      <div class="glass-card p-4 rounded-2xl border-l-4 border-l-amber-500 space-y-1 relative overflow-hidden">
+        <div class="flex items-center justify-between text-slate-400 text-xs font-semibold">
+          <span>TIEMPO 1ª RESPUESTA (FRT)</span>
+          <i class="fa-solid fa-bolt text-amber-400"></i>
+        </div>
+        <div class="text-2xl md:text-3xl font-extrabold text-amber-400 tracking-tight" id="kpi-avg-frt">1.3s</div>
+        <div class="text-[11px] text-slate-400 flex items-center gap-1.5">
+          <span class="text-emerald-400 font-bold"><i class="fa-solid fa-robot"></i> Bot Inmediato</span>
+          <span>vs Asesor manual</span>
+        </div>
+      </div>
+
     </div>
 
-    <!-- ── 2. KPIS GLOBALES EN TIEMPO REAL ── -->
-    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
-      <div class="p-4 rounded-2xl bg-slate-900/70 border border-slate-800">
-        <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Total Conversaciones</span>
-        <div class="text-2xl md:text-3xl font-extrabold text-white mt-1" id="kpi-total-conv">0</div>
-        <p class="text-[11px] text-slate-500 mt-1">Auditadas con IA en tiempo real</p>
-      </div>
-
-      <div class="p-4 rounded-2xl bg-slate-900/70 border border-slate-800">
-        <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Calificación Promedio QA</span>
-        <div class="text-2xl md:text-3xl font-extrabold text-emerald-400 mt-1" id="kpi-avg-score">0.0 <span class="text-base font-normal text-slate-400">/ 100</span></div>
-        <p class="text-[11px] text-emerald-500/90 mt-1">Rúbrica de 9 dimensiones</p>
-      </div>
-
-      <div class="p-4 rounded-2xl bg-slate-900/70 border border-slate-800">
-        <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Cumplimiento SLA (Aprobado+)</span>
-        <div class="text-2xl md:text-3xl font-extrabold text-blue-400 mt-1" id="kpi-approval-rate">0%</div>
-        <p class="text-[11px] text-blue-400/80 mt-1">Conversaciones con ≥70 puntos</p>
-      </div>
-
-      <div class="p-4 rounded-2xl bg-slate-900/70 border border-slate-800">
-        <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Velocidad 1ª Respuesta</span>
-        <div class="text-2xl md:text-3xl font-extrabold text-purple-400 mt-1" id="kpi-avg-frt">1.3s <span class="text-base font-normal text-slate-400">Bot</span></div>
-        <p class="text-[11px] text-purple-400/80 mt-1">Respuesta inmediata en WhatsApp</p>
-      </div>
-    </div>
-
-    <!-- ── 3. DROPZONE DRAG & DROP PARA ARCHIVOS EXTERNOS (EXPANDIBLE) ── -->
-    <div id="dropzone-panel" class="hidden p-6 rounded-2xl bg-slate-900/90 border-2 border-dashed border-indigo-500/50 shadow-2xl transition-all">
-      <div class="flex flex-col items-center justify-center text-center space-y-3 cursor-pointer py-4"
+    <!-- ══════════════════════════════════════════════════════════════════ -->
+    <!-- 3. DROPZONE DRAG & DROP PARA ARCHIVOS EXTERNOS (.TXT / .JSON)       -->
+    <!-- ══════════════════════════════════════════════════════════════════ -->
+    <div id="dropzone-panel" class="hidden glass-panel p-6 rounded-3xl border-2 border-dashed border-indigo-500/40 shadow-2xl transition-all duration-300">
+      <div class="flex flex-col items-center justify-center text-center space-y-3 cursor-pointer py-6"
            ondragover="handleDropzoneOver(event)" ondragleave="handleDropzoneLeave(event)" ondrop="handleDropzoneDrop(event)" onclick="document.getElementById('file-input').click()">
         <input type="file" id="file-input" class="hidden" accept=".txt,.json,.csv" onchange="handleFileSelect(event)">
-        <div class="w-16 h-16 rounded-2xl bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center text-3xl text-indigo-400 shadow-inner">
-          📥
+        <div class="w-16 h-16 rounded-2xl bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center text-3xl text-indigo-400 shadow-inner group-hover:scale-105 transition">
+          <i class="fa-solid fa-cloud-arrow-up"></i>
         </div>
         <div>
-          <h3 class="text-base font-bold text-white">Arrastra y suelta aquí un chat exportado (.txt de WhatsApp o .json)</h3>
-          <p class="text-xs text-slate-400 mt-1">El motor de IA evaluará automáticamente las 9 dimensiones y creará una nueva tarjeta en el tablero.</p>
+          <h3 class="text-base font-bold text-white tracking-tight">Arrastra y suelta aquí cualquier archivo de chat para auditoría inmediata</h3>
+          <p class="text-xs text-slate-400 mt-1 max-w-xl mx-auto">
+            Soporta exports oficiales de WhatsApp (<code class="text-indigo-300 font-mono">Chat de WhatsApp con ....txt</code>), archivos <code class="text-indigo-300 font-mono">.json</code> o transcripciones de ventas.
+          </p>
         </div>
-        <div class="flex items-center gap-2 text-[11px] text-indigo-300 font-semibold bg-indigo-950/60 px-3 py-1 rounded-full border border-indigo-800">
-          <span>✨</span> Soporta formato WhatsApp oficial de exportación de chats
+        <div class="flex items-center gap-3 text-xs text-slate-400">
+          <span class="px-3 py-1 rounded-full bg-slate-900 border border-slate-800 text-indigo-300 font-semibold">
+            <i class="fa-solid fa-wand-magic-sparkles mr-1"></i> Análisis instantáneo de 9 dimensiones
+          </span>
+          <span class="text-slate-500">o haz clic para examinar archivos</span>
         </div>
       </div>
     </div>
 
-    <!-- ── 4. BARRA DE CONTROL, FILTROS Y BÚSQUEDA ── -->
-    <div class="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 p-3 bg-slate-900/80 border border-slate-800 rounded-2xl no-print">
-      <div class="flex flex-wrap items-center gap-2 flex-1">
-        <!-- Búsqueda rápida -->
-        <div class="relative min-w-[240px]">
-          <input type="text" id="search-input" placeholder="🔍 Buscar cliente, teléfono o asesor..." 
+    <!-- ══════════════════════════════════════════════════════════════════ -->
+    <!-- 4. BARRA DE CONTROL, FILTROS Y VISTAS (KANBAN vs TABLA)            -->
+    <!-- ══════════════════════════════════════════════════════════════════ -->
+    <div class="glass-panel p-3.5 rounded-2xl flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 no-print">
+      
+      <div class="flex flex-wrap items-center gap-2.5 flex-1">
+        <!-- Buscador -->
+        <div class="relative min-w-[260px] flex-1 sm:flex-initial">
+          <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 text-xs"></i>
+          <input type="text" id="search-input" placeholder="Buscar por cliente, teléfono o asesor..." 
                  oninput="applyFilters()" 
-                 class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500">
+                 class="w-full bg-slate-950/80 border border-slate-800 rounded-xl pl-9 pr-3.5 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition">
         </div>
 
         <!-- Filtro por Línea Telefónica -->
-        <select id="line-filter" onchange="applyFilters()" class="bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-300 focus:outline-none focus:border-indigo-500">
+        <select id="line-filter" onchange="applyFilters()" class="bg-slate-950/80 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-300 focus:outline-none focus:border-indigo-500 transition">
           <option value="all">🌐 Todas las Líneas</option>
           <option value="150556">📱 Castor Matriz (+593 98 892 1136)</option>
           <option value="151924">💼 Grupo Bonilla (+593 99 245 1085)</option>
         </select>
 
         <!-- Filtro por Asesor -->
-        <select id="advisor-filter" onchange="applyFilters()" class="bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-300 focus:outline-none focus:border-indigo-500">
+        <select id="advisor-filter" onchange="applyFilters()" class="bg-slate-950/80 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-300 focus:outline-none focus:border-indigo-500 transition">
           <option value="all">👤 Todos los Asesores</option>
+        </select>
+
+        <!-- Ordenamiento -->
+        <select id="sort-select" onchange="applyFilters()" class="bg-slate-950/80 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-300 focus:outline-none focus:border-indigo-500 transition">
+          <option value="score_desc">🏆 Mayor Puntaje QA</option>
+          <option value="score_asc">📉 Menor Puntaje QA</option>
+          <option value="frt_asc">⚡ Respuesta más Rápida</option>
+          <option value="recent">📅 Más Recientes</option>
         </select>
       </div>
 
-      <div class="flex items-center gap-2 self-end md:self-auto text-xs text-slate-400">
-        <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-950 border border-slate-800">
-          <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
-          <span>Arrastra las tarjetas para reclasificar</span>
-        </span>
+      <!-- Conmutador de Vistas: Kanban vs Tabla BI -->
+      <div class="flex items-center gap-1.5 bg-slate-950/90 p-1 rounded-xl border border-slate-800 self-end md:self-auto">
+        <button onclick="setViewMode('kanban')" id="btn-view-kanban" class="px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 bg-indigo-600 text-white shadow-sm">
+          <i class="fa-solid fa-table-columns"></i> Kanban Drag & Drop
+        </button>
+        <button onclick="setViewMode('table')" id="btn-view-table" class="px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 text-slate-400 hover:text-white">
+          <i class="fa-solid fa-list-check"></i> Matriz Ejecutiva
+        </button>
       </div>
+
     </div>
 
-    <!-- ── 5. TABLERO KANBAN CON DRAG & DROP NATIVO ── -->
-    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+    <!-- ══════════════════════════════════════════════════════════════════ -->
+    <!-- 5. TABLERO KANBAN CON DRAG & DROP NATIVO                            -->
+    <!-- ══════════════════════════════════════════════════════════════════ -->
+    <div id="view-kanban" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
 
       <!-- COLUMNA 1: A+ SOBRESALIENTE -->
-      <div class="flex flex-col bg-slate-900/60 rounded-2xl border border-emerald-500/30 overflow-hidden shadow-lg">
-        <div class="p-3.5 bg-emerald-950/30 border-b border-emerald-500/20 flex items-center justify-between">
-          <div class="flex items-center gap-2">
-            <span class="w-3 h-3 rounded-full bg-emerald-400 shadow-sm shadow-emerald-400/50"></span>
-            <h3 class="font-bold text-xs uppercase tracking-wider text-emerald-300">A+ Sobresaliente</h3>
-            <span class="text-[10px] text-slate-400 font-mono">(90-100 pts)</span>
+      <div class="flex flex-col glass-panel rounded-3xl border border-emerald-500/30 overflow-hidden shadow-xl">
+        <div class="p-4 bg-emerald-950/30 border-b border-emerald-500/20 flex items-center justify-between">
+          <div class="flex items-center gap-2.5">
+            <span class="w-3 h-3 rounded-full bg-emerald-400 shadow-lg shadow-emerald-400/50"></span>
+            <div>
+              <h3 class="font-extrabold text-xs uppercase tracking-wider text-emerald-300">A+ Sobresaliente</h3>
+              <p class="text-[10px] text-emerald-400/70 font-mono">90 a 100 puntos</p>
+            </div>
           </div>
-          <span id="badge-count-sobresaliente" class="px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-300">0</span>
+          <span id="badge-count-sobresaliente" class="px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">0</span>
         </div>
         <div id="col-sobresaliente" class="kanban-col p-3 space-y-3 flex-1"
              ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event, 'sobresaliente')">
@@ -180,14 +328,16 @@
       </div>
 
       <!-- COLUMNA 2: A APROBADO -->
-      <div class="flex flex-col bg-slate-900/60 rounded-2xl border border-blue-500/30 overflow-hidden shadow-lg">
-        <div class="p-3.5 bg-blue-950/30 border-b border-blue-500/20 flex items-center justify-between">
-          <div class="flex items-center gap-2">
-            <span class="w-3 h-3 rounded-full bg-blue-400 shadow-sm shadow-blue-400/50"></span>
-            <h3 class="font-bold text-xs uppercase tracking-wider text-blue-300">A Aprobado</h3>
-            <span class="text-[10px] text-slate-400 font-mono">(70-89 pts)</span>
+      <div class="flex flex-col glass-panel rounded-3xl border border-blue-500/30 overflow-hidden shadow-xl">
+        <div class="p-4 bg-blue-950/30 border-b border-blue-500/20 flex items-center justify-between">
+          <div class="flex items-center gap-2.5">
+            <span class="w-3 h-3 rounded-full bg-blue-400 shadow-lg shadow-blue-400/50"></span>
+            <div>
+              <h3 class="font-extrabold text-xs uppercase tracking-wider text-blue-300">A Aprobado</h3>
+              <p class="text-[10px] text-blue-400/70 font-mono">70 a 89 puntos</p>
+            </div>
           </div>
-          <span id="badge-count-aprobado" class="px-2 py-0.5 rounded-full text-xs font-bold bg-blue-500/20 text-blue-300">0</span>
+          <span id="badge-count-aprobado" class="px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-blue-500/20 text-blue-300 border border-blue-500/30">0</span>
         </div>
         <div id="col-aprobado" class="kanban-col p-3 space-y-3 flex-1"
              ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event, 'aprobado')">
@@ -196,14 +346,16 @@
       </div>
 
       <!-- COLUMNA 3: B REQUIERE MEJORA -->
-      <div class="flex flex-col bg-slate-900/60 rounded-2xl border border-amber-500/30 overflow-hidden shadow-lg">
-        <div class="p-3.5 bg-amber-950/30 border-b border-amber-500/20 flex items-center justify-between">
-          <div class="flex items-center gap-2">
-            <span class="w-3 h-3 rounded-full bg-amber-400 shadow-sm shadow-amber-400/50"></span>
-            <h3 class="font-bold text-xs uppercase tracking-wider text-amber-300">B Requiere Mejora</h3>
-            <span class="text-[10px] text-slate-400 font-mono">(50-69 pts)</span>
+      <div class="flex flex-col glass-panel rounded-3xl border border-amber-500/30 overflow-hidden shadow-xl">
+        <div class="p-4 bg-amber-950/30 border-b border-amber-500/20 flex items-center justify-between">
+          <div class="flex items-center gap-2.5">
+            <span class="w-3 h-3 rounded-full bg-amber-400 shadow-lg shadow-amber-400/50"></span>
+            <div>
+              <h3 class="font-extrabold text-xs uppercase tracking-wider text-amber-300">B Requiere Mejora</h3>
+              <p class="text-[10px] text-amber-400/70 font-mono">50 a 69 puntos</p>
+            </div>
           </div>
-          <span id="badge-count-mejora" class="px-2 py-0.5 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300">0</span>
+          <span id="badge-count-mejora" class="px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-amber-500/20 text-amber-300 border border-amber-500/30">0</span>
         </div>
         <div id="col-mejora" class="kanban-col p-3 space-y-3 flex-1"
              ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event, 'mejora')">
@@ -212,14 +364,16 @@
       </div>
 
       <!-- COLUMNA 4: C CRÍTICO -->
-      <div class="flex flex-col bg-slate-900/60 rounded-2xl border border-rose-500/30 overflow-hidden shadow-lg">
-        <div class="p-3.5 bg-rose-950/30 border-b border-rose-500/20 flex items-center justify-between">
-          <div class="flex items-center gap-2">
-            <span class="w-3 h-3 rounded-full bg-rose-400 shadow-sm shadow-rose-400/50"></span>
-            <h3 class="font-bold text-xs uppercase tracking-wider text-rose-300">C Crítico / Alerta</h3>
-            <span class="text-[10px] text-slate-400 font-mono">(&lt;50 pts)</span>
+      <div class="flex flex-col glass-panel rounded-3xl border border-rose-500/30 overflow-hidden shadow-xl">
+        <div class="p-4 bg-rose-950/30 border-b border-rose-500/20 flex items-center justify-between">
+          <div class="flex items-center gap-2.5">
+            <span class="w-3 h-3 rounded-full bg-rose-400 shadow-lg shadow-rose-400/50"></span>
+            <div>
+              <h3 class="font-extrabold text-xs uppercase tracking-wider text-rose-300">C Crítico / Alerta</h3>
+              <p class="text-[10px] text-rose-400/70 font-mono">&lt; 50 puntos</p>
+            </div>
           </div>
-          <span id="badge-count-critico" class="px-2 py-0.5 rounded-full text-xs font-bold bg-rose-500/20 text-rose-300">0</span>
+          <span id="badge-count-critico" class="px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-rose-500/20 text-rose-300 border border-rose-500/30">0</span>
         </div>
         <div id="col-critico" class="kanban-col p-3 space-y-3 flex-1"
              ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event, 'critico')">
@@ -229,87 +383,142 @@
 
     </div>
 
+    <!-- ══════════════════════════════════════════════════════════════════ -->
+    <!-- 6. VISTA ALTERNATIVA: MATRIZ EJECUTIVA EN TABLA                     -->
+    <!-- ══════════════════════════════════════════════════════════════════ -->
+    <div id="view-table" class="hidden glass-panel rounded-3xl overflow-hidden shadow-2xl">
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-xs">
+          <thead class="bg-slate-950/90 text-slate-400 uppercase font-bold text-[11px] tracking-wider border-b border-slate-800">
+            <tr>
+              <th class="py-3.5 px-4">Conversación / Cliente</th>
+              <th class="py-3.5 px-4">Canal / Teléfono</th>
+              <th class="py-3.5 px-4">Asesor Responsable</th>
+              <th class="py-3.5 px-4 text-center">Score Total</th>
+              <th class="py-3.5 px-4 text-center">Nivel QA</th>
+              <th class="py-3.5 px-4 text-center">1ª Respuesta (FRT)</th>
+              <th class="py-3.5 px-4 text-center">Mensajes</th>
+              <th class="py-3.5 px-4 text-right">Acción</th>
+            </tr>
+          </thead>
+          <tbody id="table-body" class="divide-y divide-slate-800/60 font-medium">
+            <!-- Filas dinámicas -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
   </div>
 
-  <!-- ── 6. MODAL DRAWER: ANÁLISIS DETALLADO DE CADA CONVERSACIÓN ── -->
-  <div id="conv-modal" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm hidden flex items-center justify-center p-3 md:p-6" onclick="closeModalOnBackdrop(event)">
-    <div class="bg-slate-900 border border-slate-700 w-full max-w-5xl rounded-3xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden" onclick="event.stopPropagation()">
+  <!-- ══════════════════════════════════════════════════════════════════ -->
+  <!-- 7. MODAL DRAWER: ANÁLISIS QUIRÚRGICO DE CADA CONVERSACIÓN          -->
+  <!-- ══════════════════════════════════════════════════════════════════ -->
+  <div id="conv-modal" class="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md hidden flex items-center justify-center p-3 md:p-6" onclick="closeModalOnBackdrop(event)">
+    <div class="glass-panel w-full max-w-5xl rounded-3xl max-h-[94vh] flex flex-col shadow-2xl overflow-hidden border border-slate-700/80 animate-in fade-in zoom-in-95 duration-200" onclick="event.stopPropagation()">
       
       <!-- Modal Header -->
-      <div class="p-5 border-b border-slate-800 flex items-start justify-between bg-slate-950/60">
+      <div class="p-5 border-b border-slate-800 flex items-start justify-between bg-slate-950/80">
         <div>
-          <div class="flex flex-wrap items-center gap-2">
-            <span id="modal-line-badge" class="px-2 py-0.5 rounded-md text-[11px] font-bold bg-blue-500/20 text-blue-400 border border-blue-500/30">Castor Matriz</span>
-            <h2 id="modal-client-name" class="text-xl font-bold text-white tracking-tight">Nombre del Cliente</h2>
-            <span id="modal-phone" class="text-xs text-slate-400 font-mono bg-slate-800 px-2 py-0.5 rounded">+593 ...</span>
+          <div class="flex flex-wrap items-center gap-2.5">
+            <span id="modal-line-badge" class="px-2.5 py-0.5 rounded-lg text-[11px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+              Castor Matriz
+            </span>
+            <h2 id="modal-client-name" class="text-xl md:text-2xl font-extrabold text-white tracking-tight">Nombre del Cliente</h2>
+            <span id="modal-phone" class="text-xs text-slate-300 font-mono bg-slate-900 px-2.5 py-0.5 rounded-lg border border-slate-800">+593 ...</span>
           </div>
-          <p class="text-xs text-slate-400 mt-1 flex items-center gap-3">
-            <span>👤 Asesor: <strong id="modal-advisor" class="text-slate-200">Christian Bonilla</strong></span>
-            <span>📅 Fecha: <span id="modal-date">13/11/2026</span></span>
-            <span>⏱️ FRT: <strong id="modal-frt" class="text-emerald-400">1.3s</strong></span>
+          <p class="text-xs text-slate-400 mt-2 flex flex-wrap items-center gap-x-4 gap-y-1">
+            <span><i class="fa-solid fa-user-tie text-indigo-400 mr-1"></i> Asesor: <strong id="modal-advisor" class="text-slate-200">Christian Bonilla</strong></span>
+            <span><i class="fa-solid fa-calendar-days text-slate-500 mr-1"></i> Fecha: <span id="modal-date">13/11/2026</span></span>
+            <span><i class="fa-solid fa-stopwatch text-emerald-400 mr-1"></i> FRT: <strong id="modal-frt" class="text-emerald-400">1.3s</strong></span>
           </p>
         </div>
+
         <div class="flex items-center gap-2">
-          <a id="modal-chatwoot-link" href="#" target="_blank" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-xl border border-slate-700 transition flex items-center gap-1.5">
-            <span>💬</span> Abrir en Chatwoot
+          <a id="modal-chatwoot-link" href="#" target="_blank" class="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-xl border border-slate-700 transition flex items-center gap-2 shadow-sm">
+            <i class="fa-solid fa-arrow-up-right-from-square text-emerald-400"></i> Abrir en Chatwoot
           </a>
-          <button onclick="closeModal()" class="w-8 h-8 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center text-base transition">
+          <button onclick="closeModal()" class="w-9 h-9 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center text-sm transition">
             ✕
           </button>
         </div>
       </div>
 
-      <!-- Modal Body (Scrollable) -->
+      <!-- Modal Body (Pestañas de Inspección) -->
+      <div class="border-b border-slate-800 bg-slate-950/40 px-6 flex items-center gap-2 text-xs font-bold">
+        <button onclick="setModalTab('audit')" id="tab-btn-audit" class="py-3 px-3 border-b-2 border-indigo-500 text-indigo-400 flex items-center gap-1.5 transition">
+          <i class="fa-solid fa-clipboard-check"></i> Rúbrica 9 Dimensiones
+        </button>
+        <button onclick="setModalTab('chat')" id="tab-btn-chat" class="py-3 px-3 border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center gap-1.5 transition">
+          <i class="fa-brands fa-whatsapp text-emerald-400"></i> Transcripción del Chat
+        </button>
+      </div>
+
       <div class="p-6 overflow-y-auto space-y-6 flex-1 text-xs">
         
-        <!-- Score & Status Banner -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div class="p-4 rounded-2xl bg-slate-950 border border-slate-800 flex items-center gap-4">
-            <div id="modal-score-badge" class="w-16 h-16 rounded-2xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-2xl font-extrabold text-emerald-400">
-              96
+        <!-- PESTAÑA 1: RÚBRICA Y AUDITORÍA QA -->
+        <div id="modal-tab-audit" class="space-y-6">
+          
+          <!-- Banner de Puntaje y Diagnóstico -->
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="p-4 rounded-2xl bg-slate-950/80 border border-slate-800 flex items-center gap-4">
+              <div id="modal-score-badge" class="w-16 h-16 rounded-2xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-2xl font-extrabold text-emerald-400 shadow-inner">
+                96
+              </div>
+              <div>
+                <span class="text-[10px] uppercase font-bold text-slate-500 block">Calificación Auditoría</span>
+                <div id="modal-level-label" class="text-base font-bold text-white">A+ Sobresaliente</div>
+                <p class="text-[11px] text-slate-400 mt-0.5">Rúbrica de 100 puntos</p>
+              </div>
             </div>
-            <div>
-              <span class="text-[10px] uppercase font-bold text-slate-500 block">Puntaje Auditoría QA</span>
-              <div id="modal-level-label" class="text-base font-bold text-white">A+ Sobresaliente</div>
-              <p class="text-[11px] text-slate-400 mt-0.5">Evaluado sobre 100 puntos</p>
+
+            <div class="md:col-span-2 p-4 rounded-2xl bg-slate-950/80 border border-slate-800 flex flex-col justify-center">
+              <div class="flex items-center justify-between mb-1">
+                <span class="text-[10px] uppercase font-bold text-indigo-400 flex items-center gap-1">
+                  <i class="fa-solid fa-sparkles"></i> Dictamen y Acción del Supervisor:
+                </span>
+                <button onclick="copyRecommendation()" class="text-[10px] text-slate-400 hover:text-white flex items-center gap-1 transition">
+                  <i class="fa-regular fa-copy"></i> Copiar
+                </button>
+              </div>
+              <p id="modal-recommendation" class="text-xs text-slate-300 italic leading-relaxed">
+                "Excelente gestión de ventas. Mantener estándares de cotización y cierre."
+              </p>
             </div>
           </div>
 
-          <div class="md:col-span-2 p-4 rounded-2xl bg-slate-950 border border-slate-800 flex flex-col justify-center">
-            <span class="text-[10px] uppercase font-bold text-indigo-400 block mb-1">🎯 Dictamen & Recomendación IA:</span>
-            <p id="modal-recommendation" class="text-xs text-slate-300 italic leading-relaxed">
-              "Ejemplo modelo de venta consultiva y proactividad."
-            </p>
+          <!-- Radar Chart de las 9 Dimensiones -->
+          <div class="p-4 rounded-2xl bg-slate-950/80 border border-slate-800 space-y-3">
+            <div class="flex items-center justify-between">
+              <span class="font-bold text-slate-200 text-xs">Evaluación Comparativa de Dimensiones</span>
+              <span class="text-[10px] text-slate-500">Puntaje Obtenido vs Máximo Reglamentario</span>
+            </div>
+            <div class="h-60 relative">
+              <canvas id="modalChart"></canvas>
+            </div>
           </div>
+
+          <!-- Rúbrica Detallada de los 9 Criterios -->
+          <div class="space-y-2">
+            <h4 class="font-bold text-slate-300 text-xs border-b border-slate-800 pb-2 flex items-center justify-between">
+              <span>Desglose Criterio por Criterio</span>
+              <span class="text-slate-500 text-[10px]">Evaluación automática por NLP</span>
+            </h4>
+            <div id="modal-dimensions-list" class="space-y-2.5">
+              <!-- Inyectado por JS -->
+            </div>
+          </div>
+
         </div>
 
-        <!-- Radar / Bar Chart de las 9 Dimensiones -->
-        <div class="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-3">
-          <div class="flex items-center justify-between">
-            <span class="font-bold text-slate-300 text-xs">Desglose Gráfico de las 9 Dimensiones Evaluadas</span>
-            <span class="text-[10px] text-slate-500">Comparativa vs Estándar de Excelencia</span>
+        <!-- PESTAÑA 2: SIMULADOR DE CHAT WHATSAPP -->
+        <div id="modal-tab-chat" class="hidden space-y-4">
+          <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+            <span class="font-bold text-slate-300">Historial Verificado del Chat</span>
+            <span id="modal-msg-count" class="text-[10px] text-slate-500">0 mensajes</span>
           </div>
-          <div class="h-56 relative">
-            <canvas id="modalChart"></canvas>
-          </div>
-        </div>
 
-        <!-- Tabla Detallada de las 9 Dimensiones con Feedback Cualitativo -->
-        <div class="space-y-2">
-          <h4 class="font-bold text-slate-300 text-xs border-b border-slate-800 pb-2">Auditoría Criterio por Criterio (Rúbrica Oficial)</h4>
-          <div id="modal-dimensions-list" class="space-y-2 text-xs">
-            <!-- Inyectado por JS -->
-          </div>
-        </div>
-
-        <!-- Simulador de Mensajes del Chat WhatsApp -->
-        <div class="space-y-2 pt-2 border-t border-slate-800">
-          <div class="flex items-center justify-between">
-            <h4 class="font-bold text-slate-300 text-xs">Transcripción Completa de la Conversación</h4>
-            <span id="modal-msg-count" class="text-[10px] text-slate-500">8 mensajes registrados</span>
-          </div>
-          <div id="modal-chat-transcript" class="space-y-2.5 p-4 rounded-2xl bg-slate-950/80 border border-slate-800 max-h-80 overflow-y-auto">
-            <!-- Burbujas de chat inyectadas por JS -->
+          <div id="modal-chat-transcript" class="space-y-3 p-4 rounded-2xl bg-slate-950 border border-slate-800/80 max-h-[460px] overflow-y-auto">
+            <!-- Burbujas de mensajes -->
           </div>
         </div>
 
@@ -318,14 +527,26 @@
     </div>
   </div>
 
-  <!-- ── 7. LÓGICA JAVASCRIPT COMPLETA (DRAG & DROP + API + MODAL) ── -->
+  <!-- Toast de Notificaciones -->
+  <div id="toast-notification" class="fixed bottom-6 right-6 z-50 transform translate-y-20 opacity-0 transition-all duration-300 bg-slate-900 border border-indigo-500/50 text-white px-4 py-3 rounded-2xl shadow-2xl flex items-center gap-3 text-xs">
+    <i class="fa-solid fa-circle-check text-emerald-400 text-base"></i>
+    <span id="toast-message">Operación realizada con éxito</span>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════════ -->
+  <!-- 8. MOTOR JAVASCRIPT: DRAG & DROP + API REST + MODAL ENGINE          -->
+  <!-- ══════════════════════════════════════════════════════════════════ -->
   <script>
     let allConversations = [];
     let draggedConvId = null;
     let modalChartInstance = null;
+    let currentViewMode = 'kanban';
 
     // ── Cargar conversaciones analizadas desde la API
     async function loadAnalyzedConversations() {
+      const syncBtn = document.getElementById('btn-sync');
+      if (syncBtn) syncBtn.innerHTML = '<i class="fa-solid fa-arrows-rotate fa-spin"></i> Cargando...';
+
       try {
         const res = await fetch('/api/v1/conversations/analyzed');
         const data = await res.json();
@@ -334,20 +555,25 @@
           populateAdvisorFilter();
           applyFilters();
           updateGlobalKPIs(data);
+          showToast(`¡Sincronizado! Se cargaron ${allConversations.length} conversaciones.`);
         }
       } catch (err) {
         console.error('Error cargando conversaciones:', err);
+        showToast('Error sincronizando con Chatwoot.', true);
+      } finally {
+        if (syncBtn) syncBtn.innerHTML = '<i class="fa-solid fa-arrows-rotate"></i> Sincronizar';
       }
     }
 
     // ── Actualizar KPIs superiores
     function updateGlobalKPIs(data) {
       document.getElementById('kpi-total-conv').innerText = data.total_conversations || allConversations.length;
-      document.getElementById('kpi-avg-score').innerHTML = `${data.overall_average_score || 0} <span class="text-base font-normal text-slate-400">/ 100</span>`;
+      document.getElementById('kpi-avg-score').innerHTML = `${data.overall_average_score || 0} <span class="text-sm font-normal text-slate-400">/ 100 pts</span>`;
       
       const approvedCount = allConversations.filter(c => c.qa_score >= 70).length;
       const rate = allConversations.length ? Math.round((approvedCount / allConversations.length) * 100) : 0;
       document.getElementById('kpi-approval-rate').innerText = `${rate}%`;
+      document.getElementById('kpi-passing-count').innerText = `${approvedCount} de ${allConversations.length}`;
     }
 
     // ── Rellenar filtro de asesores
@@ -366,13 +592,14 @@
       });
     }
 
-    // ── Renderizar tablero Kanban según filtros
+    // ── Aplicar filtros combinados y ordenamiento
     function applyFilters() {
       const search = document.getElementById('search-input').value.toLowerCase().trim();
       const line = document.getElementById('line-filter').value;
       const advisor = document.getElementById('advisor-filter').value;
+      const sortBy = document.getElementById('sort-select').value;
 
-      const filtered = allConversations.filter(c => {
+      let filtered = allConversations.filter(c => {
         const matchSearch = !search || 
           c.contact_name.toLowerCase().includes(search) || 
           c.phone.toLowerCase().includes(search) ||
@@ -385,10 +612,23 @@
         return matchSearch && matchLine && matchAdv;
       });
 
-      renderKanbanColumns(filtered);
+      // Ordenar resultados
+      if (sortBy === 'score_desc') {
+        filtered.sort((a, b) => b.qa_score - a.qa_score);
+      } else if (sortBy === 'score_asc') {
+        filtered.sort((a, b) => a.qa_score - b.qa_score);
+      } else if (sortBy === 'frt_asc') {
+        filtered.sort((a, b) => a.frt_seconds - b.frt_seconds);
+      }
+
+      if (currentViewMode === 'kanban') {
+        renderKanbanColumns(filtered);
+      } else {
+        renderTableRows(filtered);
+      }
     }
 
-    // ── Renderizar tarjetas en las 4 columnas
+    // ── Renderizar tarjetas en las 4 columnas del Kanban
     function renderKanbanColumns(conversations) {
       const cols = {
         sobresaliente: document.getElementById('col-sobresaliente'),
@@ -397,9 +637,7 @@
         critico: document.getElementById('col-critico')
       };
 
-      // Limpiar columnas
       Object.values(cols).forEach(col => col.innerHTML = '');
-
       const counts = { sobresaliente: 0, aprobado: 0, mejora: 0, critico: 0 };
 
       conversations.forEach(c => {
@@ -411,7 +649,6 @@
         }
       });
 
-      // Actualizar contadores
       document.getElementById('badge-count-sobresaliente').innerText = counts.sobresaliente;
       document.getElementById('badge-count-aprobado').innerText = counts.aprobado;
       document.getElementById('badge-count-mejora').innerText = counts.mejora;
@@ -422,14 +659,14 @@
     function createCardElement(c) {
       const card = document.createElement('div');
       card.id = `card-${c.id}`;
-      card.className = "kanban-card p-3.5 bg-slate-950/80 hover:bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-xl space-y-2.5 shadow-sm";
+      card.className = "kanban-card glass-card p-4 rounded-2xl space-y-3 shadow-md relative";
       card.draggable = true;
 
       // Eventos Drag & Drop de la tarjeta
       card.addEventListener('dragstart', (e) => {
         draggedConvId = c.id;
         card.classList.add('is-dragging');
-        e.dataTransfer.setData('text/plain', c.id);
+        e.dataTransfer.setData('text/plain', String(c.id));
         e.dataTransfer.effectAllowed = 'move';
       });
 
@@ -438,51 +675,118 @@
         draggedConvId = null;
       });
 
-      // Color de puntaje
-      let scoreColor = "text-emerald-400 bg-emerald-500/10 border-emerald-500/20";
-      if (c.qa_score < 50) scoreColor = "text-rose-400 bg-rose-500/10 border-rose-500/20";
-      else if (c.qa_score < 70) scoreColor = "text-amber-400 bg-amber-500/10 border-amber-500/20";
-      else if (c.qa_score < 90) scoreColor = "text-blue-400 bg-blue-500/10 border-blue-500/20";
+      // Color e indicador de score
+      let scoreBadge = "text-emerald-400 bg-emerald-500/15 border-emerald-500/30";
+      if (c.qa_score < 50) scoreBadge = "text-rose-400 bg-rose-500/15 border-rose-500/30";
+      else if (c.qa_score < 70) scoreBadge = "text-amber-400 bg-amber-500/15 border-amber-500/30";
+      else if (c.qa_score < 90) scoreBadge = "text-blue-400 bg-blue-500/15 border-blue-500/30";
 
-      // Color de línea
       const isBonilla = c.inbox_id === 151924;
       const lineTag = isBonilla ? 
-        '<span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">Grupo Bonilla</span>' :
-        '<span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Castor Matriz</span>';
+        '<span class="px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-500/15 text-amber-400 border border-amber-500/25"><i class="fa-solid fa-briefcase mr-1"></i> Bonilla</span>' :
+        '<span class="px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/25"><i class="fa-solid fa-store mr-1"></i> Castor</span>';
 
       card.innerHTML = `
         <div class="flex items-center justify-between gap-1.5">
           ${lineTag}
-          <span class="px-2 py-0.5 rounded-full text-[11px] font-extrabold border ${scoreColor}">
+          <span class="px-2.5 py-0.5 rounded-full text-[11px] font-extrabold border ${scoreBadge} shadow-sm font-mono">
             ${c.qa_score} pts
           </span>
         </div>
 
         <div>
-          <h4 class="font-bold text-white text-xs hover:text-indigo-400 transition cursor-pointer" onclick="openConversationModal(${c.id})">
-            ${c.contact_name}
+          <h4 class="font-bold text-white text-xs hover:text-indigo-400 transition cursor-pointer flex items-center justify-between" onclick="openConversationModal(${c.id})">
+            <span class="truncate">${c.contact_name}</span>
+            <i class="fa-solid fa-chevron-right text-[10px] text-slate-500"></i>
           </h4>
           <p class="text-[11px] text-slate-400 font-mono mt-0.5">${c.phone}</p>
         </div>
 
-        <p class="text-[11px] text-slate-400 italic line-clamp-2 bg-slate-900/60 p-2 rounded-lg border border-slate-800/80">
-          "${c.last_message_preview || 'Sin vista previa'}"
+        <p class="text-[11px] text-slate-300 italic line-clamp-2 bg-slate-950/70 p-2.5 rounded-xl border border-slate-800/80">
+          "${c.last_message_preview || 'Consulta registrada en WhatsApp.'}"
         </p>
 
-        <div class="flex items-center justify-between text-[10px] text-slate-400 pt-1 border-t border-slate-900">
-          <span class="truncate max-w-[120px]">👤 ${c.advisor_name}</span>
-          <span class="font-bold text-slate-300">⏱️ ${c.frt_display || '1.3s'}</span>
+        <div class="flex items-center justify-between text-[10px] text-slate-400 pt-1.5 border-t border-slate-800/70">
+          <span class="truncate max-w-[130px] font-medium"><i class="fa-solid fa-user-circle mr-1"></i>${c.advisor_name}</span>
+          <span class="font-bold text-slate-300 bg-slate-900 px-2 py-0.5 rounded border border-slate-800"><i class="fa-solid fa-clock mr-1 text-indigo-400"></i>${c.frt_display || '1.3s'}</span>
         </div>
 
-        <div class="pt-1 flex items-center justify-between">
-          <button onclick="openConversationModal(${c.id})" class="text-[11px] text-indigo-400 hover:text-indigo-300 font-semibold flex items-center gap-1 transition">
-            <span>👁️</span> Analizar Criterios
+        <div class="pt-1 flex items-center justify-between text-[11px]">
+          <button onclick="openConversationModal(${c.id})" class="text-indigo-400 hover:text-indigo-300 font-bold flex items-center gap-1 transition">
+            <i class="fa-solid fa-magnifying-glass-chart"></i> Rúbrica Completa
           </button>
-          <span class="text-[10px] text-slate-500 font-mono">⋮⋮ Mover</span>
+          <span class="text-[10px] text-slate-500 font-mono flex items-center gap-1">
+            <i class="fa-solid fa-grip-vertical"></i> Mover
+          </span>
         </div>
       `;
 
       return card;
+    }
+
+    // ── Renderizar Vista de Tabla BI
+    function renderTableRows(conversations) {
+      const tb = document.getElementById('table-body');
+      tb.innerHTML = '';
+
+      conversations.forEach(c => {
+        const tr = document.createElement('tr');
+        tr.className = "hover:bg-slate-900/40 transition cursor-pointer";
+        tr.onclick = () => openConversationModal(c.id);
+
+        let badgeCol = "bg-emerald-500/15 text-emerald-400 border-emerald-500/30";
+        if (c.qa_score < 50) badgeCol = "bg-rose-500/15 text-rose-400 border-rose-500/30";
+        else if (c.qa_score < 70) badgeCol = "bg-amber-500/15 text-amber-400 border-amber-500/30";
+        else if (c.qa_score < 90) badgeCol = "bg-blue-500/15 text-blue-400 border-blue-500/30";
+
+        tr.innerHTML = `
+          <td class="py-3.5 px-4 font-bold text-white">
+            <div class="flex items-center gap-2">
+              <span class="w-2 h-2 rounded-full ${c.inbox_id === 151924 ? 'bg-amber-400' : 'bg-emerald-400'}"></span>
+              <span>${c.contact_name}</span>
+            </div>
+          </td>
+          <td class="py-3.5 px-4 font-mono text-slate-300">${c.phone}</td>
+          <td class="py-3.5 px-4 text-slate-300">${c.advisor_name}</td>
+          <td class="py-3.5 px-4 text-center font-extrabold font-mono text-sm ${badgeCol.split(' ')[1]}">
+            ${c.qa_score}
+          </td>
+          <td class="py-3.5 px-4 text-center">
+            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${badgeCol}">
+              ${c.qa_level_label || c.qa_level}
+            </span>
+          </td>
+          <td class="py-3.5 px-4 text-center font-bold text-slate-300 font-mono">${c.frt_display}</td>
+          <td class="py-3.5 px-4 text-center text-slate-400">${c.messages_count || (c.messages ? c.messages.length : 0)} msjs</td>
+          <td class="py-3.5 px-4 text-right">
+            <button class="px-3 py-1 bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 rounded-lg text-xs font-bold transition">
+              Auditar 👁️
+            </button>
+          </td>
+        `;
+        tb.appendChild(tr);
+      });
+    }
+
+    function setViewMode(mode) {
+      currentViewMode = mode;
+      const bK = document.getElementById('btn-view-kanban');
+      const bT = document.getElementById('btn-view-table');
+      const vK = document.getElementById('view-kanban');
+      const vT = document.getElementById('view-table');
+
+      if (mode === 'kanban') {
+        bK.className = "px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 bg-indigo-600 text-white shadow-sm";
+        bT.className = "px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 text-slate-400 hover:text-white";
+        vK.classList.remove('hidden');
+        vT.classList.add('hidden');
+      } else {
+        bT.className = "px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 bg-indigo-600 text-white shadow-sm";
+        bK.className = "px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 text-slate-400 hover:text-white";
+        vT.classList.remove('hidden');
+        vK.classList.add('hidden');
+      }
+      applyFilters();
     }
 
     // ── EVENTOS DRAG & DROP PARA COLUMNAS ──
@@ -508,11 +812,11 @@
       const conv = allConversations.find(c => String(c.id) === String(convId));
       if (!conv || conv.qa_level === targetLevel) return;
 
-      // Actualizar estado local
+      const oldLevel = conv.qa_level;
       conv.qa_level = targetLevel;
       applyFilters();
+      showToast(`Conversación de ${conv.contact_name} reclasificada a '${targetLevel.toUpperCase()}'.`);
 
-      // Persistir reclasificación en Backend
       try {
         await fetch('/api/v1/conversations/classify-column', {
           method: 'POST',
@@ -543,16 +847,12 @@
       e.preventDefault();
       e.currentTarget.classList.remove('bg-indigo-950/40');
       const files = e.dataTransfer.files;
-      if (files.length > 0) {
-        processUploadedFile(files[0]);
-      }
+      if (files.length > 0) processUploadedFile(files[0]);
     }
 
     function handleFileSelect(e) {
       const files = e.target.files;
-      if (files.length > 0) {
-        processUploadedFile(files[0]);
-      }
+      if (files.length > 0) processUploadedFile(files[0]);
     }
 
     function processUploadedFile(file) {
@@ -560,6 +860,7 @@
       reader.onload = async (evt) => {
         const text = evt.target.result;
         try {
+          showToast(`Analizando archivo '${file.name}' con IA...`);
           const res = await fetch('/api/v1/conversations/upload-and-analyze', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -575,6 +876,7 @@
             applyFilters();
             toggleDropzone();
             openConversationModal(result.conversation.id);
+            showToast(`¡Chat auditado exitosamente! Calificación: ${result.conversation.qa_score}/100.`);
           }
         } catch (err) {
           alert('Error analizando archivo: ' + err);
@@ -599,20 +901,20 @@
       document.getElementById('modal-line-badge').innerText = conv.line_name || 'Línea WhatsApp';
       document.getElementById('modal-chatwoot-link').href = `https://app.chatwoot.com/app/accounts/193795/conversations/${conv.id}`;
 
-      // Inyectar desglose de las 9 dimensiones
+      // Rúbrica Detallada de 9 Dimensiones
       const dimList = document.getElementById('modal-dimensions-list');
       dimList.innerHTML = '';
       
       const dimensionMeta = [
-        { key: 'saludo_y_presentacion', name: '1. Saludo & Sentimiento (Ameno + Nombre)', max: 10 },
-        { key: 'relevo_y_sucursal', name: '2. Relevo de Asesor & Sucursal (Centro, Norte, Sur, Cumbayá)', max: 10 },
-        { key: 'calidad_cotizacion', name: '3. Calidad de Cotización (Desglose IVA 15% & Validez)', max: 15 },
-        { key: 'respuestas_rapidas', name: '4. Agilidad & Respuestas Rápidas (Plantillas WhatsApp)', max: 10 },
-        { key: 'abordaje_y_actitud', name: '5. Abordaje Comercial & Actitud Consultiva', max: 15 },
-        { key: 'claridad_y_ortografia', name: '6. Claridad, Ortografía & Cero Informalidad', max: 10 },
-        { key: 'disponibilidad_y_sustitutos', name: '7. Disponibilidad de Stock & Marcas Alternativas', max: 10 },
-        { key: 'presentacion_producto', name: '8. Presentación de Producto & Fotografías / Fichas', max: 10 },
-        { key: 'cierre_y_logistica', name: '9. Cierre Comercial, Formas de Pago & Despacho', max: 10 }
+        { key: 'saludo_y_presentacion', name: '1. Saludo & Sentimiento (Ameno + Nombre)', max: 10, icon: 'fa-hand-wave' },
+        { key: 'relevo_y_sucursal', name: '2. Relevo de Asesor & Sucursal (Centro, Norte, Sur, Cumbayá)', max: 10, icon: 'fa-location-dot' },
+        { key: 'calidad_cotizacion', name: '3. Calidad de Cotización (Desglose IVA 15% & Validez)', max: 15, icon: 'fa-file-invoice-dollar' },
+        { key: 'respuestas_rapidas', name: '4. Agilidad & Respuestas Rápidas (Plantillas WhatsApp)', max: 10, icon: 'fa-bolt' },
+        { key: 'abordaje_y_actitud', name: '5. Abordaje Comercial & Actitud Consultiva', max: 15, icon: 'fa-user-check' },
+        { key: 'claridad_y_ortografia', name: '6. Claridad, Ortografía & Cero Informalidad', max: 10, icon: 'fa-spell-check' },
+        { key: 'disponibilidad_y_sustitutos', name: '7. Disponibilidad de Stock & Marcas Alternativas', max: 10, icon: 'fa-boxes-stacked' },
+        { key: 'presentacion_producto', name: '8. Presentación de Producto & Fotografías / Fichas', max: 10, icon: 'fa-image' },
+        { key: 'cierre_y_logistica', name: '9. Cierre Comercial, Formas de Pago & Despacho', max: 10, icon: 'fa-truck-fast' }
       ];
 
       const scores = conv.dimension_scores || {};
@@ -623,7 +925,7 @@
 
       dimensionMeta.forEach(dm => {
         const sc = scores[dm.key] !== undefined ? scores[dm.key] : Math.round(dm.max * 0.8);
-        const fb = feedback[dm.key] || "Criterio verificado dentro de parámetros operativos.";
+        const fb = feedback[dm.key] || "Criterio evaluado dentro de parámetros corporativos.";
         chartLabels.push(dm.name.split('(')[0]);
         chartValues.push(sc);
         chartMaxes.push(dm.max);
@@ -634,24 +936,23 @@
         else if (pct < 75) barColor = "bg-amber-500";
 
         const item = document.createElement('div');
-        item.className = "p-3 rounded-xl bg-slate-950/70 border border-slate-900 space-y-1.5";
+        item.className = "p-3 rounded-2xl bg-slate-950/80 border border-slate-800/80 space-y-1.5";
         item.innerHTML = `
           <div class="flex items-center justify-between">
-            <span class="font-bold text-slate-200">${dm.name}</span>
-            <span class="font-extrabold text-white">${sc} <span class="text-slate-500 font-normal">/ ${dm.max} pts</span></span>
+            <span class="font-bold text-slate-200 text-xs">${dm.name}</span>
+            <span class="font-extrabold text-white font-mono text-xs">${sc} <span class="text-slate-500 font-normal">/ ${dm.max} pts</span></span>
           </div>
-          <div class="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
-            <div class="${barColor} h-1.5 rounded-full" style="width: ${pct}%"></div>
+          <div class="w-full bg-slate-900 rounded-full h-1.5 overflow-hidden">
+            <div class="${barColor} h-1.5 rounded-full transition-all duration-500" style="width: ${pct}%"></div>
           </div>
           <p class="text-[11px] text-slate-400 italic">${fb}</p>
         `;
         dimList.appendChild(item);
       });
 
-      // Actualizar Gráfica de Barras en el Modal
       renderModalChart(chartLabels, chartValues, chartMaxes);
 
-      // Inyectar Mensajes en el Simulador de WhatsApp
+      // Transcripción del Chat
       const chatCont = document.getElementById('modal-chat-transcript');
       chatCont.innerHTML = '';
       const msgs = conv.messages || [];
@@ -663,31 +964,52 @@
         const msgDiv = document.createElement('div');
         msgDiv.className = `flex ${isAgent ? 'justify-end' : 'justify-start'}`;
 
-        let bubbleClass = isAgent ? 'bg-emerald-950/40 border-emerald-500/30 text-emerald-100 ml-8' : 'bg-slate-900 border-slate-800 text-slate-200 mr-8';
+        let bubbleClass = isAgent ? 
+          'bg-emerald-950/50 border-emerald-500/30 text-emerald-100 ml-8' : 
+          'bg-slate-900/90 border-slate-800 text-slate-200 mr-8';
         if (isPrivate) {
-          bubbleClass = 'bg-amber-950/40 border-amber-500/40 text-amber-200 mx-4';
+          bubbleClass = 'bg-amber-950/50 border-amber-500/40 text-amber-200 mx-4';
         }
 
         msgDiv.innerHTML = `
-          <div class="p-3 rounded-2xl border ${bubbleClass} max-w-[85%] space-y-1 shadow-sm">
-            <div class="flex items-center justify-between gap-4 text-[10px] text-slate-400 font-semibold">
-              <span>${m.sender_name} ${isPrivate ? '🔒 (Nota Privada)' : ''}</span>
-              <span>${m.created_at}</span>
+          <div class="p-3 rounded-2xl border ${bubbleClass} max-w-[85%] space-y-1 shadow-md">
+            <div class="flex items-center justify-between gap-4 text-[10px] text-slate-400 font-semibold border-b border-white/5 pb-1">
+              <span><i class="fa-solid fa-circle-user mr-1"></i>${m.sender_name} ${isPrivate ? '🔒 (Nota Interna)' : ''}</span>
+              <span class="font-mono">${m.created_at}</span>
             </div>
-            <p class="text-xs whitespace-pre-wrap">${m.content}</p>
+            <p class="text-xs whitespace-pre-wrap leading-relaxed">${m.content}</p>
           </div>
         `;
         chatCont.appendChild(msgDiv);
       });
 
+      setModalTab('audit');
       document.getElementById('conv-modal').classList.remove('hidden');
+    }
+
+    function setModalTab(tab) {
+      const bA = document.getElementById('tab-btn-audit');
+      const bC = document.getElementById('tab-btn-chat');
+      const tA = document.getElementById('modal-tab-audit');
+      const tC = document.getElementById('modal-tab-chat');
+
+      if (tab === 'audit') {
+        bA.className = "py-3 px-3 border-b-2 border-indigo-500 text-indigo-400 flex items-center gap-1.5 transition";
+        bC.className = "py-3 px-3 border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center gap-1.5 transition";
+        tA.classList.remove('hidden');
+        tC.classList.add('hidden');
+      } else {
+        bC.className = "py-3 px-3 border-b-2 border-indigo-500 text-indigo-400 flex items-center gap-1.5 transition";
+        bA.className = "py-3 px-3 border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center gap-1.5 transition";
+        tC.classList.remove('hidden');
+        tA.classList.add('hidden');
+      }
     }
 
     function renderModalChart(labels, values, maxes) {
       const ctx = document.getElementById('modalChart').getContext('2d');
-      if (modalChartInstance) {
-        modalChartInstance.destroy();
-      }
+      if (modalChartInstance) modalChartInstance.destroy();
+
       modalChartInstance = new Chart(ctx, {
         type: 'bar',
         data: {
@@ -700,7 +1022,7 @@
               borderRadius: 6
             },
             {
-              label: 'Puntaje Máximo',
+              label: 'Estándar Máximo',
               data: maxes,
               backgroundColor: 'rgba(51, 65, 85, 0.4)',
               borderRadius: 6
@@ -729,11 +1051,46 @@
       if (e.target.id === 'conv-modal') closeModal();
     }
 
+    function copyRecommendation() {
+      const rec = document.getElementById('modal-recommendation').innerText;
+      navigator.clipboard.writeText(rec);
+      showToast('Recomendación copiada al portapapeles.');
+    }
+
+    function exportToCSV() {
+      if (!allConversations.length) return;
+      let csv = "ID,Cliente,Telefono,Linea,Asesor,Score_Total,Nivel_QA,FRT_Segundos,Mensajes\n";
+      allConversations.forEach(c => {
+        csv += `"${c.id}","${c.contact_name}","${c.phone}","${c.line_name}","${c.advisor_name}",${c.qa_score},"${c.qa_level}",${c.frt_seconds},${c.messages_count}\n`;
+      });
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.setAttribute("download", `Auditoria_QA_Conversaciones_${new Date().toISOString().slice(0,10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      showToast('Exportación CSV descargada.');
+    }
+
+    function showToast(message, isError = false) {
+      const t = document.getElementById('toast-notification');
+      const m = document.getElementById('toast-message');
+      m.innerText = message;
+      t.className = isError ? 
+        "fixed bottom-6 right-6 z-50 transform translate-y-0 opacity-100 transition-all duration-300 bg-rose-950 border border-rose-500 text-white px-4 py-3 rounded-2xl shadow-2xl flex items-center gap-3 text-xs" :
+        "fixed bottom-6 right-6 z-50 transform translate-y-0 opacity-100 transition-all duration-300 bg-slate-900 border border-indigo-500 text-white px-4 py-3 rounded-2xl shadow-2xl flex items-center gap-3 text-xs";
+      setTimeout(() => {
+        t.classList.remove('translate-y-0', 'opacity-100');
+        t.classList.add('translate-y-20', 'opacity-0');
+      }, 3500);
+    }
+
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') closeModal();
     });
 
-    // Iniciar carga al cargar la ventana
+    // Iniciar carga inmediata
     loadAnalyzedConversations();
   </script>
 </body>
