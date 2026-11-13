@@ -1042,42 +1042,82 @@ async def vincular_qr_page(instance: str = "sucursal_centro"):
     if not content:
         return "<h1>Página de vinculación no encontrada</h1>"
     
-    # Pre-render initial QR code server-side so it appears instantaneously
+def _extract_qr_base64(data: Any) -> Optional[str]:
+    """Extrae de forma robusta la cadena base64 del código QR desde cualquier estructura de Evolution API."""
+    if not isinstance(data, dict):
+        return None
+    b64 = data.get("base64")
+    if not b64 and isinstance(data.get("qrcode"), dict):
+        b64 = data["qrcode"].get("base64")
+    if not b64 and isinstance(data.get("instance"), dict):
+        b64 = data["instance"].get("base64")
+    if b64 and isinstance(b64, str):
+        b64 = b64.strip()
+        if not b64.startswith("data:"):
+            b64 = f"data:image/png;base64,{b64}"
+        return b64
+    return None
+
+
+@router.get("/vincular-qr", response_class=HTMLResponse)
+async def vincular_qr_page(instance: str = "sucursal_centro"):
+    possible_paths = [
+        "/app/app/escanear_qr.html",
+        "/app/escanear_qr.html",
+        "backend/app/escanear_qr.html",
+        "escanear_qr.html",
+        "C:/Users/User/Desktop/KEVIN/ChatbotFlowise/escanear_qr.html"
+    ]
+    import os
+    content = ""
+    for p in possible_paths:
+        if os.path.exists(p):
+            with open(p, "r", encoding="utf-8") as f:
+                content = f.read()
+                break
+    if not content:
+        return "<h1>Página de vinculación no encontrada</h1>"
+    
     target_inst = instance or "sucursal_centro"
     try:
         async with httpx.AsyncClient() as client:
-            resp = await client.get(
-                f"http://evolution-api:8080/instance/connect/{target_inst}",
-                headers={"apikey": "ferreteria_evolution_key_2026"},
-                timeout=6.0
-            )
-            # Si no existe la instancia en Evolution, crearla automáticamente al vuelo
-            if resp.status_code == 404:
+            headers = {"apikey": "ferreteria_evolution_key_2026"}
+            
+            # 1. Verificar si la instancia existe en Evolution API
+            inst_list_resp = await client.get("http://evolution-api:8080/instance/fetchInstances", headers=headers, timeout=5.0)
+            existing_names = []
+            if inst_list_resp.status_code == 200:
+                raw_list = inst_list_resp.json()
+                if isinstance(raw_list, list):
+                    for item in raw_list:
+                        if isinstance(item, dict):
+                            name_val = item.get("name") or item.get("instance", {}).get("instanceName")
+                            if name_val:
+                                existing_names.append(name_val)
+
+            qr_b64 = None
+            if target_inst not in existing_names:
+                # Crear instancia automáticamente
                 create_payload = {
                     "instanceName": target_inst,
                     "token": f"{target_inst}_token",
                     "qrcode": True,
                     "integration": "WHATSAPP-BAILEYS"
                 }
-                await client.post(
-                    "http://evolution-api:8080/instance/create",
-                    json=create_payload,
-                    headers={"apikey": "ferreteria_evolution_key_2026"},
-                    timeout=8.0
-                )
-                resp = await client.get(
-                    f"http://evolution-api:8080/instance/connect/{target_inst}",
-                    headers={"apikey": "ferreteria_evolution_key_2026"},
-                    timeout=6.0
-                )
+                c_resp = await client.post("http://evolution-api:8080/instance/create", json=create_payload, headers=headers, timeout=8.0)
+                if c_resp.status_code in [200, 201]:
+                    qr_b64 = _extract_qr_base64(c_resp.json())
 
-            if resp.status_code == 200:
-                qr_b64 = resp.json().get("base64", "")
-                if qr_b64:
-                    content = content.replace('src="" alt="Código QR WhatsApp"', f'src="{qr_b64}" alt="Código QR WhatsApp"')
-                    content = content.replace('id="loading" class="absolute', 'id="loading" class="hidden absolute')
+            if not qr_b64:
+                resp = await client.get(f"http://evolution-api:8080/instance/connect/{target_inst}", headers=headers, timeout=6.0)
+                if resp.status_code in [200, 201]:
+                    qr_b64 = _extract_qr_base64(resp.json())
+
+            if qr_b64:
+                content = content.replace('src="" alt="Código QR WhatsApp"', f'src="{qr_b64}" alt="Código QR WhatsApp"')
+                content = content.replace('id="loading"', 'id="loading" class="hidden"')
     except Exception as e:
-        logger.error(f"Error pre-rendering QR: {e}")
+        logger.error(f"Error pre-rendering QR for {target_inst}: {e}")
         
     return content
 
@@ -1087,72 +1127,95 @@ async def get_whatsapp_status(instance: str = "sucursal_centro"):
     status = "close"
     base64_qr = None
     target_inst = instance or "sucursal_centro"
+    headers = {"apikey": "ferreteria_evolution_key_2026"}
+    
     try:
         async with httpx.AsyncClient() as client:
-            state_resp = await client.get(
-                f"http://evolution-api:8080/instance/connectionState/{target_inst}",
-                headers={"apikey": "ferreteria_evolution_key_2026"},
-                timeout=5.0
-            )
-            # Auto-creación si no existe en Evolution API
-            if state_resp.status_code == 404:
+            # 1. Obtener lista de instancias existentes
+            fetch_resp = await client.get("http://evolution-api:8080/instance/fetchInstances", headers=headers, timeout=5.0)
+            existing_names = []
+            if fetch_resp.status_code == 200:
+                raw_list = fetch_resp.json()
+                if isinstance(raw_list, list):
+                    for item in raw_list:
+                        if isinstance(item, dict):
+                            name_val = item.get("name") or item.get("instance", {}).get("instanceName")
+                            if name_val:
+                                existing_names.append(name_val)
+
+            # 2. Si no existe, crear la instancia al vuelo
+            if target_inst not in existing_names:
+                logger.info(f"Instancia {target_inst} no existe en Evolution API. Creándola...")
                 create_payload = {
                     "instanceName": target_inst,
                     "token": f"{target_inst}_token",
                     "qrcode": True,
                     "integration": "WHATSAPP-BAILEYS"
                 }
-                await client.post(
-                    "http://evolution-api:8080/instance/create",
-                    json=create_payload,
-                    headers={"apikey": "ferreteria_evolution_key_2026"},
-                    timeout=8.0
-                )
-            elif state_resp.status_code == 200:
-                status = state_resp.json().get("instance", {}).get("state", "close")
-            
+                c_resp = await client.post("http://evolution-api:8080/instance/create", json=create_payload, headers=headers, timeout=10.0)
+                if c_resp.status_code in [200, 201]:
+                    base64_qr = _extract_qr_base64(c_resp.json())
+
+            # 3. Consultar estado de conexión
+            st_resp = await client.get(f"http://evolution-api:8080/instance/connectionState/{target_inst}", headers=headers, timeout=5.0)
+            if st_resp.status_code == 200:
+                status = st_resp.json().get("instance", {}).get("state", "close")
+
+            # 4. Si la sesión no está abierta, obtener o renovar código QR
             if status != "open":
-                connect_resp = await client.get(
-                    f"http://evolution-api:8080/instance/connect/{target_inst}",
-                    headers={"apikey": "ferreteria_evolution_key_2026"},
-                    timeout=8.0
-                )
-                if connect_resp.status_code == 200:
-                    base64_qr = connect_resp.json().get("base64")
+                if not base64_qr:
+                    conn_resp = await client.get(f"http://evolution-api:8080/instance/connect/{target_inst}", headers=headers, timeout=8.0)
+                    if conn_resp.status_code in [200, 201]:
+                        base64_qr = _extract_qr_base64(conn_resp.json())
+            else:
+                base64_qr = None
+
     except Exception as e:
-        logger.error(f"Error checking WhatsApp status: {e}")
+        logger.error(f"Error checking WhatsApp status for {target_inst}: {e}")
     
-    return {"state": status, "base64": base64_qr}
+    return {"state": status, "base64": base64_qr, "instance": target_inst}
 
 
 @router.post("/api/v1/whatsapp-reset")
 async def reset_whatsapp_session(instance: str = "sucursal_centro"):
     target_inst = instance or "sucursal_centro"
+    headers = {"apikey": "ferreteria_evolution_key_2026"}
     try:
         async with httpx.AsyncClient() as client:
-            await client.delete(
-                f"http://evolution-api:8080/instance/delete/{target_inst}",
-                headers={"apikey": "ferreteria_evolution_key_2026"},
-                timeout=10.0
-            )
+            try:
+                await client.delete(
+                    f"http://evolution-api:8080/instance/delete/{target_inst}",
+                    headers=headers,
+                    timeout=8.0
+                )
+            except Exception as del_err:
+                logger.debug(f"Delete prior instance warning: {del_err}")
+
             create_payload = {
                 "instanceName": target_inst,
                 "token": f"{target_inst}_token",
                 "qrcode": True,
                 "integration": "WHATSAPP-BAILEYS"
             }
-            await client.post(
+            c_resp = await client.post(
                 "http://evolution-api:8080/instance/create",
                 json=create_payload,
-                headers={"apikey": "ferreteria_evolution_key_2026"},
+                headers=headers,
                 timeout=10.0
             )
-            conn_resp = await client.get(
-                f"http://evolution-api:8080/instance/connect/{target_inst}",
-                headers={"apikey": "ferreteria_evolution_key_2026"},
-                timeout=10.0
-            )
-            base64_qr = conn_resp.json().get("base64") if conn_resp.status_code == 200 else None
+            base64_qr = None
+            if c_resp.status_code in [200, 201]:
+                base64_qr = _extract_qr_base64(c_resp.json())
+
+            if not base64_qr:
+                conn_resp = await client.get(
+                    f"http://evolution-api:8080/instance/connect/{target_inst}",
+                    headers=headers,
+                    timeout=8.0
+                )
+                if conn_resp.status_code in [200, 201]:
+                    base64_qr = _extract_qr_base64(conn_resp.json())
+
             return {"status": "reset_ok", "instance": target_inst, "base64": base64_qr}
     except Exception as e:
         logger.error(f"Error resetting session {target_inst}: {e}")
