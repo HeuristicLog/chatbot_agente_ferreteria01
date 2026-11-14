@@ -1013,6 +1013,13 @@ async def receive_incoming_message(
     # Saludos y Menú Principal
     greeting_words = ["hola", "hi", "hello", "buenas", "buenos", "hey", "buen dia", "buenos dias", "inicio", "start", "menu", "menú", "0", "volver al menu"]
     if any(clean_msg.startswith(g) or clean_msg == g for g in greeting_words):
+        clean_p = payload.phone.replace("+", "").replace(" ", "").strip()
+        # Control anti-ráfaga: evitar que mensajes acumulados o múltiples 'hola' seguidos disparen doble respuesta
+        can_send_welcome = await redis_client.set(f"cooldown_welcome:{clean_p}", "1", ex=20, nx=True)
+        if not can_send_welcome:
+            logger.info(f"Saludo repetido/acumulado amortiguado para {clean_p} (anti-ráfaga activo)")
+            return {"status": "ignored_welcome_debounce"}
+
         await clear_flow_state(redis_client, payload.phone)
         await flows.send_welcome_menu(payload.phone, internal_api_key, phone_number_id=dest_phone_number_id)
         await save_message(db, conv.id, "outbound", "assistant", "Menú de bienvenida enviado")
@@ -1035,6 +1042,12 @@ async def receive_incoming_message(
         "gerencia", "contabilidad"
     ]
     if any(clean_msg == k or clean_msg.startswith(k) for k in direct_advisor_keywords) or clean_msg in ["6", "6."]:
+        clean_p = payload.phone.replace("+", "").replace(" ", "").strip()
+        can_send_advisor = await redis_client.set(f"cooldown_advisor:{clean_p}", "1", ex=15, nx=True)
+        if not can_send_advisor:
+            logger.info(f"Petición de asesor duplicada en ráfaga para {clean_p} (amortiguada)")
+            return {"status": "ignored_advisor_debounce"}
+
         await clear_flow_state(redis_client, payload.phone)
 
         # Pausar el bot para permitir intervención humana
