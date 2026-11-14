@@ -179,8 +179,11 @@
       const open = await checkStatus();
       if (open) return;
 
-      loading.classList.remove('hidden');
-      loadingText.innerText = `Cargando código QR (${currentInstance})...`;
+      const hasQR = qrImg.src && qrImg.src.startsWith('data:image');
+      if (!hasQR) {
+        loading.classList.remove('hidden');
+        loadingText.innerText = `Cargando código QR (${currentInstance})...`;
+      }
 
       try {
         const resp = await fetch(`/api/v1/whatsapp-status?instance=${currentInstance}`);
@@ -194,13 +197,17 @@
           connectedDiv.classList.remove('hidden');
           loading.classList.add('hidden');
         } else {
-          loadingText.innerText = 'Iniciando sesión en Evolution API...';
-          setTimeout(loadQR, 3000);
+          if (!hasQR) {
+            loadingText.innerText = 'Generando nuevo código QR...';
+          }
+          setTimeout(loadQR, 4000);
         }
       } catch (e) {
         console.error('Error loadQR:', e);
-        loadingText.innerText = 'Reconectando con Evolution API...';
-        setTimeout(loadQR, 3000);
+        if (!hasQR) {
+          loadingText.innerText = 'Reconectando con Evolution API...';
+        }
+        setTimeout(loadQR, 4000);
       }
     }
 
