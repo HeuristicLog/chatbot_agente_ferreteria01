@@ -1182,10 +1182,24 @@ async def get_whatsapp_status(instance: str = "sucursal_centro"):
             if c_resp and c_resp.status_code in [200, 201]:
                 base64_qr = _extract_qr_base64(c_resp.json())
 
-        # 3. Consultar estado de conexión
+        # 3. Consultar estado de conexión y asegurar webhook activo
         st_resp = await _call_evolution(f"/instance/connectionState/{target_inst}")
         if st_resp and st_resp.status_code == 200:
             status = st_resp.json().get("instance", {}).get("state", "close")
+
+        # Asegurar que el webhook esté configurado con los eventos de mensajes
+        try:
+            wh_payload = {
+                "webhook": {
+                    "enabled": True,
+                    "url": "http://backend:8080/webhooks/whatsapp",
+                    "byEvents": False,
+                    "events": ["MESSAGES_UPSERT", "MESSAGES_UPDATE", "CONNECTION_UPDATE", "CALL"]
+                }
+            }
+            await _call_evolution(f"/webhook/set/{target_inst}", method="POST", json_data=wh_payload, timeout=4.0)
+        except Exception as wh_err:
+            logger.debug(f"Error asegurando webhook para {target_inst}: {wh_err}")
 
         # 4. Si la sesión no está abierta, obtener o renovar código QR
         if status != "open":
@@ -1223,6 +1237,19 @@ async def reset_whatsapp_session(instance: str = "sucursal_centro"):
             conn_resp = await _call_evolution(f"/instance/connect/{target_inst}", timeout=6.0)
             if conn_resp and conn_resp.status_code in [200, 201]:
                 base64_qr = _extract_qr_base64(conn_resp.json())
+
+        try:
+            wh_payload = {
+                "webhook": {
+                    "enabled": True,
+                    "url": "http://backend:8080/webhooks/whatsapp",
+                    "byEvents": False,
+                    "events": ["MESSAGES_UPSERT", "MESSAGES_UPDATE", "CONNECTION_UPDATE", "CALL"]
+                }
+            }
+            await _call_evolution(f"/webhook/set/{target_inst}", method="POST", json_data=wh_payload, timeout=4.0)
+        except Exception as wh_err:
+            logger.debug(f"Error asegurando webhook tras reset: {wh_err}")
 
         return {"status": "reset_ok", "instance": target_inst, "base64": base64_qr}
     except Exception as e:
