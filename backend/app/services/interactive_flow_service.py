@@ -16,8 +16,72 @@ logger = logging.getLogger("chatbot-api.services.interactive_flow")
 
 GATEWAY_URL = "http://whatsapp-gateway:8090"
 
+EVOLUTION_CANDIDATE_URLS = [
+    "http://evolution-api:8080",
+    "http://autoeconomotors-evolution:8080",
+    "http://10.10.10.29:8082",
+    "http://host.docker.internal:8082",
+    "http://localhost:8082"
+]
+
+_working_evo_url = None
+
+async def _send_evolution_text(phone: str, text: str, instance: Optional[str] = None, phone_number_id: Optional[str] = None) -> bool:
+    """Envía mensajes formateados directamente a través de Evolution API (WhatsApp QR Baileys)."""
+    global _working_evo_url
+    clean_p = phone.replace("+", "").replace(" ", "").strip()
+    
+    target_inst = instance
+    if not target_inst and phone_number_id:
+        if str(phone_number_id) in ["593992451085", "151924"]:
+            target_inst = "bonilla_1085"
+        elif str(phone_number_id) in ["593988921136", "150556"]:
+            target_inst = "sucursal_centro"
+
+    if not target_inst:
+        try:
+            import redis.asyncio as aioredis
+            import os
+            r_url = os.getenv("REDIS_URL", "redis://redis:6379/0")
+            rc = aioredis.from_url(r_url)
+            inst_bytes = await rc.get(f"user_instance:{clean_p}")
+            if inst_bytes:
+                target_inst = inst_bytes.decode('utf-8') if isinstance(inst_bytes, bytes) else str(inst_bytes)
+            await rc.aclose()
+        except Exception:
+            pass
+
+    if not target_inst:
+        target_inst = "bonilla_1085" if "992451085" in clean_p else "sucursal_centro"
+
+    headers = {"apikey": "ferreteria_evolution_key_2026"}
+    
+    candidates = list(EVOLUTION_CANDIDATE_URLS)
+    if _working_evo_url and _working_evo_url in candidates:
+        candidates.remove(_working_evo_url)
+        candidates.insert(0, _working_evo_url)
+
+    for base in candidates:
+        try:
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                resp = await client.post(
+                    f"{base}/message/sendText/{target_inst}",
+                    json={"number": clean_p, "text": text},
+                    headers=headers
+                )
+                if resp.status_code in [200, 201]:
+                    _working_evo_url = base
+                    logger.info(f"Mensaje despachado via Evolution API ({base}/{target_inst}) a {clean_p}")
+                    return True
+                else:
+                    logger.warning(f"Evolution API ({base}/{target_inst}) devolvió {resp.status_code}: {resp.text}")
+        except Exception as e:
+            logger.debug(f"Error conectando a Evolution API {base}: {e}")
+            continue
+    return False
+
 # ─────────────────────────────────────────────
-# HELPERS — Enviar mensajes al Gateway
+# HELPERS — Enviar mensajes al Gateway / Evolution
 # ─────────────────────────────────────────────
 
 async def _send(phone: str, message: str, internal_key: str, phone_number_id: Optional[str] = None):
@@ -31,6 +95,11 @@ async def _send(phone: str, message: str, internal_key: str, phone_number_id: Op
     except Exception as cw_err:
         logger.error(f"Error sincronizando salida de texto del bot con Chatwoot en _send: {cw_err}")
 
+    # 1. Intentar despacho directo por Evolution API (WhatsApp Baileys QR)
+    if await _send_evolution_text(phone, message, phone_number_id=phone_number_id):
+        return
+
+    # 2. Fallback a WhatsApp Gateway (Meta Cloud API)
     headers = {"X-Internal-API-Key": internal_key}
     payload = {"phone": phone, "message": message}
     if phone_number_id:
@@ -40,13 +109,16 @@ async def _send(phone: str, message: str, internal_key: str, phone_number_id: Op
         if phone_number_id in mapping:
             payload["access_token"] = mapping[phone_number_id].get("access_token")
             
-    async with httpx.AsyncClient() as client:
-        await client.post(
-            f"{GATEWAY_URL}/send",
-            json=payload,
-            headers=headers,
-            timeout=10.0
-        )
+    try:
+        async with httpx.AsyncClient() as client:
+            await client.post(
+                f"{GATEWAY_URL}/send",
+                json=payload,
+                headers=headers,
+                timeout=10.0
+            )
+    except Exception as e:
+        logger.debug(f"Gateway send fallback error: {e}")
 
 async def _send_buttons(phone: str, body: str, buttons: list, header: str = "", footer: str = "", internal_key: str = "change_me", phone_number_id: Optional[str] = None):
     """Envía mensaje con botones interactivos."""
@@ -62,6 +134,22 @@ async def _send_buttons(phone: str, body: str, buttons: list, header: str = "", 
     except Exception as cw_err:
         logger.error(f"Error sincronizando botones del bot con Chatwoot en _send_buttons: {cw_err}")
 
+    # 1. Para Evolution API (WhatsApp QR), formatear como texto interactivo ameno
+    btn_lines = [f"• *{b.get('id', idx+1)}* - {b.get('title')}" for idx, b in enumerate(buttons)]
+    parts = []
+    if header:
+        parts.append(f"*{header}*")
+    parts.append(body)
+    if btn_lines:
+        parts.append("\n".join(btn_lines))
+    if footer:
+        parts.append(f"_{footer}_")
+    formatted_msg = "\n\n".join(parts)
+
+    if await _send_evolution_text(phone, formatted_msg, phone_number_id=phone_number_id):
+        return
+
+    # 2. Fallback a Gateway Meta Cloud API
     headers = {"X-Internal-API-Key": internal_key}
     payload = {"phone": phone, "body": body, "buttons": buttons, "header": header, "footer": footer}
     if phone_number_id:
@@ -71,13 +159,16 @@ async def _send_buttons(phone: str, body: str, buttons: list, header: str = "", 
         if phone_number_id in mapping:
             payload["access_token"] = mapping[phone_number_id].get("access_token")
 
-    async with httpx.AsyncClient() as client:
-        await client.post(
-            f"{GATEWAY_URL}/send/buttons",
-            json=payload,
-            headers=headers,
-            timeout=10.0
-        )
+    try:
+        async with httpx.AsyncClient() as client:
+            await client.post(
+                f"{GATEWAY_URL}/send/buttons",
+                json=payload,
+                headers=headers,
+                timeout=10.0
+            )
+    except Exception as e:
+        logger.debug(f"Gateway send_buttons fallback error: {e}")
 
 async def _send_list(phone: str, body: str, button_text: str, sections: list, header: str = "", footer: str = "", internal_key: str = "change_me", phone_number_id: Optional[str] = None):
     """Envía mensaje con lista de opciones."""
@@ -93,6 +184,28 @@ async def _send_list(phone: str, body: str, button_text: str, sections: list, he
     except Exception as cw_err:
         logger.error(f"Error sincronizando lista del bot con Chatwoot en _send_list: {cw_err}")
 
+    # 1. Para Evolution API (WhatsApp QR), formatear como lista de texto con viñetas
+    sec_lines = []
+    for sec in sections:
+        if sec.get('title'):
+            sec_lines.append(f"📋 *{sec.get('title')}*")
+        for row in sec.get('rows', []):
+            desc = f" ({row.get('description')})" if row.get('description') else ""
+            sec_lines.append(f"• *{row.get('title')}*{desc}")
+    parts = []
+    if header:
+        parts.append(f"*{header}*")
+    parts.append(body)
+    if sec_lines:
+        parts.append("\n".join(sec_lines))
+    if footer:
+        parts.append(f"_{footer}_")
+    formatted_msg = "\n\n".join(parts)
+
+    if await _send_evolution_text(phone, formatted_msg, phone_number_id=phone_number_id):
+        return
+
+    # 2. Fallback a Gateway Meta Cloud API
     headers = {"X-Internal-API-Key": internal_key}
     payload = {"phone": phone, "body": body, "button_text": button_text, "sections": sections, "header": header, "footer": footer}
     if phone_number_id:
@@ -102,16 +215,19 @@ async def _send_list(phone: str, body: str, button_text: str, sections: list, he
         if phone_number_id in mapping:
             payload["access_token"] = mapping[phone_number_id].get("access_token")
 
-    async with httpx.AsyncClient() as client:
-        await client.post(
-            f"{GATEWAY_URL}/send/list",
-            json=payload,
-            headers=headers,
-            timeout=10.0
-        )
+    try:
+        async with httpx.AsyncClient() as client:
+            await client.post(
+                f"{GATEWAY_URL}/send/list",
+                json=payload,
+                headers=headers,
+                timeout=10.0
+            )
+    except Exception as e:
+        logger.debug(f"Gateway send_list fallback error: {e}")
 
 async def _send_cta_url(phone: str, body: str, display_text: str, url: str, header: str = "", footer: str = "", internal_key: str = "change_me", phone_number_id: Optional[str] = None):
-    """Envía mensaje interactivo con botón CTA URL que abre la Webview emergente directamente dentro de WhatsApp."""
+    """Envía mensaje interactivo con botón CTA URL o enlace con previsualización para WhatsApp QR."""
     try:
         from app.services.chatwoot_service import ChatwootService
         chatwoot = ChatwootService()
@@ -121,6 +237,20 @@ async def _send_cta_url(phone: str, body: str, display_text: str, url: str, head
     except Exception as cw_err:
         logger.error(f"Error sincronizando CTA URL con Chatwoot: {cw_err}")
 
+    # 1. Para Evolution API (WhatsApp Baileys QR), enviar con enlace clickeable directo
+    parts = []
+    if header:
+        parts.append(f"*{header}*")
+    parts.append(body)
+    parts.append(f"👉 *{display_text}:*\n{url}")
+    if footer:
+        parts.append(f"_{footer}_")
+    formatted_msg = "\n\n".join(parts)
+
+    if await _send_evolution_text(phone, formatted_msg, phone_number_id=phone_number_id):
+        return
+
+    # 2. Fallback a Gateway Meta Cloud API
     headers = {"X-Internal-API-Key": internal_key}
     payload = {
         "phone": phone,
@@ -137,13 +267,16 @@ async def _send_cta_url(phone: str, body: str, display_text: str, url: str, head
         if phone_number_id in mapping:
             payload["access_token"] = mapping[phone_number_id].get("access_token")
 
-    async with httpx.AsyncClient() as client:
-        await client.post(
-            f"{GATEWAY_URL}/send/cta_url",
-            json=payload,
-            headers=headers,
-            timeout=10.0
-        )
+    try:
+        async with httpx.AsyncClient() as client:
+            await client.post(
+                f"{GATEWAY_URL}/send/cta_url",
+                json=payload,
+                headers=headers,
+                timeout=10.0
+            )
+    except Exception as e:
+        logger.debug(f"Gateway send_cta_url fallback error: {e}")
 
 async def _send_flow(phone: str, body: str, flow_id: str, flow_cta: str, flow_token: str = "token_01", screen: str = "CATALOG_SCREEN", header: str = "", footer: str = "", internal_key: str = "change_me", phone_number_id: Optional[str] = None) -> bool:
     """Envía mensaje interactivo con WhatsApp Flow oficial de Meta (pantalla emergente nativa)."""
