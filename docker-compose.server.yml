@@ -63,7 +63,10 @@ services:
       - DATABASE_SAVE_MESSAGE_UPDATE=true
       - DATABASE_SAVE_DATA_CONTACTS=true
       - DATABASE_SAVE_DATA_CHATS=true
-      - REDIS_ENABLED=false
+      - CACHE_REDIS_ENABLED=true
+      - CACHE_REDIS_URI=redis://redis:6379/1
+      - REDIS_ENABLED=true
+      - REDIS_URI=redis://redis:6379/1
       - CHATWOOT_ENABLED=true
       - WEBHOOK_GLOBAL_ENABLED=true
       - WEBHOOK_GLOBAL_URL=http://backend:8080/webhooks/whatsapp
@@ -71,6 +74,8 @@ services:
       - autoeconomotors-net
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
 
   # ─── 4. Backend Inteligente LangChain (FastAPI Python) ───────
