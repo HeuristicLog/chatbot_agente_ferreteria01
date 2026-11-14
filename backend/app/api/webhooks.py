@@ -271,7 +271,7 @@ async def notify_chatwoot_call_event(phone: str, call_status: str, is_video: boo
 
 # ─── MAIN WEBHOOK ──────────────────────────────────────────────
 
-@router.post("/webhooks/whatsapp", dependencies=[Depends(verify_internal_auth)])
+@router.post("/webhooks/whatsapp")
 async def receive_incoming_message(
     raw_payload: Dict[str, Any] = Body(...),
     db: AsyncSession = Depends(get_db_session),
