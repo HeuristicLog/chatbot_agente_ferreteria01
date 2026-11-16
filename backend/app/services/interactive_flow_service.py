@@ -426,76 +426,71 @@ async def _send_flow(phone: str, body: str, flow_id: str, flow_cta: str, flow_to
 # ─────────────────────────────────────────────
 
 async def send_welcome_menu(phone: str, internal_key: str, name: str = "", phone_number_id: Optional[str] = None):
-    """Menú de bienvenida con acceso directo al Catálogo interactivo y opción condicionada de Asesor Humano."""
-    import os
-    clean_phone = phone.replace("+", "").replace(" ", "").strip()
-    ngrok_url = os.getenv("CATALOG_BASE_URL", "https://usable-thorn-kabob.ngrok-free.dev")
-    catalog_url = f"{ngrok_url}/catalogo?phone={clean_phone}&sucursal=Centro"
-    
-    greeting = f"¡Hola{' ' + name if name else ''}! 😊"
-    body = (
-        f"{greeting} Soy *Castor* 🦫, asistente virtual de *Ferretería Castor*.\n\n"
-        "¿En qué te podemos ayudar hoy?\n\n"
-        "1️⃣ Toca el botón *🛍️ Abrir Catálogo* para explorar productos, fotos, precios y cotizar online sin salir de WhatsApp.\n\n"
-        "2️⃣ O escribe *ASESOR* (o envía el número *2*) para ir directo con un asesor humano (comercial o administrativo)."
-    )
-    await _send_cta_url(
+    """Menú de bienvenida conciso y directo por opciones numeradas."""
+    greeting = f"¡Hola{' ' + name if name else ''}! 👋"
+    body = f"{greeting} Soy *Castor* 🦫\n¿En qué te podemos ayudar hoy?"
+    buttons = [
+        {"id": "flow_catalogo", "title": "🛍️ Catálogo y Precios"},
+        {"id": "flow_asesor",   "title": "👨‍💼 Hablar con Asesor"},
+        {"id": "flow_pedido",   "title": "📦 Consultar Pedido"},
+        {"id": "flow_horarios", "title": "🕒 Horarios y Sucursales"}
+    ]
+    await _send_buttons(
         phone=phone,
         body=body,
-        display_text="🛍️ Abrir Catálogo",
-        url=catalog_url,
+        buttons=buttons,
         header="🛠️ Ferretería Castor",
-        footer="Escribe ASESOR para atención humana",
+        footer="Responde 1, 2, 3 o 4",
         internal_key=internal_key,
         phone_number_id=phone_number_id
     )
 
 async def send_main_menu(phone: str, internal_key: str, phone_number_id: Optional[str] = None):
-    """Menú principal para volver desde cualquier flujo con opción de catálogo y asesor."""
-    import os
-    clean_phone = phone.replace("+", "").replace(" ", "").strip()
-    ngrok_url = os.getenv("CATALOG_BASE_URL", "https://usable-thorn-kabob.ngrok-free.dev")
-    catalog_url = f"{ngrok_url}/catalogo?phone={clean_phone}&sucursal=Centro"
-    
-    body = (
-        "¿En qué más te puedo ayudar? 🦫\n\n"
-        "1️⃣ Toca *🛍️ Abrir Catálogo* para ver productos y carrito en vivo.\n"
-        "2️⃣ Escribe *ASESOR* para hablar directo con un asesor comercial o administrativo."
-    )
-    await _send_cta_url(
+    """Menú principal conciso para navegación continua."""
+    body = "¿En qué más te podemos ayudar? 🦫"
+    buttons = [
+        {"id": "flow_catalogo", "title": "🛍️ Catálogo y Precios"},
+        {"id": "flow_asesor",   "title": "👨‍💼 Hablar con Asesor"},
+        {"id": "flow_pedido",   "title": "📦 Consultar Pedido"},
+        {"id": "flow_horarios", "title": "🕒 Horarios y Sucursales"}
+    ]
+    await _send_buttons(
         phone=phone,
         body=body,
-        display_text="🛍️ Abrir Catálogo",
-        url=catalog_url,
+        buttons=buttons,
         header="🛠️ Ferretería Castor",
-        footer="Escribe ASESOR para atención humana",
+        footer="Responde 1, 2, 3 o 4",
         internal_key=internal_key,
         phone_number_id=phone_number_id
     )
 
 async def send_catalog_flow(phone: str, internal_key: str, phone_number_id: Optional[str] = None):
-    """Alias para enviar el catálogo interactivo In-App Browser."""
+    """Alias para enviar el catálogo interactivo."""
     return await send_catalog_link(phone, internal_key, phone_number_id=phone_number_id)
 
 async def send_catalog_link(phone: str, internal_key: str, phone_number_id: Optional[str] = None, sucursal: Optional[str] = "Centro"):
-    """Envía el catálogo interactivo (In-App Browser Webview estilo Jelou.ia / Yalo)."""
+    """Envía el enlace al catálogo interactivo y opciones de categorías rápidas."""
     import os
     clean_phone = phone.replace("+", "").replace(" ", "").strip()
-    ngrok_url = os.getenv("CATALOG_BASE_URL", "https://usable-thorn-kabob.ngrok-free.dev")
+    ngrok_url = os.getenv("CATALOG_BASE_URL", "https://bot.autoeconomotors.com")
     catalog_url = f"{ngrok_url}/catalogo?phone={clean_phone}&sucursal={sucursal or 'Centro'}"
     
     body = (
-        "¡Bienvenido a la tienda virtual de *Ferretería Castor*! 🦫✨\n\n"
-        "Toca el botón *🛍️ Abrir Catálogo* para explorar todos los productos con fotos, buscador y carrito de compras sin salir de WhatsApp:"
+        "🛍️ *Catálogo Ferretería Castor*\n\n"
+        f"Abre la tienda online aquí:\n👉 {catalog_url}\n\n"
+        "O explora una categoría rápida:"
     )
-    
-    await _send_cta_url(
+    buttons = [
+        {"id": "cat_herramientas_elec", "title": "⚡ Eléctricas"},
+        {"id": "cat_construccion",      "title": "🏗️ Construcción"},
+        {"id": "flow_asesor",           "title": "👨‍💼 Asesor"},
+        {"id": "menu_inicio",           "title": "🏠 Menú"}
+    ]
+    await _send_buttons(
         phone=phone,
         body=body,
-        display_text="🛍️ Abrir Catálogo",
-        url=catalog_url,
-        header="🛠️ Ferretería Castor",
-        footer="Tienda Oficial • Pedidos 24/7",
+        buttons=buttons,
+        footer="Responde 1, 2, 3 o 4",
         internal_key=internal_key,
         phone_number_id=phone_number_id
     )

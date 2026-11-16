@@ -174,168 +174,109 @@ class LangChainService:
         # Saludos / Menú principal / Opciones
         if any(k == q or q.startswith(k) for k in ["hola", "buenas", "buenos dias", "buenas tardes", "buenas noches", "menu", "menú", "inicio", "start", "opciones", "ayuda"]):
             return (
-                "🦫 *¡Bienvenido a Ferretería Castor 2026!* 🇪🇨\n"
-                "Soy *Castor*, tu asistente virtual inteligente. Te ayudo a cotizar herramientas, materiales de construcción y hacer tus pedidos con despacho inmediato.\n\n"
-                "✨ *Selecciona una opción rápida o escribe lo que necesitas:*\n\n"
-                "1️⃣ 🛍️ *Abrir Catálogo y Carrito en Vivo* (Fotos, buscador y compra)\n"
-                "2️⃣ 📦 *Consultar Estado de Pedido* (CAST-2026-XXXX)\n"
-                "3️⃣ ⚡ *Herramientas Eléctricas* (Makita, DeWalt, Bosch)\n"
-                "4️⃣ 🔨 *Herramientas Manuales* (Stanley, Truper, Tramontina)\n"
-                "5️⃣ 🏗️ *Materiales de Construcción* (Varillas Adelca, Cemento)\n"
-                "6️⃣ 🎨 *Pinturas y Plomería* (Pinturas Unidas, Tubos PVC Plastigama)\n"
-                "7️⃣ 🕒 *Horarios, Sucursales y Envíos*\n"
-                "8️⃣ 👨‍💼 *Hablar con un Asesor Humano*\n\n"
-                f"🛒 *Explora la tienda completa sin salir de WhatsApp:* \n{catalog_url}\n\n"
-                "_Responde con un número (1 al 8) o escríbeme directamente tu consulta._"
+                "¡Hola! 👋 Soy *Castor* 🦫\n"
+                "¿En qué te podemos ayudar hoy?\n\n"
+                "1️⃣ 🛍️ Ver Catálogo y Precios\n"
+                "2️⃣ 👨‍💼 Hablar con Asesor\n"
+                "3️⃣ 📦 Consultar Pedido\n"
+                "4️⃣ 🕒 Horarios y Sucursales\n\n"
+                "_Responde 1, 2, 3 o 4_"
             )
 
-        # 1. Catálogo y Carrito Webview
-        if q in ["1", "opcion 1", "opción 1"] or any(k in q for k in ["catalogo", "catálogo", "carrito", "tienda", "comprar", "productos", "inventario", "precios"]):
+        # 1. Catálogo
+        if q in ["1", "opcion 1", "opción 1"] or any(k in q for k in ["catalogo", "catálogo", "tienda", "comprar", "precios"]):
             return (
-                "🛍️ *Catálogo Interactivo con Carrito — Ferretería Castor*\n\n"
-                "Abre nuestra tienda virtual directamente en WhatsApp sin salir de la app:\n\n"
-                "• 📸 Explora más de 20 productos con fotos y especificaciones técnicas.\n"
-                "• 🔎 Filtra por categorías: Eléctricas, Manuales, Construcción, Pintura, Plomería.\n"
-                "• 🛒 Agrega productos a tu carrito y elige retiro en sucursal o envío a domicilio.\n"
-                "• 💳 Paga en efectivo contra entrega, transferencia o tarjeta.\n\n"
-                f"👉 *Toca este enlace para abrir el catálogo:* \n{catalog_url}\n\n"
-                "_¡Pruébalo ahora y realiza tu pedido en segundos!_"
+                "🛍️ *Catálogo Ferretería Castor*\n\n"
+                f"Abre la tienda online aquí:\n👉 {catalog_url}\n\n"
+                "O elige una categoría:\n"
+                "1️⃣ ⚡ Herramientas Eléctricas\n"
+                "2️⃣ 🔨 Herramientas Manuales\n"
+                "3️⃣ 🏗️ Construcción\n"
+                "4️⃣ 👨‍💼 Hablar con Asesor"
             )
 
         # 2. Estado de Pedido
-        if q in ["2", "opcion 2", "opción 2"] or any(k in q for k in ["pedido", "pedidos", "orden", "ordenes", "estado", "rastreo", "mi compra"]):
+        if q in ["pedido", "pedidos", "orden", "rastreo", "mi compra"]:
             return (
-                "📦 *Consulta y Rastreo de Pedidos — Ferretería Castor*\n\n"
-                "Para verificar el estado de tu compra, escribe tu código de orden:\n"
-                "👉 Ejemplo: *CAST-2026-1042* (o simplemente *1042*).\n\n"
-                "Te indicaremos en tiempo real si tu pedido está en preparación en bodega, despachado o en camino con el transportista."
+                "📦 *Rastreo de Pedidos*\n\n"
+                "Por favor escribe tu código de pedido (ej: *CAST-2026-1042* o *1042*):"
             )
 
         # 3. Herramientas Eléctricas
-        if q in ["3", "opcion 3", "opción 3"] or any(k in q for k in ["herramientas electricas", "herramientas eléctricas", "taladro", "rotomartillo", "amoladora", "esmeril", "sierra", "makita", "dewalt", "bosch"]):
+        if any(k in q for k in ["electricas", "eléctricas", "taladro", "rotomartillo", "amoladora", "makita", "dewalt", "bosch"]):
             return (
-                "⚡ *Herramientas Eléctricas Profesionales en Stock:*\n\n"
-                "🔹 *Rotomartillo Makita HR2470 780W SDS-Plus*\n"
-                "   • Precio: *$145.00 USD* | Stock: Disponible\n"
-                "   • Potencia para hormigón, metal y madera.\n\n"
-                "🔹 *Amoladora Angular DeWalt 4-1/2\" DWE4020 800W*\n"
-                "   • Precio: *$89.50 USD* | Stock: Disponible\n"
-                "   • Compacta y ergonómica para corte y desbaste.\n\n"
-                "🔹 *Sierra Circular Bosch GKS 150 7-1/4\" 1500W*\n"
-                "   • Precio: *$135.00 USD* | Stock: Disponible\n"
-                "   • Ideal para cortes rectos de alta precisión en madera.\n\n"
-                f"🛒 *Ver todas las herramientas eléctricas en el catálogo:* \n{catalog_url}&cat=electricas\n\n"
-                "🔘 *¿Qué deseas hacer?*\n"
-                "👉 Responde *1* para abrir el carrito de compras.\n"
-                "👉 Responde *ASESOR* para cotizaciones técnicas al por mayor."
+                "⚡ *Herramientas Eléctricas en Stock:*\n\n"
+                "• Rotomartillo Makita HR2470: *$145*\n"
+                "• Amoladora DeWalt 4-1/2\": *$89.50*\n"
+                "• Sierra Circular Bosch: *$135*\n\n"
+                "1️⃣ Ver en catálogo online\n"
+                "2️⃣ Cotizar con asesor\n"
+                "3️⃣ Volver al menú"
             )
 
         # 4. Herramientas Manuales
-        if q in ["4", "opcion 4", "opción 4"] or any(k in q for k in ["herramientas manuales", "manuales", "llaves", "martillo", "flexometro", "flexómetro", "destornillador", "destornilladores", "stanley", "truper", "tramontina"]):
+        if any(k in q for k in ["manuales", "llaves", "martillo", "flexometro", "stanley", "truper"]):
             return (
-                "🔨 *Herramientas Manuales de Alta Resistencia:*\n\n"
-                "🔸 *Juego de Llaves Combinadas Stanley (14 piezas)*: *$38.50 USD*\n"
-                "   • Acero cromo vanadio forjado, estuche organizador.\n\n"
-                "🔸 *Martillo de Uña Curva Truper 16 oz Mango Fibra*: *$12.00 USD*\n"
-                "   • Antivibración, máxima durabilidad.\n\n"
-                "🔸 *Flexómetro Profesional Lufkin 8 Metros*: *$14.50 USD*\n"
-                "   • Cinta de alta visibilidad con recubrimiento de nailon.\n\n"
-                "🔸 *Juego de Destornilladores Tramontina 6 Piezas*: *$11.50 USD*\n"
-                "   • Puntas imantadas planas y Phillips.\n\n"
-                f"🛒 *Revisa el catálogo completo de herramientas:* \n{catalog_url}&cat=manuales\n\n"
-                "👉 Responde *1* para abrir el catálogo o *ASESOR* para hablar con nuestro equipo."
+                "🔨 *Herramientas Manuales:*\n\n"
+                "• Llaves combinadas Stanley 14 pcs: *$38.50*\n"
+                "• Martillo Truper 16 oz: *$12*\n"
+                "• Flexómetro Lufkin 8m: *$14.50*\n\n"
+                "1️⃣ Ver en catálogo online\n"
+                "2️⃣ Cotizar con asesor\n"
+                "3️⃣ Volver al menú"
             )
 
         # 5. Construcción
-        if q in ["5", "opcion 5", "opción 5"] or any(k in q for k in ["construccion", "construcción", "cemento", "varilla", "varillas", "adelca", "holcim", "selvalegre", "arena", "ripio", "pala", "carretilla"]):
+        if any(k in q for k in ["construccion", "construcción", "cemento", "varilla", "varillas", "adelca", "holcim"]):
             return (
-                "🏗️ *Materiales de Construcción y Obra Gruesa:*\n\n"
-                "🧱 *Varilla Corrugada Adelca 12mm x 12m*\n"
-                "   • Precio: *$9.85 USD* / unidad | Norma INEN sismorresistente.\n\n"
-                "🧱 *Saco de Cemento Selvalegre / Holcim 50kg*\n"
-                "   • Precio: *$8.40 USD* / saco | Alta resistencia inicial y final.\n\n"
-                "🧱 *Carretilla Truper Capacidad 6 Pies Cúbicos*\n"
-                "   • Precio: *$68.00 USD* | Tolva metálica de alta capacidad.\n\n"
-                "🧱 *Pala Cuadrada Truper Mango de Fibra*\n"
-                "   • Precio: *$15.20 USD* | Ideal para excavación y mezcla.\n\n"
-                "🚚 *Envíos en Quito:* Flete gratis en compras superiores a $150.\n\n"
-                f"🛒 *Cotiza tus materiales en el catálogo:* \n{catalog_url}&cat=construccion\n\n"
-                "👉 Responde *ASESOR* para cotizaciones de obra por volumen."
+                "🏗️ *Materiales de Construcción:*\n\n"
+                "• Varilla Adelca 12mm x 12m: *$9.85*\n"
+                "• Saco Cemento Selvalegre/Holcim 50kg: *$8.40*\n"
+                "• Carretilla Truper 6ft: *$68*\n\n"
+                "1️⃣ Ver en catálogo online\n"
+                "2️⃣ Cotizar por volumen con asesor\n"
+                "3️⃣ Volver al menú"
             )
 
         # 6. Pinturas y Plomería
-        if q in ["6", "opcion 6", "opción 6"] or any(k in q for k in ["pintura", "pinturas", "esmalte", "latex", "látex", "plomeria", "plomería", "tubo", "tubos", "pvc", "plastigama", "griferia", "grifería", "briggs"]):
+        if any(k in q for k in ["pintura", "pinturas", "latex", "plomeria", "tubo", "pvc", "plastigama", "griferia"]):
             return (
-                "🎨 *Pinturas, Acabados y Plomería en Stock:*\n\n"
-                "🖌️ *Látex Vinilac Pinturas Unidas (Caneca 5 galones)*\n"
-                "   • Precio: *$58.00 USD* | Máximo cubrimiento lavable para interiores y fachadas.\n\n"
-                "🖌️ *Esmalte Sintético Anticorrosivo (Galón)*\n"
-                "   • Precio: *$22.50 USD* | Protección contra óxido en metales y madera.\n\n"
-                "🚰 *Tubo PVC Plastigama Desagüe 110mm x 3m*\n"
-                "   • Precio: *$14.20 USD* | Alta resistencia para aguas servidas y pluviales.\n\n"
-                "🚰 *Grifería Monomando Lavamanos Briggs Cromada*\n"
-                "   • Precio: *$42.00 USD* | Cartucho cerámico de alta durabilidad.\n\n"
-                f"🛒 *Explora la sección en el catálogo:* \n{catalog_url}\n\n"
-                "👉 Responde *1* para abrir el catálogo o *ASESOR* para asistencia personalizada."
+                "🎨 *Pinturas y Plomería:*\n\n"
+                "• Látex Vinilac (Caneca 5 gal): *$58*\n"
+                "• Tubo PVC Plastigama 110mm x 3m: *$14.20*\n"
+                "• Grifería Briggs Cromada: *$42*\n\n"
+                "1️⃣ Ver en catálogo online\n"
+                "2️⃣ Cotizar con asesor\n"
+                "3️⃣ Volver al menú"
             )
 
         # 7. Horarios, Sucursales y Envíos
-        if q in ["7", "opcion 7", "opción 7"] or any(k in q for k in ["horario", "horarios", "sucursales", "sucursal", "ubicacion", "ubicación", "donde estan", "dónde están", "direccion", "dirección", "envio", "envíos", "flete"]):
+        if any(k in q for k in ["horario", "horarios", "sucursales", "sucursal", "ubicacion", "direccion", "envio"]):
             return (
-                "📍 *Sucursales y Horarios de Ferretería Castor:*\n\n"
-                "🏛️ *Sucursal Centro (Matriz):*\n"
-                "   • Av. 10 de Agosto N45-23 y Mariana de Jesús\n"
-                "   • 🕒 Lunes a Viernes: 07:30 a 18:00 | Sábados: 08:00 a 14:00\n\n"
-                "🏛️ *Sucursal Norte:*\n"
-                "   • Av. Eloy Alfaro N56-10 y Los Álamos\n"
-                "   • 🕒 Lunes a Viernes: 08:00 a 18:00 | Sábados: 08:00 a 13:30\n\n"
-                "🏛️ *Sucursal Sur:*\n"
-                "   • Av. Rodrigo de Chávez y Pedro de Alfaro (Villaflora)\n"
-                "   • 🕒 Lunes a Viernes: 08:00 a 18:00 | Sábados: 08:00 a 14:00\n\n"
-                "🏛️ *Sucursal Cumbayá:*\n"
-                "   • Av. Interoceánica km 11.5 frente a Scala Shopping\n"
-                "   • 🕒 Lunes a Sábado: 08:30 a 18:00\n\n"
-                "🚚 *Política de Despacho:* Envío GRATIS en Quito en compras mayores a $150. Retiro en tienda inmediato y gratuito.\n\n"
-                f"🛒 *Abre la tienda online aquí:* \n{catalog_url}"
+                "🕒 *Horarios y Sucursales:*\n\n"
+                "• *Centro:* L-V 7:30 a 18:00 | S 8:00 a 14:00\n"
+                "• *Norte y Sur:* L-V 8:00 a 18:00 | S 8:00 a 14:00\n"
+                "• *Cumbayá:* L-S 8:30 a 18:00\n\n"
+                "1️⃣ Ver Catálogo\n"
+                "2️⃣ Hablar con Asesor\n"
+                "3️⃣ Volver al menú"
             )
 
         # 8. Asesor Humano
-        if q in ["8", "opcion 8", "opción 8"] or any(k in q for k in ["asesor", "humano", "persona", "agente", "vendedor", "hablar con alguien", "soporte", "transferir"]):
+        if any(k in q for k in ["asesor", "humano", "persona", "agente", "vendedor"]):
             return (
-                "👨‍💼 *Conectando con un Asesor de Ferretería Castor...*\n\n"
-                "He transferido tu conversación a nuestro equipo técnico en *Chatwoot* para que un asesor humano tome el control del chat y te brinde atención personalizada.\n\n"
-                "🕒 *Tiempo estimado de respuesta:* Menos de 60 segundos.\n"
-                "📍 *Sede asignada:* Matriz Quito Centro.\n\n"
-                "🔘 *Mientras te atienden, puedes:*\n"
-                f"👉 Abrir el catálogo interactivo: {catalog_url}\n"
-                "👉 Dejarnos tu lista de materiales o requerimientos específicos en este chat.\n\n"
-                "_Un asesor te responderá directamente aquí en breve._"
+                "👨‍💼 *Atención con Asesor Humano*\n\n"
+                "Un asesor comercial tomará tu conversación en breve por este chat.\n\n"
+                "_(Escribe *menu* para volver al bot)_"
             )
 
-        # Cotizaciones / Presupuestos generales
-        if any(k in q for k in ["cotizar", "cotizacion", "cotización", "presupuesto", "lista de materiales"]):
-            return (
-                "📋 *Cotizaciones de Materiales y Herramientas — Ferretería Castor*\n\n"
-                "Con gusto elaboramos tu presupuesto para obra o remodelación:\n\n"
-                "1️⃣ *Desde el catálogo:* Agrega tus productos al carrito y finaliza el pedido como cotización.\n"
-                "2️⃣ *Por este chat:* Escríbenos la lista detallada de materiales con cantidades y un asesor te responderá con precios formales y descuentos por volumen.\n\n"
-                f"👉 *Abrir el catálogo digital:* {catalog_url}\n"
-                "👉 *Responde ASESOR* para transferir con un ejecutivo de ventas corporativas."
-            )
-
-        # Respuesta general inteligente con menú rápido
+        # Default conciso
         return (
-            "¡Con gusto te ayudo! En *Ferretería Castor* 🦫 tenemos en stock herramientas eléctricas, manuales, "
-            "materiales de construcción, plomería, pinturas y electricidad con entrega rápida en Quito.\n\n"
-            "✨ *Opciones rápidas de atención:*\n"
-            "1️⃣ 🛍️ Abrir Catálogo y Carrito en Vivo\n"
-            "2️⃣ 📦 Consultar Estado de Pedido (CAST-)\n"
-            "3️⃣ ⚡ Herramientas Eléctricas (Makita, DeWalt)\n"
-            "4️⃣ 🔨 Herramientas Manuales (Stanley, Truper)\n"
-            "5️⃣ 🏗️ Materiales de Construcción (Adelca, Cemento)\n"
-            "6️⃣ 🎨 Pinturas y Plomería (Pinturas Unidas, PVC)\n"
-            "7️⃣ 🕒 Horarios, Sucursales y Envíos\n"
-            "8️⃣ 👨‍💼 Hablar con un Asesor Humano\n\n"
-            f"🛒 *Explora y compra en la tienda interactiva:* \n{catalog_url}\n\n"
-            "_Escribe un número del 1 al 8 o indícame qué material necesitas._"
+            "¡Con gusto te ayudo! 🦫\n"
+            "En *Ferretería Castor* tenemos herramientas, construcción, plomería y pinturas.\n\n"
+            "1️⃣ 🛍️ Ver Catálogo y Precios\n"
+            "2️⃣ 👨‍💼 Hablar con Asesor\n"
+            "3️⃣ 📦 Consultar Pedido\n"
+            "4️⃣ 🕒 Horarios y Sucursales\n\n"
+            "_Responde 1, 2, 3 o 4_"
         )
