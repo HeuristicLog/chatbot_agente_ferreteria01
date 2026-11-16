@@ -26,8 +26,45 @@ EVOLUTION_CANDIDATE_URLS = [
 
 _working_evo_url = None
 
+async def _save_db_message(phone: str, content: str, role: str = "assistant", direction: str = "outbound", msg_type: str = "text"):
+    """Persiste inmediatamente el mensaje en la tabla chatbot_messages de PostgreSQL para auditoría completa."""
+    try:
+        from app.db.session import async_session
+        from app.db.tables import Conversation as DBConversation, Message as DBMessage
+        from sqlalchemy import select, func
+        clean_p = phone.replace("+", "").replace(" ", "").strip()
+        
+        async with async_session() as db:
+            stmt = select(DBConversation).where(
+                DBConversation.phone_hash.like(f"%{clean_p}%")
+            ).order_by(DBConversation.last_activity_at.desc()).limit(1)
+            result = await db.execute(stmt)
+            conv = result.scalar_one_or_none()
+            if not conv:
+                conv = DBConversation(
+                    session_id=f"evo_{clean_p}",
+                    phone_hash=clean_p,
+                    provider="evolution",
+                    status="bot_active"
+                )
+                db.add(conv)
+                await db.flush()
+            
+            db_msg = DBMessage(
+                conversation_id=conv.id,
+                direction=direction,
+                role=role,
+                content=content,
+                message_type=msg_type
+            )
+            db.add(db_msg)
+            conv.last_activity_at = func.now()
+            await db.commit()
+    except Exception as db_err:
+        logger.debug(f"Error guardando mensaje en PostgreSQL: {db_err}")
+
 async def _send_evolution_text(phone: str, text: str, instance: Optional[str] = None, phone_number_id: Optional[str] = None) -> bool:
-    """Envía mensajes formateados directamente a través de Evolution API (WhatsApp QR Baileys)."""
+    """Envía mensajes formateados directamente a través de Evolution API (WhatsApp QR Baileys) con protección de eco."""
     global _working_evo_url
     clean_p = phone.replace("+", "").replace(" ", "").strip()
     
@@ -54,6 +91,21 @@ async def _send_evolution_text(phone: str, text: str, instance: Optional[str] = 
     if not target_inst:
         target_inst = "bonilla_1085" if "992451085" in clean_p else "sucursal_centro"
 
+    # Marcar firma del mensaje en Redis ANTES de enviarlo para que cuando Baileys emita el fromMe no lo tome como mensaje humano
+    import hashlib
+    norm_t = text.strip()
+    msg_sig = hashlib.md5(f"{clean_p}:{norm_t}".encode()).hexdigest()
+    try:
+        import redis.asyncio as aioredis
+        import os
+        r_url = os.getenv("REDIS_URL", "redis://redis:6379/0")
+        rc = aioredis.from_url(r_url)
+        await rc.set(f"cw_to_evo:{msg_sig}", "1", ex=180)
+        await rc.set(f"bot_sent:{msg_sig}", "1", ex=180)
+        await rc.aclose()
+    except Exception:
+        pass
+
     headers = {"apikey": "ferreteria_evolution_key_2026"}
     
     candidates = list(EVOLUTION_CANDIDATE_URLS)
@@ -71,6 +123,17 @@ async def _send_evolution_text(phone: str, text: str, instance: Optional[str] = 
                 )
                 if resp.status_code in [200, 201]:
                     _working_evo_url = base
+                    # También guardar el key.id que devuelve Evolution para deduplicación exacta
+                    try:
+                        evo_resp_data = resp.json()
+                        evo_msg_id = evo_resp_data.get("key", {}).get("id") if isinstance(evo_resp_data, dict) else None
+                        if evo_msg_id:
+                            rc = aioredis.from_url(r_url)
+                            await rc.set(f"cw_to_evo:{evo_msg_id}", "1", ex=180)
+                            await rc.set(f"bot_sent:{evo_msg_id}", "1", ex=180)
+                            await rc.aclose()
+                    except Exception:
+                        pass
                     logger.info(f"Mensaje despachado via Evolution API ({base}/{target_inst}) a {clean_p}")
                     return True
                 else:
@@ -85,7 +148,10 @@ async def _send_evolution_text(phone: str, text: str, instance: Optional[str] = 
 # ─────────────────────────────────────────────
 
 async def _send(phone: str, message: str, internal_key: str, phone_number_id: Optional[str] = None):
-    """Envía un mensaje de texto simple."""
+    """Envía un mensaje de texto simple y lo guarda en base de datos."""
+    # Persistir en base de datos
+    await _save_db_message(phone, message)
+
     # Sincronizar salida de texto del bot con Chatwoot
     try:
         from app.services.chatwoot_service import ChatwootService
@@ -121,35 +187,60 @@ async def _send(phone: str, message: str, internal_key: str, phone_number_id: Op
         logger.debug(f"Gateway send fallback error: {e}")
 
 async def _send_buttons(phone: str, body: str, buttons: list, header: str = "", footer: str = "", internal_key: str = "change_me", phone_number_id: Optional[str] = None):
-    """Envía mensaje con botones interactivos."""
-    # Sincronizar botones del bot con Chatwoot
-    try:
-        from app.services.chatwoot_service import ChatwootService
-        chatwoot = ChatwootService()
-        if chatwoot.is_configured:
-            text = body
-            if buttons:
-                text += "\n\n" + "\n".join([f"[Botón: {b.get('title')}]" for b in buttons])
-            await chatwoot.post_bot_message(phone, text, phone_number_id)
-    except Exception as cw_err:
-        logger.error(f"Error sincronizando botones del bot con Chatwoot en _send_buttons: {cw_err}")
+    """Envía mensaje con opciones numeradas limpias e interactivas sin IDs técnicos visibles."""
+    clean_p = phone.replace("+", "").replace(" ", "").strip()
 
-    # 1. Para Evolution API (WhatsApp QR), formatear como texto interactivo ameno
-    btn_lines = [f"• *{b.get('id', idx+1)}* - {b.get('title')}" for idx, b in enumerate(buttons)]
+    # Formatear opciones numeradas con emojis limpios (NUNCA mostrar flow_faq o IDs técnicos)
+    btn_numbers = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣"]
+    btn_lines = []
+    
+    # Guardar en Redis mapeo temporal: botón digitado (1, 2, 3) -> ID de acción
+    try:
+        import redis.asyncio as aioredis
+        import os
+        r_url = os.getenv("REDIS_URL", "redis://redis:6379/0")
+        rc = aioredis.from_url(r_url)
+        for idx, b in enumerate(buttons):
+            act_id = b.get("id", str(idx+1))
+            await rc.set(f"btn_opt:{clean_p}:{idx+1}", act_id, ex=900)
+            clean_title = (b.get("title", "")).lower()
+            await rc.set(f"btn_title:{clean_p}:{clean_title}", act_id, ex=900)
+        await rc.aclose()
+    except Exception:
+        pass
+
+    for idx, b in enumerate(buttons):
+        emoji_num = btn_numbers[idx] if idx < len(btn_numbers) else f"{idx+1}️⃣"
+        btn_lines.append(f"{emoji_num} *{b.get('title')}*")
+
     parts = []
     if header:
         parts.append(f"*{header}*")
     parts.append(body)
     if btn_lines:
         parts.append("\n".join(btn_lines))
-    if footer:
-        parts.append(f"_{footer}_")
+    
+    prompt_footer = footer or "Responde con el número de tu opción (1, 2 o 3)"
+    parts.append(f"_{prompt_footer}_")
     formatted_msg = "\n\n".join(parts)
 
+    # Persistir en base de datos PostgreSQL
+    await _save_db_message(phone, formatted_msg)
+
+    # Sincronizar botones del bot con Chatwoot
+    try:
+        from app.services.chatwoot_service import ChatwootService
+        chatwoot = ChatwootService()
+        if chatwoot.is_configured:
+            await chatwoot.post_bot_message(phone, formatted_msg, phone_number_id)
+    except Exception as cw_err:
+        logger.error(f"Error sincronizando botones del bot con Chatwoot en _send_buttons: {cw_err}")
+
+    # Despacho por Evolution API
     if await _send_evolution_text(phone, formatted_msg, phone_number_id=phone_number_id):
         return
 
-    # 2. Fallback a Gateway Meta Cloud API
+    # Fallback a Gateway Meta Cloud API
     headers = {"X-Internal-API-Key": internal_key}
     payload = {"phone": phone, "body": body, "buttons": buttons, "header": header, "footer": footer}
     if phone_number_id:
@@ -171,41 +262,57 @@ async def _send_buttons(phone: str, body: str, buttons: list, header: str = "", 
         logger.debug(f"Gateway send_buttons fallback error: {e}")
 
 async def _send_list(phone: str, body: str, button_text: str, sections: list, header: str = "", footer: str = "", internal_key: str = "change_me", phone_number_id: Optional[str] = None):
-    """Envía mensaje con lista de opciones."""
-    # Sincronizar listas del bot con Chatwoot
-    try:
-        from app.services.chatwoot_service import ChatwootService
-        chatwoot = ChatwootService()
-        if chatwoot.is_configured:
-            text = body
-            if sections:
-                text += "\n\n" + "\n".join([f"[Opción: {row.get('title')}]" for sec in sections for row in sec.get('rows', [])])
-            await chatwoot.post_bot_message(phone, text, phone_number_id)
-    except Exception as cw_err:
-        logger.error(f"Error sincronizando lista del bot con Chatwoot en _send_list: {cw_err}")
-
-    # 1. Para Evolution API (WhatsApp QR), formatear como lista de texto con viñetas
+    """Envía mensaje con lista de opciones numeradas y limpias."""
+    clean_p = phone.replace("+", "").replace(" ", "").strip()
     sec_lines = []
-    for sec in sections:
-        if sec.get('title'):
-            sec_lines.append(f"📋 *{sec.get('title')}*")
-        for row in sec.get('rows', []):
-            desc = f" ({row.get('description')})" if row.get('description') else ""
-            sec_lines.append(f"• *{row.get('title')}*{desc}")
+    opt_idx = 1
+    
+    # Guardar en Redis mapeo temporal (opción digitada -> ID de categoría o producto)
+    try:
+        import redis.asyncio as aioredis
+        import os
+        r_url = os.getenv("REDIS_URL", "redis://redis:6379/0")
+        rc = aioredis.from_url(r_url)
+        for sec in sections:
+            if sec.get('title'):
+                sec_lines.append(f"📋 *{sec.get('title')}*")
+            for row in sec.get('rows', []):
+                desc = f" — _{row.get('description')}_" if row.get('description') else ""
+                row_id = row.get('id', str(opt_idx))
+                await rc.set(f"btn_opt:{clean_p}:{opt_idx}", row_id, ex=900)
+                sec_lines.append(f"*{opt_idx}.* {row.get('title')}{desc}")
+                opt_idx += 1
+        await rc.aclose()
+    except Exception:
+        pass
+
     parts = []
     if header:
         parts.append(f"*{header}*")
     parts.append(body)
     if sec_lines:
         parts.append("\n".join(sec_lines))
-    if footer:
-        parts.append(f"_{footer}_")
+    
+    prompt_footer = footer or "Escribe el número de la opción deseada"
+    parts.append(f"_{prompt_footer}_")
     formatted_msg = "\n\n".join(parts)
+
+    # Persistir en base de datos PostgreSQL
+    await _save_db_message(phone, formatted_msg)
+
+    # Sincronizar listas del bot con Chatwoot
+    try:
+        from app.services.chatwoot_service import ChatwootService
+        chatwoot = ChatwootService()
+        if chatwoot.is_configured:
+            await chatwoot.post_bot_message(phone, formatted_msg, phone_number_id)
+    except Exception as cw_err:
+        logger.error(f"Error sincronizando lista del bot con Chatwoot en _send_list: {cw_err}")
 
     if await _send_evolution_text(phone, formatted_msg, phone_number_id=phone_number_id):
         return
 
-    # 2. Fallback a Gateway Meta Cloud API
+    # Fallback a Gateway Meta Cloud API
     headers = {"X-Internal-API-Key": internal_key}
     payload = {"phone": phone, "body": body, "button_text": button_text, "sections": sections, "header": header, "footer": footer}
     if phone_number_id:
@@ -227,17 +334,8 @@ async def _send_list(phone: str, body: str, button_text: str, sections: list, he
         logger.debug(f"Gateway send_list fallback error: {e}")
 
 async def _send_cta_url(phone: str, body: str, display_text: str, url: str, header: str = "", footer: str = "", internal_key: str = "change_me", phone_number_id: Optional[str] = None):
-    """Envía mensaje interactivo con botón CTA URL o enlace con previsualización para WhatsApp QR."""
-    try:
-        from app.services.chatwoot_service import ChatwootService
-        chatwoot = ChatwootService()
-        if chatwoot.is_configured:
-            text = f"{body}\n\n[Botón: {display_text} -> {url}]"
-            await chatwoot.post_bot_message(phone, text, phone_number_id)
-    except Exception as cw_err:
-        logger.error(f"Error sincronizando CTA URL con Chatwoot: {cw_err}")
-
-    # 1. Para Evolution API (WhatsApp Baileys QR), enviar con enlace clickeable directo
+    """Envía mensaje interactivo con enlace clickeable directo y previsualización."""
+    # Para Evolution API (WhatsApp Baileys QR), enviar con enlace clickeable directo
     parts = []
     if header:
         parts.append(f"*{header}*")
@@ -246,6 +344,18 @@ async def _send_cta_url(phone: str, body: str, display_text: str, url: str, head
     if footer:
         parts.append(f"_{footer}_")
     formatted_msg = "\n\n".join(parts)
+
+    # Persistir en base de datos PostgreSQL
+    await _save_db_message(phone, formatted_msg)
+
+    # Sincronizar CTA URL con Chatwoot
+    try:
+        from app.services.chatwoot_service import ChatwootService
+        chatwoot = ChatwootService()
+        if chatwoot.is_configured:
+            await chatwoot.post_bot_message(phone, formatted_msg, phone_number_id)
+    except Exception as cw_err:
+        logger.error(f"Error sincronizando CTA URL con Chatwoot: {cw_err}")
 
     if await _send_evolution_text(phone, formatted_msg, phone_number_id=phone_number_id):
         return

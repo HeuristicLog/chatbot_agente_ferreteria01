@@ -44,7 +44,7 @@ Información Oficial de Ferretería Castor:
 Directrices de Respuesta (Interactivas y No Texto Plano):
 1. NUNCA respondas con párrafos largos o texto plano monótono. Usa viñetas limpias, negritas, subtítulos y emojis de ferretería (🛠️, 🏗️, ⚡, 🎨, 🚰).
 2. Al final de CADA respuesta, ofrece siempre opciones interactivas de acción rápida numeradas (ej: 1️⃣ Abrir catálogo, 2️⃣ Consultar pedido, 3️⃣ Hablar con asesor).
-3. Invita siempre al cliente a abrir el catálogo interactivo dentro de WhatsApp: https://usable-thorn-kabob.ngrok-free.dev/catalogo
+3. Invita siempre al cliente a abrir el catálogo interactivo dentro de WhatsApp: https://bot.autoeconomotors.com/catalogo
 4. Si el cliente pregunta por un pedido, pídele su número (ej. CAST-2026-1042).
 5. Si el cliente pide hablar con una persona o transferir, ofrécele conectarlo de inmediato con un asesor humano en Chatwoot.
 """
@@ -165,11 +165,11 @@ class LangChainService:
         con opciones de navegación rápida y enlace al catálogo webview sin salir de WhatsApp.
         """
         q = question.lower().strip()
-        ngrok_url = os.getenv("CATALOG_BASE_URL", "https://usable-thorn-kabob.ngrok-free.dev")
+        ngrok_url = os.getenv("CATALOG_BASE_URL", "https://bot.autoeconomotors.com")
         clean_phone = phone.replace("+", "").replace(" ", "").strip()
         if not clean_phone:
             clean_phone = "593988921136"
-        catalog_url = f"{ngrok_url}/catalogo?phone={clean_phone}&sucursal=Centro&ngrok-skip-browser-warning=1"
+        catalog_url = f"{ngrok_url}/catalogo?phone={clean_phone}&sucursal=Centro"
 
         # Saludos / Menú principal / Opciones
         if any(k == q or q.startswith(k) for k in ["hola", "buenas", "buenos dias", "buenas tardes", "buenas noches", "menu", "menú", "inicio", "start", "opciones", "ayuda"]):

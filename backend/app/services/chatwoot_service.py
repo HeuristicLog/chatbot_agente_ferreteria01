@@ -25,71 +25,121 @@ class ChatwootService:
         }
 
     async def get_or_create_contact(self, phone: str, name: str, inbox_id: Optional[int] = None) -> Optional[int]:
-        """Busca un contacto por teléfono en Chatwoot, o lo crea si no existe."""
+        """Busca un contacto por teléfono en Chatwoot, o lo crea si no existe (con caché en Redis)."""
         if not self.is_configured:
             logger.warning("Chatwoot no está configurado (falta CHATWOOT_API_TOKEN).")
             return None
 
-        # Formatear teléfono para Chatwoot (debe empezar con +)
-        formatted_phone = phone if phone.startswith("+") else f"+{phone}"
+        clean_p = phone.replace("+", "").replace(" ", "").strip()
+        formatted_phone = f"+{clean_p}"
 
-        # 1. Buscar contacto
+        # 0. Consultar caché en Redis para acelerar respuesta (<5ms) y evitar peticiones concurrentes duplicadas
+        try:
+            import redis.asyncio as aioredis
+            import os
+            r_url = os.getenv("REDIS_URL", "redis://redis:6379/0")
+            rc = aioredis.from_url(r_url)
+            cached_cid = await rc.get(f"cw_cid:{clean_p}")
+            if cached_cid:
+                await rc.aclose()
+                return int(cached_cid.decode('utf-8') if isinstance(cached_cid, bytes) else str(cached_cid))
+        except Exception:
+            rc = None
+
         headers = self._get_headers()
         try:
+            # 1. Buscar contacto existente
             async with httpx.AsyncClient() as client:
                 search_url = f"{self.base_url}/api/v1/accounts/{self.account_id}/contacts/search?q={formatted_phone}"
-                resp = await client.get(search_url, headers=headers, timeout=10.0)
+                resp = await client.get(search_url, headers=headers, timeout=8.0)
                 if resp.status_code == 200:
                     payload = resp.json()
                     contacts = payload.get("payload", [])
                     if contacts:
                         contact_id = contacts[0].get("id")
                         logger.info(f"Contacto encontrado en Chatwoot: ID {contact_id}")
+                        if rc:
+                            await rc.set(f"cw_cid:{clean_p}", str(contact_id), ex=86400 * 7)
+                            await rc.aclose()
                         return contact_id
 
             # 2. Crear contacto si no existe
             target_inbox_id = inbox_id or self.inbox_id
             create_payload = {
-                "name": name or f"Cliente {phone}",
+                "name": name or f"Cliente +{clean_p}",
                 "phone_number": formatted_phone,
                 "inbox_id": target_inbox_id
             }
             async with httpx.AsyncClient() as client:
                 create_url = f"{self.base_url}/api/v1/accounts/{self.account_id}/contacts"
-                resp = await client.post(create_url, json=create_payload, headers=headers, timeout=10.0)
+                resp = await client.post(create_url, json=create_payload, headers=headers, timeout=8.0)
                 if resp.status_code in [200, 201]:
                     payload = resp.json()
                     contact_id = payload.get("payload", {}).get("contact", {}).get("id")
                     logger.info(f"Contacto creado en Chatwoot: ID {contact_id}")
+                    if rc:
+                        await rc.set(f"cw_cid:{clean_p}", str(contact_id), ex=86400 * 7)
+                        await rc.aclose()
                     return contact_id
                 else:
                     logger.error(f"Error al crear contacto en Chatwoot: {resp.status_code} - {resp.text}")
         except Exception as e:
             logger.error(f"Excepción en get_or_create_contact: {str(e)}")
+        finally:
+            if rc:
+                try:
+                    await rc.aclose()
+                except Exception:
+                    pass
         return None
 
     async def get_or_create_conversation(self, contact_id: int, inbox_id: Optional[int] = None) -> Optional[int]:
-        """Busca una conversación abierta para el contacto o crea una nueva en el inbox."""
+        """Busca una conversación abierta para el contacto o crea una nueva en el inbox evitando duplicados."""
         if not self.is_configured:
             return None
+
+        # 0. Consultar caché de conversación activa en Redis para evitar duplicación por ráfaga
+        try:
+            import redis.asyncio as aioredis
+            import os
+            r_url = os.getenv("REDIS_URL", "redis://redis:6379/0")
+            rc = aioredis.from_url(r_url)
+            cached_conv = await rc.get(f"cw_active_conv:{contact_id}")
+            if cached_conv:
+                await rc.aclose()
+                return int(cached_conv.decode('utf-8') if isinstance(cached_conv, bytes) else str(cached_conv))
+        except Exception:
+            rc = None
 
         headers = self._get_headers()
         try:
             target_inbox_id = inbox_id or self.inbox_id
-            # 1. Buscar conversaciones del contacto en el inbox destino
+            # 1. Buscar conversaciones del contacto en Chatwoot
             async with httpx.AsyncClient() as client:
                 convs_url = f"{self.base_url}/api/v1/accounts/{self.account_id}/contacts/{contact_id}/conversations"
-                resp = await client.get(convs_url, headers=headers, timeout=10.0)
+                resp = await client.get(convs_url, headers=headers, timeout=8.0)
                 if resp.status_code == 200:
                     convs = resp.json().get("payload", [])
-                    # Retornar la última conversación abierta en este inbox
-                    open_convs = [c for c in convs if c.get("status") != "resolved" and (not target_inbox_id or c.get("inbox_id") == target_inbox_id)]
-                    if open_convs:
-                        conv_id = open_convs[0].get("id")
-                        logger.info(f"Conversación abierta encontrada en Chatwoot (Inbox {target_inbox_id}): ID {conv_id}")
+                    # Priorizar conversación abierta en este inbox
+                    inbox_convs = [c for c in convs if c.get("status") != "resolved" and c.get("inbox_id") == target_inbox_id]
+                    if inbox_convs:
+                        conv_id = inbox_convs[0].get("id")
+                        if rc:
+                            await rc.set(f"cw_active_conv:{contact_id}", str(conv_id), ex=86400)
+                            await rc.aclose()
+                        return conv_id
+                    
+                    # Si no hay en este inbox pero ya tiene OTRA conversación abierta en Chatwoot, REUTILIZARLA para no duplicar
+                    any_open_convs = [c for c in convs if c.get("status") != "resolved"]
+                    if any_open_convs:
+                        conv_id = any_open_convs[0].get("id")
+                        logger.info(f"Reutilizando conversación abierta existente ID {conv_id} para contacto {contact_id}")
+                        if rc:
+                            await rc.set(f"cw_active_conv:{contact_id}", str(conv_id), ex=86400)
+                            await rc.aclose()
                         return conv_id
 
-            # 2. Crear conversación
+            # 2. Crear conversación si no hay ninguna abierta
             create_payload = {
                 "inbox_id": target_inbox_id,
                 "contact_id": contact_id,
@@ -97,15 +147,24 @@ class ChatwootService:
             }
             async with httpx.AsyncClient() as client:
                 create_url = f"{self.base_url}/api/v1/accounts/{self.account_id}/conversations"
-                resp = await client.post(create_url, json=create_payload, headers=headers, timeout=10.0)
+                resp = await client.post(create_url, json=create_payload, headers=headers, timeout=8.0)
                 if resp.status_code in [200, 201]:
                     conv_id = resp.json().get("id")
                     logger.info(f"Conversación creada en Chatwoot: ID {conv_id}")
+                    if rc:
+                        await rc.set(f"cw_active_conv:{contact_id}", str(conv_id), ex=86400)
+                        await rc.aclose()
                     return conv_id
                 else:
                     logger.error(f"Error al crear conversación en Chatwoot: {resp.status_code} - {resp.text}")
         except Exception as e:
             logger.error(f"Excepción en get_or_create_conversation: {str(e)}")
+        finally:
+            if rc:
+                try:
+                    await rc.aclose()
+                except Exception:
+                    pass
         return None
 
     async def post_message(self, conversation_id: int, content: str, is_private: bool = False, message_type: str = "incoming") -> bool:

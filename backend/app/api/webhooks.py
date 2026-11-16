@@ -82,6 +82,13 @@ async def _gateway_send_text(phone: str, message: str, phone_number_id: Optional
     clean_p = phone.replace("+", "").replace(" ", "").strip()
     norm_msg = (message or "").strip()
     
+    # Persistir inmediatamente en PostgreSQL
+    try:
+        from app.services import interactive_flow_service as flows
+        await flows._save_db_message(clean_p, message)
+    except Exception as db_err:
+        logger.debug(f"Error guardando mensaje en DB en _gateway_send_text: {db_err}")
+
     # Marcar firmas en Redis para evitar bucles o ecos cruzados entre WhatsApp y Chatwoot
     import hashlib
     sig = hashlib.md5(f"{clean_p}:{norm_msg}".encode()).hexdigest()
@@ -91,8 +98,9 @@ async def _gateway_send_text(phone: str, message: str, phone_number_id: Optional
         import os
         r_url = os.getenv("REDIS_URL", "redis://redis:6379/0")
         rc = aioredis.from_url(r_url)
-        await rc.set(f"cw_to_evo:{sig}", "1", ex=60)
-        await rc.set(f"wa_to_cw:{sig}", "1", ex=60)
+        await rc.set(f"cw_to_evo:{sig}", "1", ex=180)
+        await rc.set(f"bot_sent:{sig}", "1", ex=180)
+        await rc.set(f"wa_to_cw:{sig}", "1", ex=180)
         if not instance:
             inst_bytes = await rc.get(f"user_instance:{clean_p}")
             if inst_bytes:
@@ -132,6 +140,16 @@ async def _gateway_send_text(phone: str, message: str, phone_number_id: Optional
                 timeout=5.0
             )
             if evo_resp.status_code in [200, 201]:
+                try:
+                    evo_data = evo_resp.json()
+                    evo_id = evo_data.get("key", {}).get("id") if isinstance(evo_data, dict) else None
+                    if evo_id:
+                        rc = aioredis.from_url(r_url)
+                        await rc.set(f"cw_to_evo:{evo_id}", "1", ex=180)
+                        await rc.set(f"bot_sent:{evo_id}", "1", ex=180)
+                        await rc.aclose()
+                except Exception:
+                    pass
                 return
     except Exception as evo_e:
         logger.debug(f"Evolution send fallback ({target_instance}): {evo_e}")
@@ -282,6 +300,25 @@ async def receive_incoming_message(
 
     # ── 1. GESTIÓN Y AUDITORÍA DE LLAMADAS (AUDIO / VIDEO) ──
     event_name = str(raw_payload.get("event") or "").lower()
+    if event_name in ["messages.update", "messages_update", "message.update"]:
+        logger.debug(f"Evento de actualización de estado ignorado: {event_name}")
+        return {"status": "ignored_message_update"}
+
+    # Extraer ID del mensaje para deduplicación atómica inmediata
+    msg_id_val = None
+    if "data" in raw_payload and isinstance(raw_payload["data"], dict):
+        msg_id_val = raw_payload["data"].get("key", {}).get("id")
+    elif "key" in raw_payload and isinstance(raw_payload["key"], dict):
+        msg_id_val = raw_payload["key"].get("id")
+    elif "message_id" in raw_payload:
+        msg_id_val = raw_payload.get("message_id")
+    
+    if msg_id_val:
+        is_new_webhook = await redis_client.set(f"evo_msg_seen:{msg_id_val}", "1", ex=300, nx=True)
+        if not is_new_webhook:
+            logger.info(f"Webhook duplicado ignorado de inmediato: {msg_id_val}")
+            return {"status": "duplicate_webhook"}
+
     if "call" in event_name or raw_payload.get("event") in ["CALL", "call", "CALL_UPSERT"]:
         call_items = raw_payload.get("data", [])
         if isinstance(call_items, dict):
@@ -470,9 +507,12 @@ async def receive_incoming_message(
             msg_sig = hashlib.md5(f"{phone}:{norm_text}".encode()).hexdigest()
             
             # Si fue originado por Chatwoot o el bot, ignorar eco
-            if await redis_client.get(f"cw_to_evo:{msg_sig}") or (msg_id_val and await redis_client.get(f"cw_to_evo:{msg_id_val}")):
-                logger.info(f"Mensaje saliente confirmado de WhatsApp (eco de Chatwoot): {msg_id_val}")
-                return {"status": "ignored_echo_chatwoot"}
+            if (await redis_client.get(f"cw_to_evo:{msg_sig}") or 
+                (msg_id_val and await redis_client.get(f"cw_to_evo:{msg_id_val}")) or
+                await redis_client.get(f"bot_sent:{msg_sig}") or
+                (msg_id_val and await redis_client.get(f"bot_sent:{msg_id_val}"))):
+                logger.info(f"Mensaje saliente confirmado del bot/Chatwoot (eco descartado): {msg_id_val}")
+                return {"status": "ignored_echo_bot"}
 
             logger.info(f"Mensaje saliente manual detectado desde WhatsApp ({phone}): {extracted_text[:50]}")
             # Registrar para que cuando Chatwoot emita su webhook no lo devuelva a WhatsApp
@@ -583,6 +623,16 @@ async def receive_incoming_message(
         await redis_client.set(msg_id_key, "1", ex=3600)
 
     sanitized = sanitize_user_input(payload.message)
+    clean_p = payload.phone.replace("+", "").replace(" ", "").strip()
+
+    # Control anti-ráfaga: descartar mensajes entrantes idénticos recibidos en ráfaga (menos de 4s)
+    if sanitized:
+        import hashlib
+        in_sig = hashlib.md5(f"{clean_p}:{sanitized.strip()}".encode()).hexdigest()
+        is_new_in = await redis_client.set(f"inbound_sig:{in_sig}", "1", ex=4, nx=True)
+        if not is_new_in:
+            logger.info(f"Mensaje entrante idéntico recibido en ráfaga (descartado): {clean_p} -> {sanitized[:30]}")
+            return {"status": "ignored_inbound_burst"}
 
     # ── Registrar métricas de mensajes entrantes y tiempo de espera para FRT ──
     try:
@@ -738,6 +788,23 @@ async def receive_incoming_message(
 
     # ── 2. Interactive Reply Routing ───────────────────────────
     interactive_id = payload.metadata.get("interactive_id", "")
+    clean_p = payload.phone.replace("+", "").replace(" ", "").strip()
+    
+    # 2.1 Mapeo Dinámico de Opciones Numeradas (1, 2, 3) o Títulos de Botones
+    if not interactive_id and sanitized:
+        stripped_input = sanitized.strip().rstrip(".")
+        # A. Verificar si digitó el número de una opción interactiva previa
+        dyn_act = await redis_client.get(f"btn_opt:{clean_p}:{stripped_input}")
+        if dyn_act:
+            interactive_id = dyn_act.decode('utf-8') if isinstance(dyn_act, bytes) else str(dyn_act)
+            logger.info(f"Opción numérica mapeada a interactive_id: {sanitized} -> {interactive_id}")
+            await redis_client.delete(f"btn_opt:{clean_p}:{stripped_input}")
+        else:
+            # B. Verificar si digitó el texto del botón (ej: 'más preguntas', 'hablar con asesor')
+            dyn_act_title = await redis_client.get(f"btn_title:{clean_p}:{sanitized.lower().strip()}")
+            if dyn_act_title:
+                interactive_id = dyn_act_title.decode('utf-8') if isinstance(dyn_act_title, bytes) else str(dyn_act_title)
+                logger.info(f"Título mapeado a interactive_id: {sanitized} -> {interactive_id}")
 
     if interactive_id:
         logger.info(f"Interactive reply: id={interactive_id} text={sanitized}")
