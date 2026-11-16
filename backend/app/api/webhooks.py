@@ -768,7 +768,23 @@ async def receive_incoming_message(
     # ── 1. Active Handoff Lock ─────────────────────────────────
     clean_check = sanitized.lower().strip()
     reset_keywords = ["hola", "buenas", "buenos dias", "buenas tardes", "buenas noches", "menu", "menú", "inicio", "start", "bot", "reiniciar"]
-    if any(clean_check.startswith(kw) or clean_check == kw for kw in reset_keywords):
+
+    # Auto-expiración de atención humana tras inactividad prolongada (12 horas)
+    is_handoff_expired = False
+    if conv.status in ["waiting_agent", "assigned", "human_active", "handed_over"] and conv.last_activity_at:
+        try:
+            from datetime import datetime, timezone
+            now_dt = datetime.now(timezone.utc)
+            last_dt = conv.last_activity_at
+            if last_dt.tzinfo is None:
+                last_dt = last_dt.replace(tzinfo=timezone.utc)
+            if (now_dt - last_dt).total_seconds() > 43200:  # 12 horas de inactividad
+                is_handoff_expired = True
+                logger.info(f"Atención humana expirada tras 12h de inactividad ({conv.phone_hash}). Reactivando bot como capa 1.")
+        except Exception as ex_err:
+            logger.debug(f"Error calculando expiración de handoff: {ex_err}")
+
+    if is_handoff_expired or any(clean_check.startswith(kw) or clean_check == kw for kw in reset_keywords):
         conv.status = "bot_active"
         await db.commit()
     elif conv.status in ["waiting_agent", "assigned", "human_active", "handed_over"]:
