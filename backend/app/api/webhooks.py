@@ -492,14 +492,6 @@ async def receive_incoming_message(
         if interactive_id:
             metadata["interactive_id"] = interactive_id
 
-        # Deduplicación general de webhook por ID de mensaje de WhatsApp
-        msg_id_val = key.get("id")
-        if msg_id_val:
-            is_new_webhook = await redis_client.set(f"evo_msg_seen:{msg_id_val}", "1", ex=300, nx=True)
-            if not is_new_webhook:
-                logger.info(f"Webhook duplicado ignorado de Evolution: {msg_id_val}")
-                return {"status": "duplicate_webhook"}
-
         # Sincronización viceversa: Mensajes salientes desde WhatsApp Móvil o WhatsApp Web
         if key.get("fromMe", False):
             import hashlib
@@ -629,7 +621,7 @@ async def receive_incoming_message(
     if sanitized:
         import hashlib
         in_sig = hashlib.md5(f"{clean_p}:{sanitized.strip()}".encode()).hexdigest()
-        is_new_in = await redis_client.set(f"inbound_sig:{in_sig}", "1", ex=4, nx=True)
+        is_new_in = await redis_client.set(f"inbound_sig:{in_sig}", "1", ex=2, nx=True)
         if not is_new_in:
             logger.info(f"Mensaje entrante idéntico recibido en ráfaga (descartado): {clean_p} -> {sanitized[:30]}")
             return {"status": "ignored_inbound_burst"}
@@ -1098,7 +1090,7 @@ async def receive_incoming_message(
     if any(clean_msg.startswith(g) or clean_msg == g for g in greeting_words):
         clean_p = payload.phone.replace("+", "").replace(" ", "").strip()
         # Control anti-ráfaga: evitar que mensajes acumulados o múltiples 'hola' seguidos disparen doble respuesta
-        can_send_welcome = await redis_client.set(f"cooldown_welcome:{clean_p}", "1", ex=20, nx=True)
+        can_send_welcome = await redis_client.set(f"cooldown_welcome:{clean_p}", "1", ex=3, nx=True)
         if not can_send_welcome:
             logger.info(f"Saludo repetido/acumulado amortiguado para {clean_p} (anti-ráfaga activo)")
             return {"status": "ignored_welcome_debounce"}
@@ -1126,7 +1118,7 @@ async def receive_incoming_message(
     ]
     if any(clean_msg == k or clean_msg.startswith(k) for k in direct_advisor_keywords) or clean_msg in ["6", "6."]:
         clean_p = payload.phone.replace("+", "").replace(" ", "").strip()
-        can_send_advisor = await redis_client.set(f"cooldown_advisor:{clean_p}", "1", ex=15, nx=True)
+        can_send_advisor = await redis_client.set(f"cooldown_advisor:{clean_p}", "1", ex=3, nx=True)
         if not can_send_advisor:
             logger.info(f"Petición de asesor duplicada en ráfaga para {clean_p} (amortiguada)")
             return {"status": "ignored_advisor_debounce"}
