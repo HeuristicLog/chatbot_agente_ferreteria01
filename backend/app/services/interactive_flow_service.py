@@ -144,8 +144,105 @@ async def _send_evolution_text(phone: str, text: str, instance: Optional[str] = 
     return False
 
 # ─────────────────────────────────────────────
-# HELPERS — Enviar mensajes al Gateway / Evolution
+# HELPERS — Enviar mensajes al Gateway / Evolution / Meta Cloud
 # ─────────────────────────────────────────────
+
+async def _send_meta_text(phone: str, message: str, phone_number_id: Optional[str] = None, access_token: Optional[str] = None) -> bool:
+    """Envía mensaje de texto directamente por Meta WhatsApp Cloud API."""
+    from app.config import settings
+    token = access_token or settings.WHATSAPP_ACCESS_TOKEN
+    pid = phone_number_id or settings.WHATSAPP_PHONE_NUMBER_ID or "1508804275641424"
+    if not token or not pid:
+        return False
+    clean_p = phone.replace("+", "").replace(" ", "").strip()
+    url = f"https://graph.facebook.com/v22.0/{pid}/messages"
+    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+    payload = {
+        "messaging_product": "whatsapp",
+        "recipient_type": "individual",
+        "to": clean_p,
+        "type": "text",
+        "text": {"body": message}
+    }
+    try:
+        async with httpx.AsyncClient(timeout=8.0) as client:
+            r = await client.post(url, json=payload, headers=headers)
+            if r.status_code in [200, 201]:
+                logger.info(f"Texto Meta Cloud API enviado a {clean_p}: {r.status_code}")
+                return True
+            else:
+                logger.warning(f"Error Meta texto {clean_p}: {r.status_code} {r.text}")
+    except Exception as e:
+        logger.error(f"Excepción enviando texto a Meta: {e}")
+    return False
+
+async def _send_meta_buttons(phone: str, body: str, buttons: list, header: str = "", footer: str = "", phone_number_id: Optional[str] = None, access_token: Optional[str] = None) -> bool:
+    """Envía botones o lista interactiva nativa directamente por Meta WhatsApp Cloud API."""
+    from app.config import settings
+    token = access_token or settings.WHATSAPP_ACCESS_TOKEN
+    pid = phone_number_id or settings.WHATSAPP_PHONE_NUMBER_ID or "1508804275641424"
+    if not token or not pid:
+        return False
+    
+    clean_p = phone.replace("+", "").replace(" ", "").strip()
+    url = f"https://graph.facebook.com/v22.0/{pid}/messages"
+    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+    
+    if 1 <= len(buttons) <= 3:
+        btn_objs = []
+        for idx, b in enumerate(buttons):
+            bid = b.get("id", f"btn_{idx}")
+            btitle = b.get("title", "")[:20]
+            btn_objs.append({"type": "reply", "reply": {"id": bid, "title": btitle}})
+        
+        interactive_data = {
+            "type": "button",
+            "body": {"text": body[:1024]},
+            "action": {"buttons": btn_objs}
+        }
+        if header:
+            interactive_data["header"] = {"type": "text", "text": header[:60]}
+        if footer:
+            interactive_data["footer"] = {"text": footer[:60]}
+    else:
+        rows = []
+        for idx, b in enumerate(buttons):
+            rid = b.get("id", f"row_{idx}")
+            rtitle = b.get("title", "")[:24]
+            rdesc = b.get("description", "Seleccionar opción")[:72]
+            rows.append({"id": rid, "title": rtitle, "description": rdesc})
+        
+        interactive_data = {
+            "type": "list",
+            "body": {"text": body[:1024]},
+            "action": {
+                "button": "Ver Opciones",
+                "sections": [{"title": "Opciones Disponibles", "rows": rows}]
+            }
+        }
+        if header:
+            interactive_data["header"] = {"type": "text", "text": header[:60]}
+        if footer:
+            interactive_data["footer"] = {"text": footer[:60]}
+
+    payload = {
+        "messaging_product": "whatsapp",
+        "recipient_type": "individual",
+        "to": clean_p,
+        "type": "interactive",
+        "interactive": interactive_data
+    }
+    try:
+        async with httpx.AsyncClient(timeout=8.0) as client:
+            r = await client.post(url, json=payload, headers=headers)
+            if r.status_code in [200, 201]:
+                logger.info(f"Botones interactivos Meta enviados a {clean_p}: {r.status_code}")
+                return True
+            else:
+                logger.warning(f"Error Meta interactivo {clean_p}: {r.status_code} {r.text}")
+    except Exception as e:
+        logger.error(f"Excepción enviando interactivo a Meta: {e}")
+    return False
 
 async def _send(phone: str, message: str, internal_key: str, phone_number_id: Optional[str] = None):
     """Envía un mensaje de texto simple y lo guarda en base de datos."""
@@ -161,7 +258,11 @@ async def _send(phone: str, message: str, internal_key: str, phone_number_id: Op
     except Exception as cw_err:
         logger.error(f"Error sincronizando salida de texto del bot con Chatwoot en _send: {cw_err}")
 
-    # 1. Intentar despacho directo por Evolution API (WhatsApp Baileys QR)
+    # 1. Si está activo Meta Cloud API (token presente), enviar directo por Graph API
+    if await _send_meta_text(phone, message, phone_number_id=phone_number_id):
+        return
+
+    # 2. Intentar despacho por Evolution API (WhatsApp Baileys QR)
     if await _send_evolution_text(phone, message, phone_number_id=phone_number_id):
         return
 
@@ -278,7 +379,12 @@ async def _send_buttons(phone: str, body: str, buttons: list, header: str = "", 
     except Exception:
         pass
 
-    # 1. Intentar despacho como botones/lista nativa de WhatsApp en Evolution API
+    # 1. Si está activo Meta Cloud API (token presente), enviar botones o lista nativa por Graph API
+    if await _send_meta_buttons(phone, body, buttons, header=header, footer=footer, phone_number_id=phone_number_id):
+        await _save_db_message(phone, f"[{header}] {body}")
+        return
+
+    # 2. Intentar despacho como botones/lista nativa de WhatsApp en Evolution API
     if await _send_evolution_buttons(phone, body, buttons, header=header, footer=footer, phone_number_id=phone_number_id):
         # Guardar en base de datos
         await _save_db_message(phone, f"[{header}] {body}")

@@ -119,7 +119,12 @@ async def _gateway_send_text(phone: str, message: str, phone_number_id: Optional
         except Exception as cw_err:
             logger.error(f"Error sincronizando salida de texto del bot con Chatwoot: {cw_err}")
 
-    # 1. Si viene con credenciales explícitas de Meta Cloud (phone_number_id y access_token)
+    # 1. Si está activo Meta Cloud API (token presente), enviar directo por Graph API
+    from app.services.interactive_flow_service import _send_meta_text
+    if await _send_meta_text(phone, message, phone_number_id=phone_number_id, access_token=access_token):
+        return
+
+    # 2. Si viene con credenciales explícitas de Meta Cloud y Gateway
     if phone_number_id and access_token:
         headers = {"X-Internal-API-Key": internal_api_key}
         payload = {"phone": phone, "message": message, "phone_number_id": phone_number_id, "access_token": access_token}
@@ -169,7 +174,12 @@ async def _gateway_send_text(phone: str, message: str, phone_number_id: Optional
         logger.error(f"Gateway send_text error: {e}")
 
 async def _gateway_send_media(phone: str, media_type: str, media_url: str, caption: str = "", phone_number_id: Optional[str] = None, access_token: Optional[str] = None, instance: Optional[str] = None):
-    # 1. Si viene con credenciales explícitas de Meta Cloud (phone_number_id y access_token)
+    # 1. Si está activo Meta Cloud API (token presente), enviar directo por Graph API
+    from app.services.interactive_flow_service import _send_meta_text
+    if await _send_meta_text(phone, message, phone_number_id=phone_number_id, access_token=access_token):
+        return
+
+    # 2. Si viene con credenciales explícitas de Meta Cloud y Gateway
     if phone_number_id and access_token:
         headers = {"X-Internal-API-Key": internal_api_key}
         payload = {"phone": phone, "media_type": media_type, "media_url": media_url, "caption": caption, "phone_number_id": phone_number_id, "access_token": access_token}
@@ -319,6 +329,81 @@ async def receive_incoming_message(
 ):
     session_service = SessionService(db, redis_client)
     ai_service = LangChainService()
+
+    # ── 0. PARSER META CLOUD API OFICIAL (Formato entry / changes / messages) ──
+    if "entry" in raw_payload and isinstance(raw_payload["entry"], list):
+        for entry_item in raw_payload["entry"]:
+            for change in entry_item.get("changes", []):
+                val = change.get("value", {})
+                
+                # Ignorar notificaciones de entrega/lectura (statuses)
+                if "statuses" in val and not val.get("messages"):
+                    logger.debug("Meta status update (delivered/read/sent) ignorado")
+                    return {"status": "meta_status_ignored"}
+                
+                messages = val.get("messages", [])
+                if not messages:
+                    return {"status": "meta_no_messages"}
+                
+                msg = messages[0]
+                phone = str(msg.get("from", "")).replace("+", "").replace(" ", "").strip()
+                msg_id = msg.get("id")
+                meta_data = val.get("metadata", {})
+                phone_number_id = meta_data.get("phone_number_id", settings.WHATSAPP_PHONE_NUMBER_ID or "1508804275641424")
+                
+                extracted_text = ""
+                interactive_id = ""
+                msg_type = msg.get("type", "text")
+                
+                if msg_type == "text":
+                    extracted_text = msg.get("text", {}).get("body", "")
+                elif msg_type == "interactive":
+                    inter_obj = msg.get("interactive", {})
+                    i_type = inter_obj.get("type")
+                    if i_type == "button_reply":
+                        btn_reply = inter_obj.get("button_reply", {})
+                        interactive_id = btn_reply.get("id", "")
+                        extracted_text = btn_reply.get("title", "") or interactive_id
+                    elif i_type == "list_reply":
+                        list_reply = inter_obj.get("list_reply", {})
+                        interactive_id = list_reply.get("id", "")
+                        extracted_text = list_reply.get("title", "") or interactive_id
+                    elif i_type == "nfm_reply":
+                        flow_resp = inter_obj.get("nfm_reply", {}).get("response_json", "{}")
+                        extracted_text = flow_resp
+                        interactive_id = "flow_completed"
+                elif msg_type == "button":
+                    btn_obj = msg.get("button", {})
+                    extracted_text = btn_obj.get("text", "")
+                    interactive_id = btn_obj.get("payload", "") or extracted_text
+                
+                # Mapear botones de plantilla o texto directo como "Ver Catálogo" o "Solicitar Proforma"
+                if not interactive_id and extracted_text:
+                    norm_e = extracted_text.lower().strip()
+                    if "catálogo" in norm_e or "catalogo" in norm_e:
+                        interactive_id = "flow_catalogo"
+                    elif "proforma" in norm_e or "cotiz" in norm_e:
+                        interactive_id = "flow_catalogo"
+                    elif "asesor" in norm_e or "humano" in norm_e:
+                        interactive_id = "flow_asesor"
+                    elif "carrito" in norm_e:
+                        interactive_id = "cart_view"
+                
+                metadata = {
+                    "provider": "meta",
+                    "phone_number_id": phone_number_id,
+                    "meta_msg_id": msg_id
+                }
+                if interactive_id:
+                    metadata["interactive_id"] = interactive_id
+                
+                raw_payload = {
+                    "phone": phone,
+                    "message": extracted_text or (f"[Acción: {interactive_id}]" if interactive_id else "Hola"),
+                    "message_id": msg_id,
+                    "metadata": metadata
+                }
+                break
 
     # ── 1. GESTIÓN Y AUDITORÍA DE LLAMADAS (AUDIO / VIDEO) ──
     event_name = str(raw_payload.get("event") or "").lower()
