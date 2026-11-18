@@ -443,26 +443,90 @@ async def _send_buttons(phone: str, body: str, buttons: list, header: str = "", 
     except Exception as e:
         logger.debug(f"Gateway send_buttons fallback error: {e}")
 
-async def _send_list(phone: str, body: str, button_text: str, sections: list, header: str = "", footer: str = "", internal_key: str = "change_me", phone_number_id: Optional[str] = None):
-    """Envía mensaje con lista de opciones numeradas y limpias."""
+async def _send_meta_list(phone: str, body: str, button_text: str, sections: list, header: str = "", footer: str = "", phone_number_id: Optional[str] = None, access_token: Optional[str] = None) -> bool:
+    """Envía un menú interactivo tipo LIST nativo de Meta WhatsApp Cloud API."""
+    from app.config import settings
+    token = access_token or settings.WHATSAPP_ACCESS_TOKEN
+    pid = phone_number_id or settings.WHATSAPP_PHONE_NUMBER_ID or "1508804275641424"
+    if not token or not pid:
+        return False
     clean_p = phone.replace("+", "").replace(" ", "").strip()
+    url = f"https://graph.facebook.com/v22.0/{pid}/messages"
+    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+    
+    meta_sections = []
+    for sec in sections:
+        rows = []
+        for r in sec.get("rows", []):
+            rid = str(r.get("id", ""))[:200]
+            rtitle = str(r.get("title", ""))[:24]
+            rdesc = str(r.get("description", ""))[:72] if r.get("description") else None
+            row_dict = {"id": rid, "title": rtitle}
+            if rdesc:
+                row_dict["description"] = rdesc
+            rows.append(row_dict)
+        if rows:
+            meta_sections.append({
+                "title": str(sec.get("title", "Opciones"))[:24],
+                "rows": rows
+            })
+            
+    interactive_data = {
+        "type": "list",
+        "body": {"text": body[:1024]},
+        "action": {
+            "button": (button_text or "Ver Opciones")[:20],
+            "sections": meta_sections
+        }
+    }
+    if header:
+        interactive_data["header"] = {"type": "text", "text": header[:60]}
+    if footer:
+        interactive_data["footer"] = {"text": footer[:60]}
+        
+    payload = {
+        "messaging_product": "whatsapp",
+        "recipient_type": "individual",
+        "to": clean_p,
+        "type": "interactive",
+        "interactive": interactive_data
+    }
+    try:
+        async with httpx.AsyncClient(timeout=8.0) as client:
+            r = await client.post(url, json=payload, headers=headers)
+            if r.status_code in [200, 201]:
+                logger.info(f"Lista interactiva Meta enviada exitosamente a {clean_p}: {r.status_code}")
+                return True
+            else:
+                logger.warning(f"Error enviando lista interactiva Meta a {clean_p}: {r.status_code} {r.text}")
+    except Exception as e:
+        logger.error(f"Excepción enviando lista interactiva Meta: {e}")
+    return False
+
+async def _send_list(phone: str, body: str, button_text: str, sections: list, header: str = "", footer: str = "", internal_key: str = "change_me", phone_number_id: Optional[str] = None):
+    """Envía mensaje con lista de opciones 100% interactiva sin números ni URLs externas."""
+    clean_p = phone.replace("+", "").replace(" ", "").strip()
+    
+    # 1. Si está activo Meta Cloud API, despachar lista interactiva nativa por Graph API
+    if await _send_meta_list(phone, body, button_text, sections, header=header, footer=footer, phone_number_id=phone_number_id):
+        await _save_db_message(phone, f"[{header}] {body}")
+        return
+
     sec_lines = []
     opt_idx = 1
     
-    # Guardar en Redis mapeo temporal (opción digitada -> ID de categoría o producto)
+    # Guardar en Redis mapeo temporal inteligente
     try:
         import redis.asyncio as aioredis
         import os
         r_url = os.getenv("REDIS_URL", "redis://redis:6379/0")
         rc = aioredis.from_url(r_url)
         for sec in sections:
-            if sec.get('title'):
-                sec_lines.append(f"📋 *{sec.get('title')}*")
             for row in sec.get('rows', []):
-                desc = f" — _{row.get('description')}_" if row.get('description') else ""
                 row_id = row.get('id', str(opt_idx))
                 await rc.set(f"btn_opt:{clean_p}:{opt_idx}", row_id, ex=900)
-                sec_lines.append(f"*{opt_idx}.* {row.get('title')}{desc}")
+                clean_t = row.get('title', '').lower().strip()
+                await rc.set(f"btn_title:{clean_p}:{clean_t}", row_id, ex=900)
                 opt_idx += 1
         await rc.aclose()
     except Exception:
@@ -672,35 +736,14 @@ async def send_faq_menu(phone: str, internal_key: str, phone_number_id: Optional
     )
 
 async def send_catalog_flow(phone: str, internal_key: str, phone_number_id: Optional[str] = None):
-    """Alias para enviar el catálogo interactivo."""
-    return await send_catalog_link(phone, internal_key, phone_number_id=phone_number_id)
+    """Muestra el catálogo 100% por flujos en WhatsApp sin enlaces externos."""
+    from app.services import in_chat_cart_service as in_chat_cart
+    return await in_chat_cart.send_categories_menu(phone, internal_key, phone_number_id=phone_number_id)
 
 async def send_catalog_link(phone: str, internal_key: str, phone_number_id: Optional[str] = None, sucursal: Optional[str] = "Centro"):
-    """Envía el enlace al catálogo interactivo y opciones de categorías rápidas."""
-    import os
-    clean_phone = phone.replace("+", "").replace(" ", "").strip()
-    ngrok_url = os.getenv("CATALOG_BASE_URL", "https://bot.autoeconomotors.com")
-    catalog_url = f"{ngrok_url}/catalogo?phone={clean_phone}&sucursal={sucursal or 'Centro'}"
-    
-    body = (
-        "🛍️ *Catálogo Ferretería Castor*\n\n"
-        f"Abre la tienda online aquí:\n👉 {catalog_url}\n\n"
-        "O explora una categoría rápida:"
-    )
-    buttons = [
-        {"id": "cat_herramientas_elec", "title": "⚡ Eléctricas"},
-        {"id": "cat_construccion",      "title": "🏗️ Construcción"},
-        {"id": "flow_asesor",           "title": "👨‍💼 Asesor"},
-        {"id": "menu_inicio",           "title": "🏠 Menú"}
-    ]
-    await _send_buttons(
-        phone=phone,
-        body=body,
-        buttons=buttons,
-        footer="Responde 1, 2, 3 o 4",
-        internal_key=internal_key,
-        phone_number_id=phone_number_id
-    )
+    """Muestra el catálogo 100% por flujos en WhatsApp sin enlaces externos."""
+    from app.services import in_chat_cart_service as in_chat_cart
+    return await in_chat_cart.send_categories_menu(phone, internal_key, phone_number_id=phone_number_id)
 
 async def send_faq_list(phone: str, internal_key: str, phone_number_id: Optional[str] = None):
     """Lista de categorías de preguntas frecuentes."""

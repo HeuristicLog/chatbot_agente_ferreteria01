@@ -1011,10 +1011,11 @@ async def receive_incoming_message(
             return {"status": "processed"}
             return {"status": "processed"}
 
-        # ── Flujo: Catálogo Oficial (Pantalla emergente Webview)
+        # ── Flujo: Catálogo Oficial (100% Interactivo en WhatsApp por Categorías)
         if interactive_id in ["flow_catalogo", "auto_view_vitrina"]:
             await clear_flow_state(redis_client, payload.phone)
-            await flows.send_catalog_link(payload.phone, internal_api_key, phone_number_id=dest_phone_number_id)
+            from app.services import in_chat_cart_service as in_chat_cart
+            await in_chat_cart.send_categories_menu(payload.phone, internal_api_key, phone_number_id=dest_phone_number_id)
             await save_message(db, conv.id, "outbound", "assistant", "Catálogo interactivo enviado")
             return {"status": "processed"}
 
@@ -1048,7 +1049,44 @@ async def receive_incoming_message(
             await in_chat_cart.send_cart_view(payload.phone, redis_client, internal_api_key, phone_number_id=dest_phone_number_id)
             return {"status": "processed"}
 
-        # ── Carrito: Vaciar Carrito
+        # ── Carrito: Menú Modificar Artículos
+        if interactive_id == "cart_manage_items":
+            from app.services import in_chat_cart_service as in_chat_cart
+            await in_chat_cart.send_cart_management_menu(payload.phone, redis_client, internal_api_key, phone_number_id=dest_phone_number_id)
+            return {"status": "processed"}
+
+        # ── Carrito: Editar Artículo Específico
+        if interactive_id.startswith("cart_edit_"):
+            sku = interactive_id.replace("cart_edit_", "")
+            from app.services import in_chat_cart_service as in_chat_cart
+            await in_chat_cart.send_cart_item_editor(payload.phone, sku, redis_client, internal_api_key, phone_number_id=dest_phone_number_id)
+            return {"status": "processed"}
+
+        # ── Carrito: Incrementar Cantidad (+1)
+        if interactive_id.startswith("cart_inc_"):
+            sku = interactive_id.replace("cart_inc_", "")
+            from app.services import in_chat_cart_service as in_chat_cart
+            await in_chat_cart.update_item_quantity(redis_client, payload.phone, sku, +1)
+            await in_chat_cart.send_cart_view(payload.phone, redis_client, internal_api_key, phone_number_id=dest_phone_number_id)
+            return {"status": "processed"}
+
+        # ── Carrito: Decrementar Cantidad (-1)
+        if interactive_id.startswith("cart_dec_"):
+            sku = interactive_id.replace("cart_dec_", "")
+            from app.services import in_chat_cart_service as in_chat_cart
+            await in_chat_cart.update_item_quantity(redis_client, payload.phone, sku, -1)
+            await in_chat_cart.send_cart_view(payload.phone, redis_client, internal_api_key, phone_number_id=dest_phone_number_id)
+            return {"status": "processed"}
+
+        # ── Carrito: Eliminar Artículo Específico
+        if interactive_id.startswith("cart_del_"):
+            sku = interactive_id.replace("cart_del_", "")
+            from app.services import in_chat_cart_service as in_chat_cart
+            await in_chat_cart.remove_item_from_cart(redis_client, payload.phone, sku)
+            await in_chat_cart.send_cart_view(payload.phone, redis_client, internal_api_key, phone_number_id=dest_phone_number_id)
+            return {"status": "processed"}
+
+        # ── Carrito: Vaciar Carrito Completo
         if interactive_id == "cart_clear":
             from app.services import in_chat_cart_service as in_chat_cart
             await in_chat_cart.clear_cart(redis_client, payload.phone)

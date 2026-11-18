@@ -80,6 +80,31 @@ async def add_item_to_cart(redis_client: Any, phone: str, sku: str, quantity: in
         await save_cart(redis_client, phone, cart)
         return {"product": product, "quantity": new_qty, "cart": cart}
 
+async def update_item_quantity(redis_client: Any, phone: str, sku: str, delta: int) -> Dict[str, Any]:
+    """Modifica la cantidad de un artículo en el carrito (+1 o -1). Si la cantidad es <= 0, se elimina."""
+    cart = await get_cart(redis_client, phone)
+    items = cart.get("items", {})
+    if sku in items:
+        new_qty = items[sku]["quantity"] + delta
+        if new_qty <= 0:
+            del items[sku]
+        else:
+            items[sku]["quantity"] = new_qty
+            items[sku]["subtotal"] = round(float(items[sku]["price"]) * new_qty, 2)
+        cart["items"] = items
+        await save_cart(redis_client, phone, cart)
+    return cart
+
+async def remove_item_from_cart(redis_client: Any, phone: str, sku: str) -> Dict[str, Any]:
+    """Elimina completamente un artículo específico del carrito."""
+    cart = await get_cart(redis_client, phone)
+    items = cart.get("items", {})
+    if sku in items:
+        del items[sku]
+        cart["items"] = items
+        await save_cart(redis_client, phone, cart)
+    return cart
+
 # ─── MENSAJES INTERACTIVOS NATIVOS ──────────────────────────────
 
 async def send_categories_menu(phone: str, internal_key: str, phone_number_id: Optional[str] = None):
@@ -291,15 +316,15 @@ async def handle_add_to_cart(phone: str, sku: str, quantity: int, redis_client: 
     )
 
 async def send_cart_view(phone: str, redis_client: Any, internal_key: str, phone_number_id: Optional[str] = None):
-    """Muestra el carrito de compras en el chat con opción de checkout, cancelar o navegar."""
+    """Muestra el carrito de compras en el chat con opción de checkout, modificar artículos, cancelar o navegar."""
     cart = await get_cart(redis_client, phone)
     items = list(cart.get("items", {}).values())
 
     if not items:
-        # Pre-cargar simulación de carrito de compras listo para cotizar
+        # Pre-cargar simulación inicial solo si el carrito no existía previamente
         items = [
-            {"id": "1", "sku": "HER-ELEC-001", "name": "Taladro Percutor DeWalt 710W", "price": 89.99, "quantity": 1, "subtotal": 89.99},
-            {"id": "2", "sku": "HER-MAN-002", "name": "Juego de Brocas Titanio Stanley", "price": 14.50, "quantity": 1, "subtotal": 14.50}
+            {"id": "1", "sku": "HER-ROT-004", "name": "Rotomartillo Makita 800W", "price": 145.00, "quantity": 1, "subtotal": 145.00},
+            {"id": "2", "sku": "MAN-LLV-005", "name": "Juego de Llaves Stanley 12 Pzas", "price": 28.50, "quantity": 1, "subtotal": 28.50}
         ]
         cart["items"] = {it["sku"]: it for it in items}
         await save_cart(redis_client, phone, cart)
@@ -309,28 +334,30 @@ async def send_cart_view(phone: str, redis_client: Any, internal_key: str, phone
     for i, it in enumerate(items, 1):
         item_sub = Decimal(str(it["subtotal"]))
         subtotal += item_sub
-        lines.append(f"• *{it['quantity']}x {it['name']}* (${item_sub:.2f})")
+        lines.append(f"{i}️⃣ *{it['name']}*\n   Cantidad: *{it['quantity']} unid.* | Subtotal: *${item_sub:.2f}*")
 
-    items_text = "\n".join(lines)
+    items_text = "\n\n".join(lines)
     tax = (subtotal * Decimal("0.15")).quantize(Decimal("0.01"))
     total = subtotal + tax
 
     body = (
         f"🛒 *TU CARRITO DE COMPRAS* 🦫\n"
         f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"{items_text}\n\n"
+        f"{items_text}\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"📦 *Artículos:* {len(items)} productos\n"
         f"💵 *Subtotal:* ${subtotal:.2f}\n"
         f"📊 *IVA (15%):* ${tax:.2f}\n"
-        f"💰 *TOTAL A PAGAR:* *${total:.2f}*\n"
+        f"💰 *TOTAL A PAGAR:* *${total:.2f} USD*\n"
         f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"¿Deseas confirmar tu compra o cancelar?"
+        f"Selecciona una opción para continuar:"
     )
 
     buttons = [
-        {"id": "checkout_start", "title": "💳 Ir a Pagar"},
-        {"id": "cart_clear",     "title": "❌ Cancelar Pedido"},
-        {"id": "flow_catalogo",  "title": "🛍️ Ver Catálogo"},
-        {"id": "menu_inicio",    "title": "🏠 Inicio"}
+        {"id": "checkout_start",    "title": "💳 Ir a Pagar"},
+        {"id": "cart_manage_items", "title": "✏️ Modificar Artículos"},
+        {"id": "flow_catalogo",     "title": "🛍️ Agregar Más"},
+        {"id": "menu_inicio",       "title": "🏠 Inicio"}
     ]
 
     await flows._send_buttons(
@@ -338,6 +365,84 @@ async def send_cart_view(phone: str, redis_client: Any, internal_key: str, phone
         body=body,
         buttons=buttons,
         footer="Toca una opción para continuar",
+        internal_key=internal_key,
+        phone_number_id=phone_number_id
+    )
+
+async def send_cart_management_menu(phone: str, redis_client: Any, internal_key: str, phone_number_id: Optional[str] = None):
+    """Muestra la lista de artículos del carrito para seleccionar cuál editar o eliminar."""
+    cart = await get_cart(redis_client, phone)
+    items = list(cart.get("items", {}).values())
+    if not items:
+        await send_cart_view(phone, redis_client, internal_key, phone_number_id=phone_number_id)
+        return
+
+    rows = []
+    for it in items:
+        sku = it["sku"]
+        rows.append({
+            "id": f"cart_edit_{sku}",
+            "title": it["name"][:24],
+            "description": f"{it['quantity']} unid. • ${float(it['subtotal']):.2f}"[:72]
+        })
+    
+    sections = [
+        {
+            "title": "Toca un producto para editar",
+            "rows": rows
+        },
+        {
+            "title": "Acciones Generales",
+            "rows": [
+                {"id": "cart_clear", "title": "🗑️ Vaciar Carrito", "description": "Eliminar todos los productos"},
+                {"id": "cart_view",  "title": "🔙 Volver al Carrito", "description": "Regresar a la vista previa"}
+            ]
+        }
+    ]
+    body = (
+        "✏️ *MODIFICAR ARTÍCULOS DEL CARRITO* 🦫\n"
+        "━━━━━━━━━━━━━━━━━━━━\n"
+        "Toca el producto que deseas aumentar (+1), reducir (-1) o eliminar de tu pedido:"
+    )
+    await flows._send_list(
+        phone=phone,
+        body=body,
+        button_text="Seleccionar Producto 🔧",
+        sections=sections,
+        footer="Ferretería Castor • Gestión de Carrito",
+        internal_key=internal_key,
+        phone_number_id=phone_number_id
+    )
+
+async def send_cart_item_editor(phone: str, sku: str, redis_client: Any, internal_key: str, phone_number_id: Optional[str] = None):
+    """Muestra los controles para aumentar, reducir o eliminar un producto específico."""
+    cart = await get_cart(redis_client, phone)
+    items = cart.get("items", {})
+    item = items.get(sku)
+    if not item:
+        await send_cart_view(phone, redis_client, internal_key, phone_number_id=phone_number_id)
+        return
+
+    body = (
+        f"⚙️ *EDITAR PRODUCTO* 🛠️\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"📦 *Producto:* {item['name']}\n"
+        f"🏷️ *Precio Unitario:* ${float(item['price']):.2f}\n"
+        f"🔢 *Cantidad Actual:* *{item['quantity']} unidades*\n"
+        f"💰 *Subtotal Artículo:* *${float(item['subtotal']):.2f}*\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"¿Qué deseas hacer con este producto?"
+    )
+    buttons = [
+        {"id": f"cart_inc_{sku}", "title": "➕ Sumar 1"},
+        {"id": f"cart_dec_{sku}", "title": "➖ Restar 1"},
+        {"id": f"cart_del_{sku}", "title": "🗑️ Quitar del Carrito"}
+    ]
+    await flows._send_buttons(
+        phone=phone,
+        body=body,
+        buttons=buttons,
+        footer="Toca una opción para actualizar",
         internal_key=internal_key,
         phone_number_id=phone_number_id
     )
