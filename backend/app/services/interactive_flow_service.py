@@ -186,15 +186,80 @@ async def _send(phone: str, message: str, internal_key: str, phone_number_id: Op
     except Exception as e:
         logger.debug(f"Gateway send fallback error: {e}")
 
+async def _send_evolution_buttons(phone: str, body: str, buttons: list, header: str = "", footer: str = "", instance: Optional[str] = None, phone_number_id: Optional[str] = None) -> bool:
+    """Intenta enviar botones o lista interactiva nativa a través de Evolution API v2."""
+    global _working_evo_url
+    clean_p = phone.replace("+", "").replace(" ", "").strip()
+    target_inst = instance
+    if not target_inst and phone_number_id:
+        if str(phone_number_id) in ["593992451085", "151924"]:
+            target_inst = "bonilla_1085"
+        elif str(phone_number_id) in ["593988921136", "150556"]:
+            target_inst = "sucursal_centro"
+
+    if not target_inst:
+        target_inst = "bonilla_1085" if "992451085" in clean_p else "sucursal_centro"
+
+    headers = {"apikey": "ferreteria_evolution_key_2026"}
+    candidates = list(EVOLUTION_CANDIDATE_URLS)
+    if _working_evo_url and _working_evo_url in candidates:
+        candidates.remove(_working_evo_url)
+        candidates.insert(0, _working_evo_url)
+
+    # Si son hasta 3 botones, usar sendButtons. Si son 4 o más, usar sendList
+    for base in candidates:
+        try:
+            async with httpx.AsyncClient(timeout=4.0) as client:
+                if len(buttons) <= 3:
+                    btn_payload = {
+                        "number": clean_p,
+                        "title": header or "🛠️ Ferretería Castor",
+                        "description": body,
+                        "footer": footer or "Selecciona una opción",
+                        "buttons": [
+                            {
+                                "buttonId": b.get("id", f"btn_{idx}"),
+                                "buttonText": {"displayText": b.get("title", "")[:20]},
+                                "type": 1
+                            } for idx, b in enumerate(buttons)
+                        ]
+                    }
+                    resp = await client.post(f"{base}/message/sendButtons/{target_inst}", json=btn_payload, headers=headers)
+                else:
+                    list_payload = {
+                        "number": clean_p,
+                        "title": header or "🛠️ Ferretería Castor",
+                        "description": body,
+                        "buttonText": "📋 Ver Opciones",
+                        "footerText": footer or "Selecciona una opción",
+                        "sections": [
+                            {
+                                "title": "Menú Disponible",
+                                "rows": [
+                                    {
+                                        "rowId": b.get("id", f"row_{idx}"),
+                                        "title": b.get("title", "")[:24],
+                                        "description": b.get("description", "Toca para abrir")[:70]
+                                    } for idx, b in enumerate(buttons)
+                                ]
+                            }
+                        ]
+                    }
+                    resp = await client.post(f"{base}/message/sendList/{target_inst}", json=list_payload, headers=headers)
+
+                if resp.status_code in [200, 201]:
+                    _working_evo_url = base
+                    logger.info(f"Botones interactivos despachados via Evolution API ({base}/{target_inst}) a {clean_p}")
+                    return True
+        except Exception:
+            continue
+    return False
+
 async def _send_buttons(phone: str, body: str, buttons: list, header: str = "", footer: str = "", internal_key: str = "change_me", phone_number_id: Optional[str] = None):
-    """Envía mensaje con opciones numeradas limpias e interactivas sin IDs técnicos visibles."""
+    """Envía mensaje 100% interactivo por flujos y botones (sin pedir números ni opciones manuales)."""
     clean_p = phone.replace("+", "").replace(" ", "").strip()
 
-    # Formatear opciones numeradas con emojis limpios (NUNCA mostrar flow_faq o IDs técnicos)
-    btn_numbers = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣"]
-    btn_lines = []
-    
-    # Guardar en Redis mapeo temporal: botón digitado (1, 2, 3) -> ID de acción
+    # Guardar en Redis mapeo inteligente para que cualquier toque o palabra active el flujo
     try:
         import redis.asyncio as aioredis
         import os
@@ -203,15 +268,26 @@ async def _send_buttons(phone: str, body: str, buttons: list, header: str = "", 
         for idx, b in enumerate(buttons):
             act_id = b.get("id", str(idx+1))
             await rc.set(f"btn_opt:{clean_p}:{idx+1}", act_id, ex=900)
-            clean_title = (b.get("title", "")).lower()
+            clean_title = (b.get("title", "")).lower().strip()
+            # Mapear título completo y palabras clave (ej: 'catálogo', 'carrito', 'asesor', 'pagar')
             await rc.set(f"btn_title:{clean_p}:{clean_title}", act_id, ex=900)
+            for word in clean_title.split():
+                if len(word) > 3 and word not in ["para", "menu", "menú", "hola"]:
+                    await rc.set(f"btn_title:{clean_p}:{word}", act_id, ex=900)
         await rc.aclose()
     except Exception:
         pass
 
-    for idx, b in enumerate(buttons):
-        emoji_num = btn_numbers[idx] if idx < len(btn_numbers) else f"{idx+1}️⃣"
-        btn_lines.append(f"{emoji_num} *{b.get('title')}*")
+    # 1. Intentar despacho como botones/lista nativa de WhatsApp en Evolution API
+    if await _send_evolution_buttons(phone, body, buttons, header=header, footer=footer, phone_number_id=phone_number_id):
+        # Guardar en base de datos
+        await _save_db_message(phone, f"[{header}] {body}")
+        return
+
+    # 2. Formato interactivo visual limpio (sin números ni instrucciones de escribir dígitos)
+    btn_lines = []
+    for b in buttons:
+        btn_lines.append(f"▶️ *{b.get('title')}*")
 
     parts = []
     if header:
@@ -220,7 +296,7 @@ async def _send_buttons(phone: str, body: str, buttons: list, header: str = "", 
     if btn_lines:
         parts.append("\n".join(btn_lines))
     
-    prompt_footer = footer or "Responde con el número de tu opción (1, 2 o 3)"
+    prompt_footer = footer or "Toca una opción para continuar"
     parts.append(f"_{prompt_footer}_")
     formatted_msg = "\n\n".join(parts)
 
@@ -236,7 +312,7 @@ async def _send_buttons(phone: str, body: str, buttons: list, header: str = "", 
     except Exception as cw_err:
         logger.error(f"Error sincronizando botones del bot con Chatwoot en _send_buttons: {cw_err}")
 
-    # Despacho por Evolution API
+    # Despacho por Evolution API (Texto interactivo con opciones)
     if await _send_evolution_text(phone, formatted_msg, phone_number_id=phone_number_id):
         return
 

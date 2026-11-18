@@ -9,7 +9,8 @@ import json
 import os
 from datetime import datetime
 from typing import Dict, Any, Optional
-from fastapi import APIRouter, Depends, HTTPException, status, Body
+from fastapi import APIRouter, Depends, HTTPException, status, Body, Request, Response
+from fastapi.responses import PlainTextResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 import redis.asyncio as redis
 
@@ -288,6 +289,27 @@ async def notify_chatwoot_call_event(phone: str, call_status: str, is_video: boo
         logger.error(f"Error registrando llamada en Chatwoot: {e}")
 
 # ─── MAIN WEBHOOK ──────────────────────────────────────────────
+
+@router.get("/webhooks/whatsapp")
+async def verify_meta_webhook(request: Request):
+    """
+    Verificación del webhook oficial de Meta WhatsApp Cloud API.
+    Meta envía un GET con hub.mode, hub.verify_token y hub.challenge.
+    """
+    params = request.query_params
+    mode = params.get("hub.mode")
+    token = params.get("hub.verify_token")
+    challenge = params.get("hub.challenge")
+
+    expected_token = getattr(settings, "WHATSAPP_VERIFY_TOKEN", "ferreteria_token_seguro_2026") or "ferreteria_token_seguro_2026"
+    logger.info(f"Meta webhook verification attempt: mode={mode}, token_matches={token == expected_token}")
+
+    if mode == "subscribe" and token == expected_token:
+        logger.info(f"Meta webhook verificado con éxito. Respondiendo challenge={challenge}")
+        return PlainTextResponse(content=challenge, status_code=200)
+    
+    logger.warning("Verificación de webhook de Meta rechazada: token inválido")
+    return PlainTextResponse(content="Forbidden", status_code=403)
 
 @router.post("/webhooks/whatsapp")
 async def receive_incoming_message(
@@ -813,6 +835,26 @@ async def receive_incoming_message(
             if dyn_act_title:
                 interactive_id = dyn_act_title.decode('utf-8') if isinstance(dyn_act_title, bytes) else str(dyn_act_title)
                 logger.info(f"Título mapeado a interactive_id: {sanitized} -> {interactive_id}")
+
+        # C. Detección directa de palabras clave de los flujos principales
+        if not interactive_id and sanitized:
+            low_s = sanitized.lower().strip()
+            if any(w in low_s for w in ["catalogo", "catálogo", "ver catalogo", "ver catálogo", "productos", "precios"]):
+                interactive_id = "flow_catalogo"
+            elif any(w in low_s for w in ["carrito", "mi carrito", "ver carrito", "bolsa"]):
+                interactive_id = "cart_view"
+            elif any(w in low_s for w in ["preguntas", "pregunta", "faq", "dudas"]):
+                interactive_id = "flow_faq"
+            elif any(w in low_s for w in ["asesor", "asesora", "humano", "agente", "hablar con asesor"]):
+                interactive_id = "flow_asesor"
+            elif any(w in low_s for w in ["pagar", "ir a pagar", "comprar", "checkout"]):
+                interactive_id = "checkout_start"
+            elif any(w in low_s for w in ["cancelar", "vaciar", "cancelar pedido"]):
+                interactive_id = "cart_clear"
+            elif any(w in low_s for w in ["atras", "atrás", "anterior", "volver"]):
+                interactive_id = "nav_atras"
+            elif any(w in low_s for w in ["inicio", "menu", "menú"]):
+                interactive_id = "menu_inicio"
 
     if interactive_id:
         logger.info(f"Interactive reply: id={interactive_id} text={sanitized}")
