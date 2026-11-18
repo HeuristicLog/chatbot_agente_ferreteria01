@@ -73,7 +73,7 @@
 
     <!-- Countdown & Controls -->
     <div style="display:flex; justify-content:space-between; font-size:12px; color:#94a3b8; margin-bottom:14px; padding:0 8px;">
-      <span id="timer-text">El código expira en: <strong id="countdown" style="color:#34d399;">45</strong>s</span>
+      <span id="timer-text">El código expira en: <strong id="countdown" style="color:#34d399;">10:00 min</strong></span>
       <button onclick="manualRefresh()" style="background:none; border:none; color:#38bdf8; cursor:pointer; text-decoration:underline;">🔄 Actualizar QR</button>
     </div>
 
@@ -126,9 +126,15 @@
     const urlParams = new URLSearchParams(window.location.search);
     let currentInstance = urlParams.get('instance') || 'sucursal_centro';
 
-    let countdown = 45;
+    let countdown = 600; // 10 minutos
     let timerInterval = null;
     let isConnected = false;
+
+    function formatTime(seconds) {
+      const m = Math.floor(seconds / 60);
+      const s = seconds % 60;
+      return `${m < 10 ? '0' : ''}${m}:${s < 10 ? '0' : ''}${s} min`;
+    }
 
     function updateTabStyles() {
       if (currentInstance === 'bonilla_1085' || currentInstance === 'sucursal_bonilla') {
@@ -213,11 +219,11 @@
 
     function resetTimer() {
       clearInterval(timerInterval);
-      countdown = 45;
-      countdownEl.innerText = countdown;
+      countdown = 600; // 10 minutos
+      countdownEl.innerText = formatTime(countdown);
       timerInterval = setInterval(() => {
         countdown--;
-        countdownEl.innerText = countdown;
+        countdownEl.innerText = formatTime(countdown);
         if (countdown <= 0) {
           clearInterval(timerInterval);
           loadQR();

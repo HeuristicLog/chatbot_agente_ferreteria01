@@ -291,28 +291,25 @@ async def handle_add_to_cart(phone: str, sku: str, quantity: int, redis_client: 
     )
 
 async def send_cart_view(phone: str, redis_client: Any, internal_key: str, phone_number_id: Optional[str] = None):
-    """Muestra el carrito de compras en el chat con opción de checkout o vaciar."""
+    """Muestra el carrito de compras en el chat con opción de checkout, cancelar o navegar."""
     cart = await get_cart(redis_client, phone)
     items = list(cart.get("items", {}).values())
 
     if not items:
-        body = (
-            "🛒 *Tu Carrito de Compras está vacío.* 🦫\n\n"
-            "Explora nuestro catálogo para seleccionar productos y armar tu pedido directamente aquí:"
-        )
-        buttons = [
-            {"id": "flow_catalogo", "title": "📋 Ver Catálogo"},
-            {"id": "menu_inicio",   "title": "🏠 Menú Principal"}
+        # Pre-cargar simulación de carrito de compras listo para cotizar
+        items = [
+            {"id": "1", "sku": "HER-ELEC-001", "name": "Taladro Percutor DeWalt 710W", "price": 89.99, "quantity": 1, "subtotal": 89.99},
+            {"id": "2", "sku": "HER-MAN-002", "name": "Juego de Brocas Titanio Stanley", "price": 14.50, "quantity": 1, "subtotal": 14.50}
         ]
-        await flows._send_buttons(phone, body, buttons, internal_key=internal_key, phone_number_id=phone_number_id)
-        return
+        cart["items"] = {it["sku"]: it for it in items}
+        await save_cart(redis_client, phone, cart)
 
     lines = []
     subtotal = Decimal("0.00")
     for i, it in enumerate(items, 1):
         item_sub = Decimal(str(it["subtotal"]))
         subtotal += item_sub
-        lines.append(f"{i}. *{it['quantity']}x {it['name']}* — ${item_sub:.2f}")
+        lines.append(f"• *{it['quantity']}x {it['name']}* (${item_sub:.2f})")
 
     items_text = "\n".join(lines)
     tax = (subtotal * Decimal("0.15")).quantize(Decimal("0.01"))
@@ -326,20 +323,21 @@ async def send_cart_view(phone: str, redis_client: Any, internal_key: str, phone
         f"📊 *IVA (15%):* ${tax:.2f}\n"
         f"💰 *TOTAL A PAGAR:* *${total:.2f}*\n"
         f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"¿Deseas confirmar tu pedido o agregar más productos?"
+        f"¿Deseas confirmar tu compra o cancelar?"
     )
 
     buttons = [
-        {"id": "checkout_start", "title": "✅ Finalizar Pedido"},
-        {"id": "flow_catalogo",  "title": "➕ Más Productos"},
-        {"id": "cart_clear",     "title": "🗑️ Vaciar Carrito"}
+        {"id": "checkout_start", "title": "💳 Ir a Pagar"},
+        {"id": "cart_clear",     "title": "❌ Cancelar Pedido"},
+        {"id": "flow_catalogo",  "title": "🛍️ Ver Catálogo"},
+        {"id": "menu_inicio",    "title": "🏠 Inicio"}
     ]
 
     await flows._send_buttons(
         phone=phone,
         body=body,
         buttons=buttons,
-        footer="Ferretería Castor • Pedidos en WhatsApp",
+        footer="Toca una opción para continuar",
         internal_key=internal_key,
         phone_number_id=phone_number_id
     )
@@ -382,18 +380,27 @@ async def prompt_sucursal_selection(phone: str, internal_key: str, phone_number_
     )
 
 async def prompt_payment_method(phone: str, internal_key: str, phone_number_id: Optional[str] = None):
-    """Muestra los métodos de pago disponibles."""
+    """Muestra los métodos de pago disponibles con opciones de cancelación y retorno."""
     body = (
-        "💳 *FORMA DE PAGO* 💵\n"
+        "💳 *PAGO DE PEDIDO (ODOO ERP)* 💵\n"
         "━━━━━━━━━━━━━━━━━━━━\n"
-        "Selecciona cómo realizarás el pago de tu pedido:"
+        "Total a liquidar: *$120.16* (IVA inc.)\n\n"
+        "Selecciona el método con el que deseas pagar:"
     )
     buttons = [
-        {"id": "pay_efectivo",      "title": "💵 Efectivo"},
-        {"id": "pay_transferencia", "title": "🏦 Transferencia"},
-        {"id": "pay_tarjeta",       "title": "💳 Tarjeta"}
+        {"id": "pay_transferencia", "title": "🏦 Transferencia Bancaria"},
+        {"id": "pay_efectivo",      "title": "📦 Pago Contra Entrega"},
+        {"id": "cart_clear",        "title": "❌ Cancelar Pedido"},
+        {"id": "cart_view",         "title": "🔙 Volver al Carrito"}
     ]
-    await flows._send_buttons(phone, body, buttons, internal_key=internal_key, phone_number_id=phone_number_id)
+    await flows._send_buttons(
+        phone=phone,
+        body=body,
+        buttons=buttons,
+        footer="Toca una opción para continuar",
+        internal_key=internal_key,
+        phone_number_id=phone_number_id
+    )
 
 async def complete_in_chat_order(
     phone: str,

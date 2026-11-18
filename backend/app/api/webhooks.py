@@ -818,11 +818,47 @@ async def receive_incoming_message(
         logger.info(f"Interactive reply: id={interactive_id} text={sanitized}")
         await save_message(db, conv.id, "inbound", "user", sanitized, payload.message_id)
 
-        # ── Menu principal
-        if interactive_id in ["menu_inicio", "menu_main"]:
+        # ── Navegación: Inicio / Menú Principal
+        if interactive_id in ["nav_inicio", "menu_inicio", "menu_main"]:
             await clear_flow_state(redis_client, payload.phone)
             await flows.send_welcome_menu(payload.phone, internal_api_key, phone_number_id=dest_phone_number_id)
-            await save_message(db, conv.id, "outbound", "assistant", "Menú principal automotriz enviado")
+            await save_message(db, conv.id, "outbound", "assistant", "Menú principal enviado")
+            return {"status": "processed"}
+
+        # ── Navegación: Atrás (Menú anterior)
+        if interactive_id in ["nav_atras", "back", "anterior"]:
+            prev = await redis_client.get(f"prev_menu:{clean_p}")
+            prev_str = prev.decode('utf-8') if isinstance(prev, bytes) else str(prev) if prev else "menu_inicio"
+            if prev_str == "flow_faq":
+                await flows.send_faq_menu(payload.phone, internal_api_key, phone_number_id=dest_phone_number_id)
+            elif prev_str == "cart_view":
+                from app.services import in_chat_cart_service as in_chat_cart
+                await in_chat_cart.send_cart_view(payload.phone, redis_client, internal_api_key, phone_number_id=dest_phone_number_id)
+            else:
+                await flows.send_welcome_menu(payload.phone, internal_api_key, phone_number_id=dest_phone_number_id)
+            return {"status": "processed"}
+
+        # ── Carrito: Vaciar / Cancelar Pedido
+        if interactive_id == "cart_clear":
+            from app.services import in_chat_cart_service as in_chat_cart
+            await in_chat_cart.clear_cart(redis_client, payload.phone)
+            cancel_msg = (
+                "❌ *Pedido cancelado con éxito.* 🦫\n\n"
+                "Se ha vaciado tu carrito de compras. ¿Qué te gustaría hacer ahora?"
+            )
+            cancel_buttons = [
+                {"id": "flow_catalogo", "title": "🛍️ Ver Catálogo"},
+                {"id": "menu_inicio",   "title": "🏠 Volver al Inicio"}
+            ]
+            await flows._send_buttons(
+                phone=payload.phone,
+                body=cancel_msg,
+                buttons=cancel_buttons,
+                header="🛠️ Ferretería Castor",
+                footer="Selecciona una opción",
+                internal_key=internal_key,
+                phone_number_id=dest_phone_number_id
+            )
             return {"status": "processed"}
 
         # ── Menú de Categorías de Ferretería
@@ -998,10 +1034,10 @@ async def receive_incoming_message(
             await flows.send_ticket_request(payload.phone, internal_api_key, phone_number_id=dest_phone_number_id)
             return {"status": "processed"}
 
-        # ── Flujo: FAQ lista
+        # ── Flujo: FAQ menú interactivo
         if interactive_id == "flow_faq":
             await clear_flow_state(redis_client, payload.phone)
-            await flows.send_faq_list(payload.phone, internal_api_key, phone_number_id=dest_phone_number_id)
+            await flows.send_faq_menu(payload.phone, internal_api_key, phone_number_id=dest_phone_number_id)
             return {"status": "processed"}
 
         # ── FAQ específica

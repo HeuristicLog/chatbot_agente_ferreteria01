@@ -422,44 +422,69 @@ async def _send_flow(phone: str, body: str, flow_id: str, flow_cta: str, flow_to
         return False
 
 # ─────────────────────────────────────────────
-# FLUJOS PRINCIPALES
+# FLUJOS PRINCIPALES INTERACTIVOS (100% BOTONES Y NAVEGACIÓN)
 # ─────────────────────────────────────────────
 
+async def _record_prev_menu(phone: str, menu_id: str):
+    """Guarda en Redis el último menú visitado para permitir botón '⬅️ Anterior'."""
+    try:
+        import redis.asyncio as aioredis
+        import os
+        clean_p = phone.replace("+", "").replace(" ", "").strip()
+        r_url = os.getenv("REDIS_URL", "redis://redis:6379/0")
+        rc = aioredis.from_url(r_url)
+        await rc.set(f"prev_menu:{clean_p}", menu_id, ex=1800)
+        await rc.aclose()
+    except Exception:
+        pass
+
 async def send_welcome_menu(phone: str, internal_key: str, name: str = "", phone_number_id: Optional[str] = None):
-    """Menú de bienvenida conciso y directo por opciones numeradas."""
+    """Menú de bienvenida 100% por flujos y botones interactivos (sin solicitar números)."""
+    await _record_prev_menu(phone, "menu_inicio")
     greeting = f"¡Hola{' ' + name if name else ''}! 👋"
-    body = f"{greeting} Soy *Castor* 🦫\n¿En qué te podemos ayudar hoy?"
+    body = (
+        f"{greeting} Soy *Castor* 🦫, tu asistente virtual de *Ferretería Castor*.\n\n"
+        "¿En qué te podemos ayudar hoy? Selecciona una opción:"
+    )
     buttons = [
-        {"id": "flow_catalogo", "title": "🛍️ Catálogo y Precios"},
-        {"id": "flow_asesor",   "title": "👨‍💼 Hablar con Asesor"},
-        {"id": "flow_pedido",   "title": "📦 Consultar Pedido"},
-        {"id": "flow_horarios", "title": "🕒 Horarios y Sucursales"}
+        {"id": "flow_catalogo", "title": "🛍️ Catálogo"},
+        {"id": "cart_view",     "title": "🛒 Mi Carrito"},
+        {"id": "flow_faq",      "title": "❓ Preguntas Frecuentes"},
+        {"id": "flow_asesor",   "title": "👨‍💼 Hablar con Asesor"}
     ]
     await _send_buttons(
         phone=phone,
         body=body,
         buttons=buttons,
         header="🛠️ Ferretería Castor",
-        footer="Responde 1, 2, 3 o 4",
+        footer="Toca una opción para continuar",
         internal_key=internal_key,
         phone_number_id=phone_number_id
     )
 
 async def send_main_menu(phone: str, internal_key: str, phone_number_id: Optional[str] = None):
-    """Menú principal conciso para navegación continua."""
-    body = "¿En qué más te podemos ayudar? 🦫"
+    """Menú principal interactivo con navegación continua."""
+    return await send_welcome_menu(phone, internal_key, phone_number_id=phone_number_id)
+
+async def send_faq_menu(phone: str, internal_key: str, phone_number_id: Optional[str] = None):
+    """Menú interactivo de preguntas frecuentes con navegación atrás e inicio."""
+    await _record_prev_menu(phone, "menu_inicio")
+    body = (
+        "❓ *Preguntas Frecuentes* 🦫\n\n"
+        "Selecciona el tema sobre el que deseas consultar información:"
+    )
     buttons = [
-        {"id": "flow_catalogo", "title": "🛍️ Catálogo y Precios"},
-        {"id": "flow_asesor",   "title": "👨‍💼 Hablar con Asesor"},
-        {"id": "flow_pedido",   "title": "📦 Consultar Pedido"},
-        {"id": "flow_horarios", "title": "🕒 Horarios y Sucursales"}
+        {"id": "faq_horarios", "title": "🕒 Horarios y Sucursales"},
+        {"id": "faq_envios",   "title": "🚚 Envíos y Despachos"},
+        {"id": "faq_pagos",    "title": "💳 Formas de Pago"},
+        {"id": "nav_inicio",   "title": "🏠 Inicio"}
     ]
     await _send_buttons(
         phone=phone,
         body=body,
         buttons=buttons,
-        header="🛠️ Ferretería Castor",
-        footer="Responde 1, 2, 3 o 4",
+        header="❓ Centro de Ayuda",
+        footer="Toca una opción para ver la respuesta",
         internal_key=internal_key,
         phone_number_id=phone_number_id
     )

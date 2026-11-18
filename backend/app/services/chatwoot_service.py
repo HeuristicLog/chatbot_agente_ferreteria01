@@ -139,6 +139,21 @@ class ChatwootService:
                             await rc.aclose()
                         return conv_id
 
+                    # Si ya tiene una conversación previa (aunque esté resuelta), REABRIRLA para mantener un hilo único sin duplicar la bandeja
+                    if convs:
+                        last_conv = convs[0]
+                        conv_id = last_conv.get("id")
+                        logger.info(f"Reabriendo conversación histórica ID {conv_id} para contacto {contact_id}")
+                        toggle_url = f"{self.base_url}/api/v1/accounts/{self.account_id}/conversations/{conv_id}/toggle_status"
+                        try:
+                            await client.post(toggle_url, json={"status": "open"}, headers=headers, timeout=5.0)
+                        except Exception:
+                            pass
+                        if rc:
+                            await rc.set(f"cw_active_conv:{contact_id}", str(conv_id), ex=86400)
+                            await rc.aclose()
+                        return conv_id
+
             # 2. Crear conversación si no hay ninguna abierta
             create_payload = {
                 "inbox_id": target_inbox_id,
@@ -168,9 +183,25 @@ class ChatwootService:
         return None
 
     async def post_message(self, conversation_id: int, content: str, is_private: bool = False, message_type: str = "incoming") -> bool:
-        """Envía un mensaje o nota interna a la conversación de Chatwoot."""
-        if not self.is_configured:
+        """Envía un mensaje o nota interna a la conversación de Chatwoot con deduplicación estricta."""
+        if not self.is_configured or not content:
             return False
+
+        # Deduplicación en Chatwoot: Evitar que el mismo mensaje se publique 2 veces en ráfaga (<4s)
+        try:
+            import hashlib
+            import redis.asyncio as aioredis
+            import os
+            r_url = os.getenv("REDIS_URL", "redis://redis:6379/0")
+            rc = aioredis.from_url(r_url)
+            content_sig = hashlib.md5(f"{conversation_id}:{content.strip()}".encode()).hexdigest()
+            is_new = await rc.set(f"cw_dedup:{content_sig}", "1", ex=4, nx=True)
+            if not is_new:
+                logger.info(f"Mensaje idéntico descartado para Chatwoot conv #{conversation_id} (anti-duplicado)")
+                await rc.aclose()
+                return True
+        except Exception:
+            rc = None
 
         headers = self._get_headers()
         payload = {
