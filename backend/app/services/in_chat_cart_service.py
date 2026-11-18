@@ -181,9 +181,10 @@ CATEGORY_MAP = {
     "cat_plomeria": "Plomería",
     "cat_electricidad": "Electricidad"
 }
+REVERSE_CATEGORY_MAP = {v: k for k, v in CATEGORY_MAP.items()}
 
 async def send_products_in_category(phone: str, cat_id: str, internal_key: str, phone_number_id: Optional[str] = None):
-    """Muestra la lista interactiva de productos de una categoría específica."""
+    """Muestra la lista interactiva de productos de una categoría específica con navegación hacia atrás y carrito."""
     category_name = CATEGORY_MAP.get(cat_id, "Herramientas Eléctricas")
     
     async with async_session() as session:
@@ -194,7 +195,8 @@ async def send_products_in_category(phone: str, cat_id: str, internal_key: str, 
     if not products:
         msg = f"No encontramos productos disponibles en la categoría *{category_name}*."
         buttons = [
-            {"id": "flow_catalogo", "title": "📋 Ver Categorías"},
+            {"id": "flow_catalogo", "title": "⬅️ Volver a Categorías"},
+            {"id": "cart_view",     "title": "🛒 Ver Mi Carrito"},
             {"id": "menu_inicio",   "title": "🏠 Menú Principal"}
         ]
         await flows._send_buttons(phone, msg, buttons, internal_key=internal_key, phone_number_id=phone_number_id)
@@ -214,19 +216,27 @@ async def send_products_in_category(phone: str, cat_id: str, internal_key: str, 
         {
             "title": f"Items en {category_name[:20]}",
             "rows": rows
+        },
+        {
+            "title": "Navegación y Carrito 🧭",
+            "rows": [
+                {"id": "flow_catalogo", "title": "⬅️ Volver a Categorías", "description": "Ver otros departamentos"},
+                {"id": "cart_view",     "title": "🛒 Ver Mi Carrito",       "description": "Revisar items y total a pagar"},
+                {"id": "menu_inicio",   "title": "🏠 Menú Principal",       "description": "Regresar al inicio de Castor"}
+            ]
         }
     ]
 
     body = (
         f"🏷️ *{category_name.upper()}*\n"
         f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"Selecciona un producto para ver sus detalles y agregarlo a tu carrito:"
+        f"Selecciona un producto para ver sus detalles o usa la opción de navegación para volver:"
     )
 
     await flows._send_list(
         phone=phone,
         body=body,
-        button_text="Ver Productos 🔍",
+        button_text="Ver Opciones 🔍",
         sections=sections,
         footer="Precios incluyen IVA",
         internal_key=internal_key,
@@ -234,7 +244,7 @@ async def send_products_in_category(phone: str, cat_id: str, internal_key: str, 
     )
 
 async def send_product_detail(phone: str, sku: str, internal_key: str, phone_number_id: Optional[str] = None):
-    """Muestra la ficha técnica del producto con botones para agregarlo al carrito."""
+    """Muestra la ficha técnica del producto con botones para agregar al carrito y volver atrás."""
     async with async_session() as session:
         stmt = select(Product).where(Product.sku == sku, Product.is_active == True)
         res = await session.execute(stmt)
@@ -242,12 +252,16 @@ async def send_product_detail(phone: str, sku: str, internal_key: str, phone_num
 
     if not p:
         msg = "⚠️ El producto solicitado no está disponible."
-        buttons = [{"id": "flow_catalogo", "title": "📋 Catálogo"}]
+        buttons = [
+            {"id": "flow_catalogo", "title": "⬅️ Volver a Categorías"},
+            {"id": "menu_inicio",   "title": "🏠 Menú Inicio"}
+        ]
         await flows._send_buttons(phone, msg, buttons, internal_key=internal_key, phone_number_id=phone_number_id)
         return
 
     stock_centro = (p.sucursal_stocks or {}).get("Centro", 0)
     stock_norte = (p.sucursal_stocks or {}).get("Norte", 0)
+    cat_target = REVERSE_CATEGORY_MAP.get(p.category, "flow_catalogo")
 
     body = (
         f"🛠️ *{p.name}*\n"
@@ -259,13 +273,13 @@ async def send_product_detail(phone: str, sku: str, internal_key: str, phone_num
         f"📝 *Detalles:*\n"
         f"{p.description or 'Herramienta de primera calidad con garantía.'}\n"
         f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"¿Deseas agregarlo a tu pedido?"
+        f"¿Deseas agregarlo a tu carrito?"
     )
 
     buttons = [
         {"id": f"cart_add_{p.sku}_1", "title": "➕ Agregar al Carrito"},
         {"id": "cart_view",          "title": "🛒 Ver Mi Carrito"},
-        {"id": "flow_catalogo",       "title": "🔙 Más Productos"}
+        {"id": cat_target,           "title": "⬅️ Volver Atrás"}
     ]
 
     await flows._send_buttons(
@@ -288,6 +302,7 @@ async def handle_add_to_cart(phone: str, sku: str, quantity: int, redis_client: 
     cart = result["cart"]
     items_count = sum(it["quantity"] for it in cart.get("items", {}).values())
     total_price = sum(it["subtotal"] for it in cart.get("items", {}).values())
+    cat_target = REVERSE_CATEGORY_MAP.get(prod.category, "flow_catalogo")
 
     body = (
         f"✅ *¡Producto Agregado al Carrito!* 🛒\n"
@@ -301,9 +316,9 @@ async def handle_add_to_cart(phone: str, sku: str, quantity: int, redis_client: 
     )
 
     buttons = [
-        {"id": "cart_view",     "title": "🛒 Ver Mi Carrito"},
-        {"id": "flow_catalogo", "title": "➕ Seguir Comprando"},
-        {"id": "checkout_start","title": "✅ Pedir Ahora"}
+        {"id": "cart_view",      "title": "🛒 Ver Mi Carrito"},
+        {"id": cat_target,        "title": "⬅️ Volver a Productos"},
+        {"id": "checkout_start", "title": "💳 Ir a Pagar"}
     ]
 
     await flows._send_buttons(
@@ -462,7 +477,7 @@ async def prompt_delivery_method(phone: str, internal_key: str, phone_number_id:
     await flows._send_buttons(phone, body, buttons, internal_key=internal_key, phone_number_id=phone_number_id)
 
 async def prompt_sucursal_selection(phone: str, internal_key: str, phone_number_id: Optional[str] = None):
-    """Muestra la lista de sucursales para retiro en tienda."""
+    """Muestra la lista de sucursales para retiro en tienda con opción de volver atrás."""
     sections = [
         {
             "title": "Sucursales 📍",
@@ -471,6 +486,13 @@ async def prompt_sucursal_selection(phone: str, internal_key: str, phone_number_
                 {"id": "order_suc_norte",   "title": "Sucursal Norte",   "description": "Av. Eloy Alfaro N56-10"},
                 {"id": "order_suc_sur",     "title": "Sucursal Sur",     "description": "Av. Maldonado y Moraspungo"},
                 {"id": "order_suc_cumbaya", "title": "Sucursal Cumbayá", "description": "Av. Interoceánica km 11"}
+            ]
+        },
+        {
+            "title": "Navegación 🧭",
+            "rows": [
+                {"id": "checkout_start", "title": "⬅️ Volver Atrás", "description": "Cambiar método de entrega"},
+                {"id": "cart_view",      "title": "🛒 Ver Mi Carrito", "description": "Revisar items y precios"}
             ]
         }
     ]
