@@ -5,7 +5,7 @@ export default function ChatwootHub({ defaultTab = 'metricas', onTabChange }) {
     const [iframeKey, setIframeKey] = useState(Date.now());
     const [isLoading, setIsLoading] = useState(true);
 
-    const CHATBOT_API_URL = import.meta.env.VITE_CHATBOT_API_URL || "http://localhost:8085";
+    const CHATBOT_API_URL = import.meta.env.VITE_CHATBOT_API_URL || (typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.hostname}:8085` : "http://localhost:8085");
 
     const tabs = [
         { id: 'metricas', label: '📊 Métricas Chatwoot', path: '/metricas', desc: 'KPIs en vivo de WhatsApp, Chatwoot, tiempos FRT y handoffs' },
