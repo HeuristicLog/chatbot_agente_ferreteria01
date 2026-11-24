@@ -1019,6 +1019,49 @@ async def receive_incoming_message(
             await save_message(db, conv.id, "outbound", "assistant", "Catálogo interactivo enviado")
             return {"status": "processed"}
 
+        # ── Catálogo: Top 5 Más Vendidos
+        if interactive_id == "flow_top5":
+            await clear_flow_state(redis_client, payload.phone)
+            from app.services import in_chat_cart_service as in_chat_cart
+            await in_chat_cart.send_top5_menu(payload.phone, internal_api_key, phone_number_id=dest_phone_number_id)
+            return {"status": "processed"}
+
+        # ── Catálogo: Top 5 Marcas
+        if interactive_id == "flow_marcas":
+            await clear_flow_state(redis_client, payload.phone)
+            from app.services import in_chat_cart_service as in_chat_cart
+            await in_chat_cart.send_brands_menu(payload.phone, internal_api_key, phone_number_id=dest_phone_number_id)
+            return {"status": "processed"}
+
+        # ── Catálogo: Productos por Marca
+        if interactive_id.startswith("brand_"):
+            await clear_flow_state(redis_client, payload.phone)
+            from app.services import in_chat_cart_service as in_chat_cart
+            await in_chat_cart.send_brand_products(payload.phone, interactive_id, page=1, internal_key=internal_api_key, phone_number_id=dest_phone_number_id)
+            return {"status": "processed"}
+
+        # ── Catálogo: Prompt de Búsqueda
+        if interactive_id == "flow_search_prompt":
+            await set_flow_state(redis_client, payload.phone, {"flow": "product_search", "step": "waiting_query"})
+            from app.services import in_chat_cart_service as in_chat_cart
+            await in_chat_cart.send_search_prompt(payload.phone, internal_api_key, phone_number_id=dest_phone_number_id)
+            return {"status": "processed"}
+
+        # ── Catálogo: Búsqueda Paginada (ej. search_p_tornillos_2)
+        if interactive_id.startswith("search_p_"):
+            parts = interactive_id.split("_")
+            page = 1
+            query = "tornillo"
+            if len(parts) >= 4:
+                try:
+                    page = int(parts[-1])
+                    query = "_".join(parts[2:-1]).replace("_", " ")
+                except Exception:
+                    pass
+            from app.services import in_chat_cart_service as in_chat_cart
+            await in_chat_cart.send_search_results(payload.phone, query, page, internal_key=internal_api_key, phone_number_id=dest_phone_number_id)
+            return {"status": "processed"}
+
         # ── Catálogo: Categorías
         if interactive_id.startswith("cat_"):
             await clear_flow_state(redis_client, payload.phone)
@@ -1237,6 +1280,13 @@ async def receive_incoming_message(
         flow = flow_state.get("flow")
         step = flow_state.get("step")
 
+        # Waiting for product search query
+        if flow == "product_search" and step == "waiting_query":
+            await clear_flow_state(redis_client, payload.phone)
+            from app.services import in_chat_cart_service as in_chat_cart
+            await in_chat_cart.send_search_results(payload.phone, sanitized, page=1, internal_key=internal_api_key, phone_number_id=dest_phone_number_id)
+            return {"status": "processed"}
+
         # Waiting for order ID
         if flow == "order_status" and step == "waiting_id":
             await clear_flow_state(redis_client, payload.phone)
@@ -1300,6 +1350,41 @@ async def receive_incoming_message(
         await flows.send_welcome_menu(payload.phone, internal_api_key, phone_number_id=dest_phone_number_id)
         await save_message(db, conv.id, "outbound", "assistant", "Menú de bienvenida enviado")
         return {"status": "processed"}
+
+    # Búsqueda inteligente directa de productos (Tornillos, marcas, herramientas, materiales)
+    search_keywords = [
+        "tornillo", "tornillos", "perno", "pernos", "tuerca", "arandela", "remache", "fijacion", "fijaciones",
+        "taladro", "rotomartillo", "amoladora", "sierra", "disco", "broca", "brocas",
+        "llave", "llaves", "martillo", "flexometro", "destornillador",
+        "cemento", "varilla", "varillas", "pala", "carretilla", "adelca", "selvalegre", "holcim",
+        "pintura", "pinturas", "latex", "vinilac", "esmalte", "rodillo", "brocha",
+        "tubo", "tubos", "pvc", "griferia", "bomba", "bombas", "plastigama",
+        "cable", "cables", "foco", "focos", "led", "tomacorriente", "bticino",
+        "dewalt", "makita", "stanley", "truper", "bosch"
+    ]
+    is_search_intent = (
+        clean_msg.startswith("buscar ") or
+        clean_msg.startswith("precio de ") or
+        clean_msg.startswith("tienen ") or
+        clean_msg.startswith("venden ") or
+        any(k in clean_msg.split() or clean_msg == k for k in search_keywords)
+    )
+    if is_search_intent:
+        clean_p = payload.phone.replace("+", "").replace(" ", "").strip()
+        can_search = await redis_client.set(f"cooldown_search:{clean_p}", "1", ex=2, nx=True)
+        if can_search:
+            query_term = (
+                clean_msg.replace("buscar", "")
+                .replace("precio de", "")
+                .replace("tienen", "")
+                .replace("venden", "")
+                .strip() or clean_msg
+            )
+            await clear_flow_state(redis_client, payload.phone)
+            from app.services import in_chat_cart_service as in_chat_cart
+            await in_chat_cart.send_search_results(payload.phone, query_term, page=1, internal_key=internal_api_key, phone_number_id=dest_phone_number_id)
+            await save_message(db, conv.id, "outbound", "assistant", f"Búsqueda interactiva enviada: {query_term}")
+            return {"status": "processed"}
 
     # 1. Catálogo interactivo In-App Webview (Opción 1 del menú o keywords)
     if clean_msg in ["1", "1.", "catalogo", "catálogo", "productos", "inventario", "precios", "tienda", "comprar", "lista de productos"]:

@@ -176,8 +176,73 @@ async def _send_meta_text(phone: str, message: str, phone_number_id: Optional[st
         logger.error(f"Excepción enviando texto a Meta: {e}")
     return False
 
-async def _send_meta_buttons(phone: str, body: str, buttons: list, header: str = "", footer: str = "", phone_number_id: Optional[str] = None, access_token: Optional[str] = None) -> bool:
-    """Envía botones o lista interactiva nativa directamente por Meta WhatsApp Cloud API."""
+async def _send_meta_image(phone: str, image_url: str, caption: Optional[str] = None, phone_number_id: Optional[str] = None, access_token: Optional[str] = None) -> bool:
+    """Envía imagen con caption directamente por Meta WhatsApp Cloud API."""
+    from app.config import settings
+    token = access_token or settings.WHATSAPP_ACCESS_TOKEN
+    pid = phone_number_id or settings.WHATSAPP_PHONE_NUMBER_ID or "1508804275641424"
+    if not token or not pid or not image_url:
+        return False
+    clean_p = phone.replace("+", "").replace(" ", "").strip()
+    url = f"https://graph.facebook.com/v22.0/{pid}/messages"
+    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+    img_data = {"link": image_url}
+    if caption:
+        img_data["caption"] = caption[:1024]
+    payload = {
+        "messaging_product": "whatsapp",
+        "recipient_type": "individual",
+        "to": clean_p,
+        "type": "image",
+        "image": img_data
+    }
+    try:
+        async with httpx.AsyncClient(timeout=8.0) as client:
+            r = await client.post(url, json=payload, headers=headers)
+            if r.status_code in [200, 201]:
+                logger.info(f"Imagen Meta enviada exitosamente a {clean_p}: {r.status_code}")
+                return True
+            else:
+                logger.warning(f"Error enviando imagen Meta {clean_p}: {r.status_code} {r.text}")
+    except Exception as e:
+        logger.error(f"Excepción enviando imagen Meta: {e}")
+    return False
+
+async def _send_image(phone: str, image_url: str, caption: str = "", phone_number_id: Optional[str] = None, instance: Optional[str] = None) -> bool:
+    """Despacha una imagen a WhatsApp con fallbacks robustos (Meta Cloud API -> Evolution API)."""
+    if not image_url:
+        return False
+    # 1. Meta WhatsApp Cloud API
+    if await _send_meta_image(phone, image_url, caption=caption, phone_number_id=phone_number_id):
+        await _save_db_message(phone, f"[Imagen: {image_url}] {caption}", msg_type="image")
+        return True
+
+    # 2. Evolution API
+    clean_p = phone.replace("+", "").replace(" ", "").strip()
+    target_inst = instance or ("bonilla_1085" if "992451085" in clean_p else "sucursal_centro")
+    headers = {"apikey": "ferreteria_evolution_key_2026"}
+    for base in EVOLUTION_CANDIDATE_URLS:
+        try:
+            async with httpx.AsyncClient(timeout=6.0) as client:
+                resp = await client.post(
+                    f"{base}/message/sendMedia/{target_inst}",
+                    json={
+                        "number": clean_p,
+                        "media": image_url,
+                        "mediatype": "image",
+                        "caption": caption
+                    },
+                    headers=headers
+                )
+                if resp.status_code in [200, 201]:
+                    await _save_db_message(phone, f"[Imagen: {image_url}] {caption}", msg_type="image")
+                    return True
+        except Exception:
+            continue
+    return False
+
+async def _send_meta_buttons(phone: str, body: str, buttons: list, header: str = "", footer: str = "", header_image_url: Optional[str] = None, phone_number_id: Optional[str] = None, access_token: Optional[str] = None) -> bool:
+    """Envía botones o lista interactiva nativa directamente por Meta WhatsApp Cloud API con soporte de cabecera de imagen."""
     from app.config import settings
     token = access_token or settings.WHATSAPP_ACCESS_TOKEN
     pid = phone_number_id or settings.WHATSAPP_PHONE_NUMBER_ID or "1508804275641424"
@@ -200,7 +265,12 @@ async def _send_meta_buttons(phone: str, body: str, buttons: list, header: str =
             "body": {"text": body[:1024]},
             "action": {"buttons": btn_objs}
         }
-        if header:
+        if header_image_url:
+            interactive_data["header"] = {
+                "type": "image",
+                "image": {"link": header_image_url}
+            }
+        elif header:
             interactive_data["header"] = {"type": "text", "text": header[:60]}
         if footer:
             interactive_data["footer"] = {"text": footer[:60]}
@@ -356,7 +426,7 @@ async def _send_evolution_buttons(phone: str, body: str, buttons: list, header: 
             continue
     return False
 
-async def _send_buttons(phone: str, body: str, buttons: list, header: str = "", footer: str = "", internal_key: str = "change_me", phone_number_id: Optional[str] = None):
+async def _send_buttons(phone: str, body: str, buttons: list, header: str = "", footer: str = "", header_image_url: Optional[str] = None, internal_key: str = "change_me", phone_number_id: Optional[str] = None):
     """Envía mensaje 100% interactivo por flujos y botones (sin pedir números ni opciones manuales)."""
     clean_p = phone.replace("+", "").replace(" ", "").strip()
 
@@ -380,7 +450,7 @@ async def _send_buttons(phone: str, body: str, buttons: list, header: str = "", 
         pass
 
     # 1. Si está activo Meta Cloud API (token presente), enviar botones o lista nativa por Graph API
-    if await _send_meta_buttons(phone, body, buttons, header=header, footer=footer, phone_number_id=phone_number_id):
+    if await _send_meta_buttons(phone, body, buttons, header=header, footer=footer, header_image_url=header_image_url, phone_number_id=phone_number_id):
         await _save_db_message(phone, f"[{header}] {body}")
         return
 
@@ -1024,9 +1094,9 @@ async def send_faq_answer(phone: str, faq_id: str, internal_key: str, phone_numb
     
     # Enviar respuesta + botones de navegación
     buttons = [
-        {"id": "flow_faq",    "title": "❓ Más preguntas"},
-        {"id": "flow_asesor", "title": "👨‍💼 Hablar con asesor"},
-        {"id": "menu_inicio", "title": "🏠 Menú principal"},
+        {"id": "flow_catalogo",      "title": "🛍️ Ver Catálogo"},
+        {"id": "flow_search_prompt", "title": "🔍 Buscar Producto"},
+        {"id": "cart_view",          "title": "🛒 Ver Mi Carrito"},
     ]
     await _send_buttons(
         phone=phone,
@@ -1071,9 +1141,9 @@ async def send_ai_response_with_menu(phone: str, ai_text: str, internal_key: str
         ai_text = ai_text[:900] + "...\n\n_[respuesta truncada]_"
     
     buttons = [
-        {"id": "flow_faq",    "title": "❓ Más preguntas"},
-        {"id": "flow_asesor", "title": "👨‍💼 Hablar con asesor"},
-        {"id": "menu_inicio", "title": "🏠 Menú principal"},
+        {"id": "flow_catalogo",      "title": "🛍️ Ver Catálogo"},
+        {"id": "flow_search_prompt", "title": "🔍 Buscar Producto"},
+        {"id": "cart_view",          "title": "🛒 Ver Mi Carrito"},
     ]
     await _send_buttons(
         phone=phone,

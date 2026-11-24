@@ -210,6 +210,7 @@ class Product(Base):
     stock = Column(Integer, nullable=False, default=0)
     sucursal_stocks = Column(JSONB, nullable=False, default=dict)
     image_url = Column(String(500), nullable=True)
+    gallery_images = Column(JSONB, nullable=True, default=list)
     is_active = Column(Boolean, nullable=False, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

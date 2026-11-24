@@ -13,7 +13,7 @@ from datetime import datetime
 from typing import Optional, Dict, Any, List
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func
 
 from app.db.tables import Product, Order, OrderItem
 from app.db.session import async_session
@@ -108,8 +108,28 @@ async def remove_item_from_cart(redis_client: Any, phone: str, sku: str) -> Dict
 # ─── MENSAJES INTERACTIVOS NATIVOS ──────────────────────────────
 
 async def send_categories_menu(phone: str, internal_key: str, phone_number_id: Optional[str] = None):
-    """Muestra el catálogo nativo organizado por categorías en WhatsApp."""
+    """Muestra el catálogo nativo organizado por categorías en WhatsApp con búsqueda y Top 5."""
     sections = [
+        {
+            "title": "Descubre y Busca 🔍",
+            "rows": [
+                {
+                    "id": "flow_search_prompt",
+                    "title": "🔍 Buscar Producto",
+                    "description": "Escribe tornillos, marcas o herramientas"
+                },
+                {
+                    "id": "flow_top5",
+                    "title": "⭐ Top 5 Más Vendidos",
+                    "description": "Herramientas y materiales más populares"
+                },
+                {
+                    "id": "flow_marcas",
+                    "title": "🏷️ Top 5 Marcas",
+                    "description": "DeWalt, Stanley, Makita, Truper, Selvalegre"
+                }
+            ]
+        },
         {
             "title": "Departamentos 📦",
             "rows": [
@@ -126,7 +146,7 @@ async def send_categories_menu(phone: str, internal_key: str, phone_number_id: O
                 {
                     "id": "cat_construccion",
                     "title": "🧱 Construcción",
-                    "description": "Cemento Selvalegre, varillas, palas, carretillas"
+                    "description": "Cemento, varillas, tornillos, pernos, palas"
                 },
                 {
                     "id": "cat_pinturas",
@@ -151,7 +171,7 @@ async def send_categories_menu(phone: str, internal_key: str, phone_number_id: O
                 {
                     "id": "cart_view",
                     "title": "🛒 Ver Mi Carrito",
-                    "description": "Revisa tus productos agregados y total a pagar"
+                    "description": "Revisa tus productos agregados y total"
                 }
             ]
         }
@@ -160,13 +180,14 @@ async def send_categories_menu(phone: str, internal_key: str, phone_number_id: O
     body = (
         "🛠️ *Catálogo Ferretería Castor* 🦫\n"
         "━━━━━━━━━━━━━━━━━━━━\n"
-        "Selecciona un departamento para ver los productos, precios y stock en tiempo real directamente aquí:"
+        "¡Bienvenido a nuestro catálogo 100% interactivo!\n"
+        "Explora por búsqueda, las marcas más destacadas o selecciona un departamento:"
     )
 
     await flows._send_list(
         phone=phone,
         body=body,
-        button_text="Ver Categorías 📋",
+        button_text="Explorar Catálogo 📋",
         sections=sections,
         footer="Ferretería Castor • Compras en WhatsApp",
         internal_key=internal_key,
@@ -243,8 +264,265 @@ async def send_products_in_category(phone: str, cat_id: str, internal_key: str, 
         phone_number_id=phone_number_id
     )
 
+async def send_top5_menu(phone: str, internal_key: str, phone_number_id: Optional[str] = None):
+    """Muestra el Top 5 de productos más populares de Ferretería Castor."""
+    top_skus = ["HER-ROT-004", "HER-TAL-001", "CON-CEM-009", "HER-AMO-002", "MAN-LLV-005"]
+    async with async_session() as session:
+        stmt = select(Product).where(Product.sku.in_(top_skus), Product.is_active == True)
+        res = await session.execute(stmt)
+        products = res.scalars().all()
+
+    prod_dict = {p.sku: p for p in products}
+    ordered_prods = [prod_dict[s] for s in top_skus if s in prod_dict]
+
+    rows = []
+    for idx, p in enumerate(ordered_prods, 1):
+        stock_text = f"Stock: {p.stock}" if p.stock > 0 else "Agotado"
+        desc = f"${float(p.price):.2f} • {stock_text}"
+        rows.append({
+            "id": f"prod_view_{p.sku}",
+            "title": f"#{idx} {p.name}"[:24],
+            "description": desc[:72]
+        })
+
+    sections = [
+        {
+            "title": "⭐ Top 5 Más Vendidos",
+            "rows": rows
+        },
+        {
+            "title": "Navegación y Carrito 🧭",
+            "rows": [
+                {"id": "cart_view",     "title": "🛒 Ver Mi Carrito",       "description": "Revisar items y total"},
+                {"id": "flow_catalogo", "title": "⬅️ Volver a Categorías", "description": "Ver todos los departamentos"},
+                {"id": "menu_inicio",   "title": "🏠 Menú Principal",       "description": "Regresar al inicio"}
+            ]
+        }
+    ]
+
+    body = (
+        "⭐ *TOP 5 PRODUCTOS MÁS VENDIDOS* 🦫\n"
+        "━━━━━━━━━━━━━━━━━━━━\n"
+        "Los favoritos de constructores, técnicos y clientes profesionales con garantía oficial y entrega hoy mismo:"
+    )
+
+    await flows._send_list(
+        phone=phone,
+        body=body,
+        button_text="Ver Top 5 🌟",
+        sections=sections,
+        footer="Ferretería Castor • Calidad Garantizada",
+        internal_key=internal_key,
+        phone_number_id=phone_number_id
+    )
+
+async def send_brands_menu(phone: str, internal_key: str, phone_number_id: Optional[str] = None):
+    """Muestra el menú interactivo con el Top 5 de marcas líderes."""
+    sections = [
+        {
+            "title": "🏷️ Marcas Oficiales",
+            "rows": [
+                {"id": "brand_dewalt",     "title": "🟡 DeWalt",               "description": "Taladros y herramientas inalámbricas 20V"},
+                {"id": "brand_makita",     "title": "🔵 Makita",               "description": "Rotomartillos y herramientas industriales"},
+                {"id": "brand_stanley",    "title": "🟡 Stanley",              "description": "Juegos de llaves, herramientas manuales"},
+                {"id": "brand_truper",     "title": "🔴 Truper",               "description": "Martillos, palas y carretillas de obra"},
+                {"id": "brand_selvalegre", "title": "🟢 Selvalegre / Adelca",  "description": "Cemento tipo Portland y varillas de acero"}
+            ]
+        },
+        {
+            "title": "Opciones 🧭",
+            "rows": [
+                {"id": "cart_view",     "title": "🛒 Ver Mi Carrito",       "description": "Revisar artículos seleccionados"},
+                {"id": "flow_catalogo", "title": "⬅️ Volver a Categorías", "description": "Ver catálogo general"}
+            ]
+        }
+    ]
+
+    body = (
+        "🏷️ *MARCAS LÍDERES EN FERRETERÍA CASTOR* 🦫\n"
+        "━━━━━━━━━━━━━━━━━━━━\n"
+        "Selecciona tu marca de confianza para ver todas sus herramientas disponibles con garantía de fábrica:"
+    )
+
+    await flows._send_list(
+        phone=phone,
+        body=body,
+        button_text="Ver Marcas 🏷️",
+        sections=sections,
+        footer="Distribuidores Oficiales en Ecuador",
+        internal_key=internal_key,
+        phone_number_id=phone_number_id
+    )
+
+async def send_brand_products(phone: str, brand_code: str, page: int, internal_key: str, phone_number_id: Optional[str] = None):
+    """Muestra los productos filtrados por marca con paginación interactiva."""
+    brand_terms = {
+        "brand_dewalt": "DeWalt",
+        "brand_makita": "Makita",
+        "brand_stanley": "Stanley",
+        "brand_truper": "Truper",
+        "brand_selvalegre": "Selvalegre"
+    }
+    brand_name = brand_terms.get(brand_code, "Makita")
+    return await send_search_results(phone, brand_name, page, internal_key, phone_number_id, header_title=f"Marca {brand_name}")
+
+async def send_search_prompt(phone: str, internal_key: str, phone_number_id: Optional[str] = None):
+    """Pide al usuario qué producto desea buscar con ejemplos amigables."""
+    msg = (
+        "🔍 *Buscador Inteligente Ferretería Castor* 🦫\n"
+        "━━━━━━━━━━━━━━━━━━━━\n"
+        "Escribe qué estás buscando directamente en este chat:\n\n"
+        "💡 *Ejemplos comunes:*\n"
+        "• *tornillos* (Drywall, autoperforantes, pernos)\n"
+        "• *taladro* o *rotomartillo*\n"
+        "• *makita*, *dewalt* o *stanley*\n"
+        "• *cemento selvalegre*\n"
+        "• *pintura latex* o *tubo pvc*\n\n"
+        "¡Escribe tu palabra clave y te mostraré el catálogo con fotos y stock al instante!"
+    )
+    buttons = [
+        {"id": "search_p_tornillos_1", "title": "🔩 Ver Tornillos"},
+        {"id": "flow_top5",            "title": "⭐ Top 5 Ventas"},
+        {"id": "flow_catalogo",        "title": "⬅️ Departamentos"}
+    ]
+    await flows._send_buttons(phone, msg, buttons, internal_key=internal_key, phone_number_id=phone_number_id)
+
+async def send_search_results(phone: str, query: str, page: int = 1, internal_key: str = "change_me", phone_number_id: Optional[str] = None, header_title: Optional[str] = None):
+    """Busca productos en la base de datos y los presenta con paginación interactiva nativa (Top 5 por página)."""
+    clean_q = (query or "").strip().lower()
+    if not clean_q:
+        clean_q = "tornillo"
+
+    page = max(1, page)
+    per_page = 5
+
+    async with async_session() as session:
+        search_filter = (
+            Product.name.ilike(f"%{clean_q}%") |
+            Product.description.ilike(f"%{clean_q}%") |
+            Product.category.ilike(f"%{clean_q}%") |
+            Product.sku.ilike(f"%{clean_q}%")
+        )
+        if "tornillo" in clean_q or "perno" in clean_q:
+            search_filter = search_filter | Product.name.ilike("%tornillo%") | Product.name.ilike("%perno%") | Product.sku.ilike("%FIJ%")
+
+        count_stmt = select(func.count(Product.id)).where(search_filter, Product.is_active == True)
+        total_items = (await session.execute(count_stmt)).scalar() or 0
+
+        if total_items == 0:
+            words = [w for w in clean_q.split() if len(w) >= 3]
+            if words:
+                from sqlalchemy import or_
+                word_filters = [Product.name.ilike(f"%{w}%") for w in words]
+                search_filter = or_(*word_filters)
+                count_stmt = select(func.count(Product.id)).where(search_filter, Product.is_active == True)
+                total_items = (await session.execute(count_stmt)).scalar() or 0
+
+        total_pages = max(1, (total_items + per_page - 1) // per_page)
+        if page > total_pages:
+            page = total_pages
+
+        offset = (page - 1) * per_page
+        stmt = (
+            select(Product)
+            .where(search_filter, Product.is_active == True)
+            .order_by(Product.name.asc())
+            .offset(offset)
+            .limit(per_page)
+        )
+        res = await session.execute(stmt)
+        products = res.scalars().all()
+
+    if not products:
+        msg = (
+            f"🔍 No encontramos productos que coincidan con *\"{query}\"*.\n\n"
+            "Prueba buscando por palabras clave como: *taladro*, *tornillos*, *makita*, *cemento*, *dewalt*."
+        )
+        buttons = [
+            {"id": "flow_search_prompt", "title": "🔍 Nueva Búsqueda"},
+            {"id": "flow_catalogo",      "title": "🛍️ Ver Catálogo"},
+            {"id": "menu_inicio",        "title": "🏠 Menú Principal"}
+        ]
+        await flows._send_buttons(phone, msg, buttons, internal_key=internal_key, phone_number_id=phone_number_id)
+        return
+
+    prod_rows = []
+    for p in products:
+        stock_text = f"Stock: {p.stock}" if p.stock > 0 else "Agotado"
+        desc = f"${float(p.price):.2f} • {stock_text}"
+        prod_rows.append({
+            "id": f"prod_view_{p.sku}",
+            "title": p.name[:24],
+            "description": desc[:72]
+        })
+
+    nav_rows = []
+    safe_q = clean_q.replace(" ", "_")[:18]
+    if page < total_pages:
+        nav_rows.append({
+            "id": f"search_p_{safe_q}_{page+1}",
+            "title": f"➡️ Siguiente Pág {page+1}/{total_pages}"[:24],
+            "description": f"Ver más resultados ({page+1} de {total_pages})"[:72]
+        })
+    if page > 1:
+        nav_rows.append({
+            "id": f"search_p_{safe_q}_{page-1}",
+            "title": f"⬅️ Anterior Pág {page-1}/{total_pages}"[:24],
+            "description": f"Volver a la página {page-1}"[:72]
+        })
+    nav_rows.append({
+        "id": "flow_search_prompt",
+        "title": "🔍 Otra Búsqueda",
+        "description": "Buscar otro producto o marca"
+    })
+    nav_rows.append({
+        "id": "cart_view",
+        "title": "🛒 Ver Mi Carrito",
+        "description": "Revisar items y pagar"
+    })
+    nav_rows.append({
+        "id": "flow_catalogo",
+        "title": "🏷️ Departamentos",
+        "description": "Ver todas las categorías"
+    })
+
+    total_allowed_nav = 10 - len(prod_rows)
+    nav_rows = nav_rows[:total_allowed_nav]
+
+    title_sec = header_title or f"Resultados: {query.capitalize()}"
+    sections = [
+        {
+            "title": f"{title_sec[:15]} ({page}/{total_pages})",
+            "rows": prod_rows
+        },
+        {
+            "title": "Paginación y Carrito 🧭",
+            "rows": nav_rows
+        }
+    ]
+
+    start_idx = offset + 1
+    end_idx = min(offset + per_page, total_items)
+    body = (
+        f"🔍 *BÚSQUEDA: \"{query.upper()}\"* 🦫\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"Mostrando *{start_idx}-{end_idx}* de *{total_items}* productos encontrados.\n"
+        f"📄 *Página {page} de {total_pages}*\n\n"
+        f"Toca un producto para ver sus fotos y detalles, o avanza de página:"
+    )
+
+    await flows._send_list(
+        phone=phone,
+        body=body,
+        button_text="Ver Resultados 📦",
+        sections=sections,
+        footer="Ferretería Castor • Precios con IVA",
+        internal_key=internal_key,
+        phone_number_id=phone_number_id
+    )
+
 async def send_product_detail(phone: str, sku: str, internal_key: str, phone_number_id: Optional[str] = None):
-    """Muestra la ficha técnica del producto con botones para agregar al carrito y volver atrás."""
+    """Muestra la ficha técnica del producto con fotos de galería y tarjeta interactiva con imagen de cabecera."""
     async with async_session() as session:
         stmt = select(Product).where(Product.sku == sku, Product.is_active == True)
         res = await session.execute(stmt)
@@ -259,21 +537,29 @@ async def send_product_detail(phone: str, sku: str, internal_key: str, phone_num
         await flows._send_buttons(phone, msg, buttons, internal_key=internal_key, phone_number_id=phone_number_id)
         return
 
+    # Si tiene imágenes de galería adicionales, despachar hasta 2 fotos previas con detalles
+    if p.gallery_images and isinstance(p.gallery_images, list):
+        for idx, g_img in enumerate(p.gallery_images[:2]):
+            if g_img and str(g_img).startswith("http"):
+                caption = f"📸 [Foto {idx+1}/3] {p.name}\nVista técnica y componentes originales."
+                await flows._send_image(phone, str(g_img), caption=caption, phone_number_id=phone_number_id)
+
     stock_centro = (p.sucursal_stocks or {}).get("Centro", 0)
     stock_norte = (p.sucursal_stocks or {}).get("Norte", 0)
     cat_target = REVERSE_CATEGORY_MAP.get(p.category, "flow_catalogo")
 
     body = (
-        f"🛠️ *{p.name}*\n"
+        f"🛠️ *{p.name.upper()}* 🦫\n"
         f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"🏷️ *Precio:* *${float(p.price):.2f}* (IVA inc.)\n"
-        f"📦 *Disponibilidad:* {p.stock} unidades en total\n"
+        f"🏷️ *Precio:* *${float(p.price):.2f} USD* (IVA inc.)\n"
+        f"📦 *Stock Total:* {p.stock} unidades disponibles\n"
         f"📍 *Stock Centro:* {stock_centro} | *Norte:* {stock_norte}\n"
-        f"🔢 *Código:* `{p.sku}`\n\n"
-        f"📝 *Detalles:*\n"
-        f"{p.description or 'Herramienta de primera calidad con garantía.'}\n"
+        f"🔢 *Código SKU:* `{p.sku}`\n"
+        f"⚡ *Línea:* {p.category}\n\n"
+        f"📝 *Especificaciones Técnicas:*\n"
+        f"{p.description or 'Herramienta industrial con garantía oficial y soporte de repuestos.'}\n"
         f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"¿Deseas agregarlo a tu carrito?"
+        f"¿Deseas agregarlo a tu carrito de compras?"
     )
 
     buttons = [
@@ -286,7 +572,8 @@ async def send_product_detail(phone: str, sku: str, internal_key: str, phone_num
         phone=phone,
         body=body,
         buttons=buttons,
-        footer="Ferretería Castor • Compra Fácil",
+        header_image_url=p.image_url,
+        footer="Ferretería Castor • Compra en WhatsApp",
         internal_key=internal_key,
         phone_number_id=phone_number_id
     )
