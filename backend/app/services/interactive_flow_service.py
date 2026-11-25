@@ -899,12 +899,14 @@ async def send_catalog_in_app(phone: str, internal_key: str = "change_me", phone
     await _send(clean_p, fallback_msg, internal_key, phone_number_id=phone_number_id)
 
 async def send_catalog_flow(phone: str, internal_key: str, phone_number_id: Optional[str] = None):
-    """Muestra el catálogo interactivo In-App."""
-    return await send_catalog_in_app(phone, internal_key, phone_number_id=phone_number_id)
+    """Muestra el catálogo interactivo 100% en WhatsApp (Opción B: Sin páginas web externas)."""
+    from app.services import in_chat_cart_service as in_chat_cart
+    return await in_chat_cart.send_categories_menu(phone, internal_key, phone_number_id=phone_number_id)
 
 async def send_catalog_link(phone: str, internal_key: str, phone_number_id: Optional[str] = None, sucursal: Optional[str] = "Centro"):
-    """Muestra el catálogo interactivo In-App."""
-    return await send_catalog_in_app(phone, internal_key, phone_number_id=phone_number_id, sucursal=sucursal)
+    """Muestra el catálogo interactivo 100% en WhatsApp (Opción B: Sin páginas web externas)."""
+    from app.services import in_chat_cart_service as in_chat_cart
+    return await in_chat_cart.send_categories_menu(phone, internal_key, phone_number_id=phone_number_id)
 
 async def send_faq_list(phone: str, internal_key: str, phone_number_id: Optional[str] = None):
     """Lista de categorías de preguntas frecuentes."""

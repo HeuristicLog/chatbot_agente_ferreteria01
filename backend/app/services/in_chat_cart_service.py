@@ -522,7 +522,7 @@ async def send_search_results(phone: str, query: str, page: int = 1, internal_ke
     )
 
 async def send_product_detail(phone: str, sku: str, internal_key: str, phone_number_id: Optional[str] = None):
-    """Muestra la ficha técnica del producto con fotos de galería y tarjeta interactiva con imagen de cabecera."""
+    """Muestra la ficha técnica del producto en 1 solo mensaje interactivo con foto en la cabecera (Modo Compacto)."""
     async with async_session() as session:
         stmt = select(Product).where(Product.sku == sku, Product.is_active == True)
         res = await session.execute(stmt)
@@ -531,41 +531,33 @@ async def send_product_detail(phone: str, sku: str, internal_key: str, phone_num
     if not p:
         msg = "⚠️ El producto solicitado no está disponible."
         buttons = [
-            {"id": "flow_catalogo", "title": "⬅️ Volver a Categorías"},
-            {"id": "menu_inicio",   "title": "🏠 Menú Inicio"}
+            {"id": "flow_search_prompt", "title": "🔍 Buscar Otro"},
+            {"id": "flow_catalogo",      "title": "⬅️ Departamentos"},
+            {"id": "menu_inicio",        "title": "🏠 Menú Inicio"}
         ]
         await flows._send_buttons(phone, msg, buttons, internal_key=internal_key, phone_number_id=phone_number_id)
         return
 
-    # Si tiene imágenes de galería adicionales, despachar hasta 2 fotos previas con detalles
-    if p.gallery_images and isinstance(p.gallery_images, list):
-        for idx, g_img in enumerate(p.gallery_images[:2]):
-            if g_img and str(g_img).startswith("http"):
-                caption = f"📸 [Foto {idx+1}/3] {p.name}\nVista técnica y componentes originales."
-                await flows._send_image(phone, str(g_img), caption=caption, phone_number_id=phone_number_id)
-
     stock_centro = (p.sucursal_stocks or {}).get("Centro", 0)
     stock_norte = (p.sucursal_stocks or {}).get("Norte", 0)
-    cat_target = REVERSE_CATEGORY_MAP.get(p.category, "flow_catalogo")
 
     body = (
         f"🛠️ *{p.name.upper()}* 🦫\n"
         f"━━━━━━━━━━━━━━━━━━━━\n"
         f"🏷️ *Precio:* *${float(p.price):.2f} USD* (IVA inc.)\n"
         f"📦 *Stock Total:* {p.stock} unidades disponibles\n"
-        f"📍 *Stock Centro:* {stock_centro} | *Norte:* {stock_norte}\n"
-        f"🔢 *Código SKU:* `{p.sku}`\n"
-        f"⚡ *Línea:* {p.category}\n\n"
+        f"📍 *Disponibilidad:* Centro: {stock_centro} | Norte: {stock_norte}\n"
+        f"🔢 *SKU:* `{p.sku}` | ⚡ *Línea:* {p.category}\n\n"
         f"📝 *Especificaciones Técnicas:*\n"
-        f"{p.description or 'Herramienta industrial con garantía oficial y soporte de repuestos.'}\n"
+        f"{p.description or 'Herramienta industrial con garantía de fábrica y entrega hoy mismo.'}\n"
         f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"¿Deseas agregarlo a tu carrito de compras?"
+        f"¿Deseas agregarlo a tu carrito?"
     )
 
     buttons = [
         {"id": f"cart_add_{p.sku}_1", "title": "➕ Agregar al Carrito"},
         {"id": "cart_view",          "title": "🛒 Ver Mi Carrito"},
-        {"id": cat_target,           "title": "⬅️ Volver Atrás"}
+        {"id": "flow_search_prompt", "title": "🔍 Otra Búsqueda"}
     ]
 
     await flows._send_buttons(
@@ -618,25 +610,35 @@ async def handle_add_to_cart(phone: str, sku: str, quantity: int, redis_client: 
     )
 
 async def send_cart_view(phone: str, redis_client: Any, internal_key: str, phone_number_id: Optional[str] = None):
-    """Muestra el carrito de compras en el chat con opción de checkout, modificar artículos, cancelar o navegar."""
+    """
+    Muestra el carrito de compras en el chat en 1 solo mensaje interactivo (Modo Ultra-Compacto).
+    Permite modificar cantidades (+1, -1, quitar) en 1 solo toque desde la lista nativa,
+    sin mensajes intermedios agobiantes, o ir directo a pagar.
+    """
     cart = await get_cart(redis_client, phone)
     items = list(cart.get("items", {}).values())
 
     if not items:
-        # Pre-cargar simulación inicial solo si el carrito no existía previamente
-        items = [
-            {"id": "1", "sku": "HER-ROT-004", "name": "Rotomartillo Makita 800W", "price": 145.00, "quantity": 1, "subtotal": 145.00},
-            {"id": "2", "sku": "MAN-LLV-005", "name": "Juego de Llaves Stanley 12 Pzas", "price": 28.50, "quantity": 1, "subtotal": 28.50}
+        body = (
+            "🛒 *TU CARRITO DE COMPRAS* 🦫\n"
+            "━━━━━━━━━━━━━━━━━━━━\n"
+            "Tu carrito está actualmente vacío.\n\n"
+            "Encuentra lo que necesitas buscando por nombre o explorando nuestro catálogo interactivo:"
+        )
+        buttons = [
+            {"id": "flow_search_prompt", "title": "🔍 Buscar Producto"},
+            {"id": "flow_top5",          "title": "⭐ Top 5 Más Vendidos"},
+            {"id": "flow_catalogo",      "title": "📦 Ver Categorías"}
         ]
-        cart["items"] = {it["sku"]: it for it in items}
-        await save_cart(redis_client, phone, cart)
+        await flows._send_buttons(phone, body, buttons, internal_key=internal_key, phone_number_id=phone_number_id)
+        return
 
     lines = []
     subtotal = Decimal("0.00")
     for i, it in enumerate(items, 1):
         item_sub = Decimal(str(it["subtotal"]))
         subtotal += item_sub
-        lines.append(f"{i}️⃣ *{it['name']}*\n   Cantidad: *{it['quantity']} unid.* | Subtotal: *${item_sub:.2f}*")
+        lines.append(f"{i}️⃣ *{it['name']}*\n   {it['quantity']} unid. x ${float(it['price']):.2f} = *${item_sub:.2f}*")
 
     items_text = "\n\n".join(lines)
     tax = (subtotal * Decimal("0.15")).quantize(Decimal("0.01"))
@@ -647,26 +649,117 @@ async def send_cart_view(phone: str, redis_client: Any, internal_key: str, phone
         f"━━━━━━━━━━━━━━━━━━━━\n"
         f"{items_text}\n"
         f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"📦 *Artículos:* {len(items)} productos\n"
+        f"📦 *Artículos:* {len(items)} producto(s)\n"
         f"💵 *Subtotal:* ${subtotal:.2f}\n"
         f"📊 *IVA (15%):* ${tax:.2f}\n"
         f"💰 *TOTAL A PAGAR:* *${total:.2f} USD*\n"
         f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"Selecciona una opción para continuar:"
+        f"Toca *Gestionar Carrito* para cambiar cantidades en 1 toque o finalizar:"
     )
 
-    buttons = [
-        {"id": "checkout_start",    "title": "💳 Ir a Pagar"},
-        {"id": "cart_manage_items", "title": "✏️ Modificar Artículos"},
-        {"id": "flow_catalogo",     "title": "🛍️ Agregar Más"},
-        {"id": "menu_inicio",       "title": "🏠 Inicio"}
+    # Construir filas de la lista respetando el límite estricto de Meta (máx 10 filas totales)
+    # Sección 1: Acciones Principales
+    action_rows = [
+        {
+            "id": "checkout_start",
+            "title": f"💳 Ir a Pagar (${total:.2f})"[:24],
+            "description": "Retiro en local o envío a domicilio"[:72]
+        },
+        {
+            "id": "flow_search_prompt",
+            "title": "🔍 Buscar Más Items"[:24],
+            "description": "Agregar más productos al carrito"[:72]
+        }
     ]
 
-    await flows._send_buttons(
+    # Sección 2: Modificación Directa de Cantidades (+ / -)
+    item_rows = []
+    if len(items) == 1:
+        it = items[0]
+        sku = it["sku"]
+        name_clean = it["name"][:14]
+        qty = it["quantity"]
+        item_rows.append({
+            "id": f"cart_inc_{sku}",
+            "title": f"➕ Sumar 1: {name_clean}"[:24],
+            "description": f"Aumentar a {qty + 1} unidades"[:72]
+        })
+        item_rows.append({
+            "id": f"cart_dec_{sku}",
+            "title": f"➖ Restar 1: {name_clean}"[:24],
+            "description": f"Disminuir a {max(0, qty - 1)} unidades"[:72]
+        })
+        item_rows.append({
+            "id": f"cart_del_{sku}",
+            "title": f"🗑️ Quitar: {name_clean}"[:24],
+            "description": "Eliminar del carrito"[:72]
+        })
+    elif len(items) == 2:
+        for it in items:
+            sku = it["sku"]
+            name_clean = it["name"][:14]
+            qty = it["quantity"]
+            item_rows.append({
+                "id": f"cart_inc_{sku}",
+                "title": f"➕ (+1) {name_clean}"[:24],
+                "description": f"Subir a {qty + 1} unid."[:72]
+            })
+            item_rows.append({
+                "id": f"cart_dec_{sku}",
+                "title": f"➖ (-1) {name_clean}"[:24],
+                "description": f"Bajar a {max(0, qty - 1)} unid."[:72]
+            })
+    else:
+        # Si hay 3 o más items, dar acceso directo de incremento a cada uno
+        for it in items[:5]:
+            sku = it["sku"]
+            name_clean = it["name"][:14]
+            qty = it["quantity"]
+            item_rows.append({
+                "id": f"cart_inc_{sku}",
+                "title": f"➕ (+1) {name_clean}"[:24],
+                "description": f"Actualmente {qty} unid. (${float(it['subtotal']):.2f})"[:72]
+            })
+
+    # Sección 3: Opciones Generales (respetando máx 10 filas)
+    general_rows = []
+    used_rows = len(action_rows) + len(item_rows)
+    if used_rows < 10:
+        general_rows.append({
+            "id": "cart_clear",
+            "title": "🧹 Vaciar Carrito"[:24],
+            "description": "Eliminar todos los productos"[:72]
+        })
+        used_rows += 1
+    if used_rows < 10:
+        general_rows.append({
+            "id": "menu_inicio",
+            "title": "🏠 Menú Principal"[:24],
+            "description": "Volver al inicio de Ferretería Castor"[:72]
+        })
+
+    sections = [
+        {
+            "title": "💳 Finalizar o Agregar",
+            "rows": action_rows
+        },
+        {
+            "title": "⚡ Modificar Cantidades",
+            "rows": item_rows
+        }
+    ]
+    if general_rows:
+        sections.append({
+            "title": "⚙️ Opciones Generales",
+            "rows": general_rows
+        })
+
+    await flows._send_list(
         phone=phone,
         body=body,
-        buttons=buttons,
-        footer="Toca una opción para continuar",
+        button_text="Gestionar Carrito 🛒",
+        sections=sections,
+        footer="Ferretería Castor • Total incluye IVA",
         internal_key=internal_key,
         phone_number_id=phone_number_id
     )
