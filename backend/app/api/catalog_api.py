@@ -100,6 +100,7 @@ async def list_products(
                 "stock": p.stock,
                 "sucursal_stocks": p.sucursal_stocks or {},
                 "image_url": p.image_url or "https://images.unsplash.com/photo-1581147036324-c17ac41dfa6c?w=600&auto=format&fit=crop&q=80",
+                "gallery_images": p.gallery_images or [],
                 "in_stock": p.stock > 0
             }
             if sucursal and p.sucursal_stocks:
@@ -259,17 +260,15 @@ async def create_order(
             f"Puedes consultar el estado en cualquier momento con el botón *📦 Mi pedido* o escribiendo *{order_number}*."
         )
 
-        # Enviar WhatsApp usando el gateway
+        # Enviar WhatsApp usando el motor unificado de flujos
         try:
-            gateway_url = os.getenv("WHATSAPP_GATEWAY_URL", "http://whatsapp-gateway:8090")
-            headers = {"X-Internal-API-Key": settings.INTERNAL_API_KEY}
-            async with httpx.AsyncClient() as client:
-                await client.post(
-                    f"{gateway_url}/send",
-                    json={"phone": clean_phone, "message": wa_message},
-                    headers=headers,
-                    timeout=10.0
-                )
+            from app.services import interactive_flow_service as flows
+            confirm_buttons = [
+                {"id": "flow_pedido", "title": "📦 Consultar Pedido"},
+                {"id": "flow_catalogo", "title": "🛍️ Volver al Catálogo"},
+                {"id": "flow_asesor", "title": "👨‍💼 Hablar con Asesor"}
+            ]
+            await flows._send_buttons(clean_phone, wa_message, confirm_buttons, header="🛠️ Ferretería Castor")
         except Exception as wa_err:
             logger.error(f"Error enviando confirmación de pedido por WhatsApp: {wa_err}")
 
@@ -436,13 +435,19 @@ CATALOG_HTML_TEMPLATE = """<!DOCTYPE html>
       </button>
     </div>
 
-    <!-- Filtros de Categorías Horizontales -->
+    <!-- Filtros de Categorías y Marcas Horizontales -->
     <div class="max-w-2xl mx-auto mt-2.5 flex items-center gap-2 overflow-x-auto no-scrollbar py-1 text-xs">
       <button onclick="selectCategory('Todos')" class="category-pill active px-3.5 py-1.5 rounded-lg border border-slate-200 whitespace-nowrap transition">
         <i class="fa-solid fa-layer-group mr-1 text-[11px]"></i> Todos
       </button>
+      <button onclick="selectCategory('Tornillos')" class="category-pill bg-white text-slate-700 font-semibold px-3.5 py-1.5 rounded-lg border border-slate-200 whitespace-nowrap transition">
+        🔩 Tornillos y Pernos
+      </button>
       <button onclick="selectCategory('Herramientas Eléctricas')" class="category-pill bg-white text-slate-600 px-3.5 py-1.5 rounded-lg border border-slate-200 whitespace-nowrap transition">
-        ⚡ Herramientas
+        ⚡ Herramientas Eléc.
+      </button>
+      <button onclick="selectCategory('Herramientas Manuales')" class="category-pill bg-white text-slate-600 px-3.5 py-1.5 rounded-lg border border-slate-200 whitespace-nowrap transition">
+        🔧 Manuales
       </button>
       <button onclick="selectCategory('Construcción')" class="category-pill bg-white text-slate-600 px-3.5 py-1.5 rounded-lg border border-slate-200 whitespace-nowrap transition">
         🧱 Construcción
@@ -455,6 +460,21 @@ CATALOG_HTML_TEMPLATE = """<!DOCTYPE html>
       </button>
       <button onclick="selectCategory('Electricidad')" class="category-pill bg-white text-slate-600 px-3.5 py-1.5 rounded-lg border border-slate-200 whitespace-nowrap transition">
         💡 Electricidad
+      </button>
+      <button onclick="selectCategory('DeWalt')" class="category-pill bg-amber-50 text-amber-900 font-bold px-3 py-1.5 rounded-lg border border-amber-300 whitespace-nowrap transition">
+        🟡 DeWalt
+      </button>
+      <button onclick="selectCategory('Makita')" class="category-pill bg-sky-50 text-sky-900 font-bold px-3 py-1.5 rounded-lg border border-sky-300 whitespace-nowrap transition">
+        🔵 Makita
+      </button>
+      <button onclick="selectCategory('Stanley')" class="category-pill bg-yellow-50 text-yellow-900 font-bold px-3 py-1.5 rounded-lg border border-yellow-300 whitespace-nowrap transition">
+        🟡 Stanley
+      </button>
+      <button onclick="selectCategory('Truper')" class="category-pill bg-orange-50 text-orange-900 font-bold px-3 py-1.5 rounded-lg border border-orange-300 whitespace-nowrap transition">
+        🔴 Truper
+      </button>
+      <button onclick="selectCategory('Selvalegre')" class="category-pill bg-emerald-50 text-emerald-900 font-bold px-3 py-1.5 rounded-lg border border-emerald-300 whitespace-nowrap transition">
+        🟢 Selvalegre
       </button>
     </div>
   </header>
@@ -709,7 +729,16 @@ CATALOG_HTML_TEMPLATE = """<!DOCTYPE html>
       const emptyState = document.getElementById('empty-state');
       
       const filtered = allProducts.filter(p => {
-        const matchesCat = (currentCategory === 'Todos' || p.category.toLowerCase() === currentCategory.toLowerCase());
+        let matchesCat = false;
+        if (currentCategory === 'Todos') {
+          matchesCat = true;
+        } else if (currentCategory === 'Tornillos') {
+          matchesCat = p.name.toLowerCase().includes('tornillo') || p.name.toLowerCase().includes('perno') || p.sku.includes('FIJ');
+        } else if (['DeWalt', 'Makita', 'Stanley', 'Truper', 'Selvalegre'].includes(currentCategory)) {
+          matchesCat = p.name.toLowerCase().includes(currentCategory.toLowerCase()) || (p.description && p.description.toLowerCase().includes(currentCategory.toLowerCase()));
+        } else {
+          matchesCat = p.category.toLowerCase().includes(currentCategory.toLowerCase());
+        }
         const matchesSearch = !currentSearch || 
           p.name.toLowerCase().includes(currentSearch.toLowerCase()) || 
           p.description.toLowerCase().includes(currentSearch.toLowerCase()) ||

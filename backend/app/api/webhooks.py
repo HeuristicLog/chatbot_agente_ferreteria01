@@ -1011,12 +1011,11 @@ async def receive_incoming_message(
             return {"status": "processed"}
             return {"status": "processed"}
 
-        # ── Flujo: Catálogo Oficial (100% Interactivo en WhatsApp por Categorías)
+        # ── Flujo: Catálogo Oficial (Opción A: In-App Store en 1 solo flujo)
         if interactive_id in ["flow_catalogo", "auto_view_vitrina"]:
             await clear_flow_state(redis_client, payload.phone)
-            from app.services import in_chat_cart_service as in_chat_cart
-            await in_chat_cart.send_categories_menu(payload.phone, internal_api_key, phone_number_id=dest_phone_number_id)
-            await save_message(db, conv.id, "outbound", "assistant", "Catálogo interactivo enviado")
+            await flows.send_catalog_in_app(payload.phone, internal_api_key, phone_number_id=dest_phone_number_id)
+            await save_message(db, conv.id, "outbound", "assistant", "Tienda In-App Castor enviada")
             return {"status": "processed"}
 
         # ── Catálogo: Top 5 Más Vendidos

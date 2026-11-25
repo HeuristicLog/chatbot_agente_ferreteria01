@@ -176,6 +176,62 @@ async def _send_meta_text(phone: str, message: str, phone_number_id: Optional[st
         logger.error(f"Excepción enviando texto a Meta: {e}")
     return False
 
+async def _send_meta_cta_url(phone: str, body: str, display_text: str, url: str, header_image_url: Optional[str] = None, header_text: Optional[str] = None, footer: str = "Ferretería Castor • Compras en WhatsApp", phone_number_id: Optional[str] = None, access_token: Optional[str] = None) -> bool:
+    """Envía un botón nativo de tipo CTA URL (que abre el In-App Browser dentro de WhatsApp en 1 solo flujo)."""
+    from app.config import settings
+    token = access_token or settings.WHATSAPP_ACCESS_TOKEN
+    pid = phone_number_id or settings.WHATSAPP_PHONE_NUMBER_ID or "1508804275641424"
+    if not token or not pid:
+        return False
+    clean_p = phone.replace("+", "").replace(" ", "").strip()
+    api_url = f"https://graph.facebook.com/v22.0/{pid}/messages"
+    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+    
+    # Meta limita display_text a máximo 20 caracteres
+    short_text = (display_text or "Abrir Tienda 🛍️")[:20]
+    
+    interactive_data = {
+        "type": "cta_url",
+        "body": {"text": body[:1024]},
+        "footer": {"text": footer[:60]},
+        "action": {
+            "name": "cta_url",
+            "parameters": {
+                "display_text": short_text,
+                "url": url
+            }
+        }
+    }
+    if header_image_url:
+        interactive_data["header"] = {
+            "type": "image",
+            "image": {"link": header_image_url}
+        }
+    elif header_text:
+        interactive_data["header"] = {
+            "type": "text",
+            "text": header_text[:60]
+        }
+        
+    payload = {
+        "messaging_product": "whatsapp",
+        "recipient_type": "individual",
+        "to": clean_p,
+        "type": "interactive",
+        "interactive": interactive_data
+    }
+    try:
+        async with httpx.AsyncClient(timeout=8.0) as client:
+            r = await client.post(api_url, json=payload, headers=headers)
+            if r.status_code in [200, 201]:
+                logger.info(f"CTA URL Meta enviado a {clean_p}: {r.status_code}")
+                return True
+            else:
+                logger.warning(f"Error Meta CTA URL {clean_p}: {r.status_code} {r.text}")
+    except Exception as e:
+        logger.error(f"Excepción enviando CTA URL a Meta: {e}")
+    return False
+
 async def _send_meta_image(phone: str, image_url: str, caption: Optional[str] = None, phone_number_id: Optional[str] = None, access_token: Optional[str] = None) -> bool:
     """Envía imagen con caption directamente por Meta WhatsApp Cloud API."""
     from app.config import settings
@@ -805,15 +861,50 @@ async def send_faq_menu(phone: str, internal_key: str, phone_number_id: Optional
         phone_number_id=phone_number_id
     )
 
+async def send_catalog_in_app(phone: str, internal_key: str = "change_me", phone_number_id: Optional[str] = None, sucursal: Optional[str] = "Centro"):
+    """Envía la tarjeta interactiva de apertura de la Tienda Castor In-App (Opción A: 1 solo flujo sin spam de mensajes)."""
+    import os
+    clean_p = phone.replace("+", "").replace(" ", "").strip()
+    ngrok_url = os.getenv("CATALOG_BASE_URL", "https://usable-thorn-kabob.ngrok-free.dev")
+    catalog_url = f"{ngrok_url}/catalogo?phone={clean_p}&sucursal={sucursal}&ngrok-skip-browser-warning=1"
+    
+    header_img = "https://images.unsplash.com/photo-1504148455328-c376907d081c?w=800&auto=format&fit=crop&q=80"
+    body = (
+        "🛠️ *TIENDA DIGITAL FERRETERÍA CASTOR* 🦫\n"
+        "━━━━━━━━━━━━━━━━━━━━\n"
+        "Explora nuestro catálogo e-commerce interactivo en *una sola pantalla* sin saturar tu chat de mensajes:\n\n"
+        "✨ *Todo en un solo lugar:*\n"
+        "• 🔍 *Buscador en tiempo real:* Escribe y filtra al instante.\n"
+        "• 🏷️ *Marcas y Departamentos:* DeWalt, Makita, Stanley, Truper, Selvalegre.\n"
+        "• 🔩 *Tornillería completa:* Más de 10 variedades de fijaciones.\n"
+        "• 🛒 *Carrito en vivo:* Suma, resta (+ / −) y calcula tu IVA sin mensajes repetitivos.\n\n"
+        "Toca el botón abajo para abrir la tienda 👇"
+    )
+    
+    # 1. Intentar enviar botón nativo CTA URL por Meta Cloud API
+    sent = await _send_meta_cta_url(
+        phone=clean_p,
+        body=body,
+        display_text="Abrir Tienda 🛍️",
+        url=catalog_url,
+        header_image_url=header_img,
+        phone_number_id=phone_number_id
+    )
+    if sent:
+        await _save_db_message(clean_p, body)
+        return
+        
+    # 2. Fallback si no está Meta Cloud API (Texto limpio con link directo)
+    fallback_msg = f"{body}\n\n👉 *Toca aquí para abrir:* {catalog_url}"
+    await _send(clean_p, fallback_msg, internal_key, phone_number_id=phone_number_id)
+
 async def send_catalog_flow(phone: str, internal_key: str, phone_number_id: Optional[str] = None):
-    """Muestra el catálogo 100% por flujos en WhatsApp sin enlaces externos."""
-    from app.services import in_chat_cart_service as in_chat_cart
-    return await in_chat_cart.send_categories_menu(phone, internal_key, phone_number_id=phone_number_id)
+    """Muestra el catálogo interactivo In-App."""
+    return await send_catalog_in_app(phone, internal_key, phone_number_id=phone_number_id)
 
 async def send_catalog_link(phone: str, internal_key: str, phone_number_id: Optional[str] = None, sucursal: Optional[str] = "Centro"):
-    """Muestra el catálogo 100% por flujos en WhatsApp sin enlaces externos."""
-    from app.services import in_chat_cart_service as in_chat_cart
-    return await in_chat_cart.send_categories_menu(phone, internal_key, phone_number_id=phone_number_id)
+    """Muestra el catálogo interactivo In-App."""
+    return await send_catalog_in_app(phone, internal_key, phone_number_id=phone_number_id, sucursal=sucursal)
 
 async def send_faq_list(phone: str, internal_key: str, phone_number_id: Optional[str] = None):
     """Lista de categorías de preguntas frecuentes."""
